@@ -1,0 +1,16 @@
+# Arquivo: .gitignore
+
+# Ignora o ambiente virtual. Cada desenvolvedor cria o seu.
+venv/
+
+# Ignora os arquivos de cache do Python. Eles são gerados automaticamente.
+__pycache__/
+*.pyc
+
+# Ignora o banco de dados. Nunca enviamos dados para o repositório.
+# O banco é criado automaticamente pela aplicação na primeira vez que roda.
+*.db
+*.db-journal*
+
+# Ignora arquivos de configuração de IDEs (como o VS Code)
+.vscode/

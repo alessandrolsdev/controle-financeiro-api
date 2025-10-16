@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+passlib
+argon2-cffi
+python-jose
