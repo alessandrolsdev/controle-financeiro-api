@@ -16,17 +16,18 @@ from .database import SessionLocal, engine
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 # --- Configuração do CORS ---
-# Lista de "bairros" (origens) que têm permissão para falar com a nossa API.
+# Lista de origens que têm permissão para falar com a nossa API.
 origins = [
-    "http://localhost:5173",  # A origem do nosso app React
+    "http://localhost:5173", # O seu ambiente de desenvolvimento local
+    "https://controle-financeiro-api-eight.vercel.app", # Link do vercel
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,       # Permite as origens da lista
-    allow_credentials=True,    # Permite o envio de cookies/tokens
-    allow_methods=["*"],         # Permite todos os métodos (GET, POST, etc.)
-    allow_headers=["*"],         # Permite todos os cabeçalhos
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 # --- Fim da Configuração do CORS ---
 
