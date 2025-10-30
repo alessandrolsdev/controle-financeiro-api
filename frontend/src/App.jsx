@@ -10,20 +10,19 @@ function App() {
   const { token } = useAuth(); // Pega o token do nosso "cérebro"
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Rota 1: A Página de Login */}
-        <Route 
-          path="/login" 
-          element={!token ? <Login /> : <Navigate to="/" />} 
-        />
-        
-        {/* Rota 2: A Página Principal (Dashboard) */}
-        <Route 
-          path="/" 
-          element={token ? <Dashboard /> : <Navigate to="/login" />} 
-        />
-      </Routes>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>      <Routes>
+      {/* Rota 1: A Página de Login */}
+      <Route
+        path="/login"
+        element={!token ? <Login /> : <Navigate to="/" />}
+      />
+
+      {/* Rota 2: A Página Principal (Dashboard) */}
+      <Route
+        path="/"
+        element={token ? <Dashboard /> : <Navigate to="/login" />}
+      />
+    </Routes>
     </BrowserRouter>
   );
 }
