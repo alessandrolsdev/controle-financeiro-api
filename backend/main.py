@@ -1,69 +1,80 @@
-# Arquivo: backend/main.py (Versão Completa e Verificada)
+# Arquivo: backend/main.py (Versão Completa e Final)
 
-# --- Importações ---
+# --- 1. Importações ---
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import timedelta
 from datetime import timedelta, date
-from fastapi.middleware.cors import CORSMiddleware
 
+# Importa todos os nossos módulos locais
 from . import crud, models, schemas, security
 from .database import SessionLocal, engine
 
-# --- Configuração Inicial ---
+# --- 2. Configuração Inicial ---
+
+# Cria todas as tabelas no banco de dados (se não existirem)
 models.Base.metadata.create_all(bind=engine)
+
+# Inicia a aplicação FastAPI
 app = FastAPI()
-# --- Configuração do CORS CORRIGIDA ---
-# Lista de origens que têm permissão para falar com a nossa API.
+
+# --- 3. Configuração do CORS (O Porteiro) ---
+# Define quais "bairros" (origens) podem falar com nossa API
 origins = [
-    "http://localhost:5173", # Dev local
-    "https://controle-financeiro-api-eight.vercel.app", # SEU ENDEREÇO VERCEL
+    "http://localhost:5173", # Nosso frontend em desenvolvimento
+    "https://controle-financeiro-api-eight.vercel.app", # Nosso frontend em produção
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"], # Permite todos os métodos (POST, GET, etc.)
+    allow_headers=["*"], # Permite todos os cabeçalhos
 )
-# --- Fim da Configuração do CORS CORRIGIDA ---
 
-# --- Esquema de Segurança (A fechadura) ---
+# --- 4. Dependências de Segurança ---
+
+# Define o esquema de segurança, apontando para o endpoint /token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# --- Dependências e Funções Auxiliares ---
 def get_db():
+    """Dependência para obter uma sessão do banco de dados."""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# --- O "SEGURANÇA": Função para obter o usuário logado ---
 def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """
+    Dependência de segurança ("O Segurança").
+    Verifica o token e retorna o objeto do usuário atual.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não foi possível validar as credenciais",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    # Precisamos importar 'schemas' aqui no 'security.py' ou passar 'schemas.TokenData'
-    # Vamos garantir que a importação 'from . import schemas' esteja em security.py
+    
     token_data = security.verificar_token_de_acesso(token, credentials_exception)
     usuario = crud.get_usuario_por_nome(db, nome_usuario=token_data.nome_usuario)
+    
     if usuario is None:
         raise credentials_exception
     return usuario
 
 
-# --- ENDPOINTS DE AUTENTICAÇÃO E USUÁRIOS ---
+# --- 5. ENDPOINTS (As "Portas" da API) ---
+
+# --- Endpoints Públicos (Autenticação) ---
 
 @app.post("/token", response_model=schemas.Token)
 def login_para_obter_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
-    Endpoint de login. Recebe usuário e senha, retorna um token de acesso.
+    Recebe username/password e retorna um Token JWT.
     """
     usuario = crud.get_usuario_por_nome(db, nome_usuario=form_data.username)
     if not usuario or not security.verificar_senha(form_data.password, usuario.senha_hash):
@@ -82,7 +93,7 @@ def login_para_obter_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 @app.post("/usuarios/", response_model=schemas.Usuario)
 def criar_novo_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     """
-    Endpoint para criar um novo usuário. (Este endpoint é público).
+    Cria um novo usuário. (Público, para o primeiro registro).
     """
     db_usuario = crud.get_usuario_por_nome(db, nome_usuario=usuario.nome_usuario)
     if db_usuario:
@@ -90,69 +101,81 @@ def criar_novo_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get
     
     return crud.criar_usuario(db=db, usuario=usuario)
 
-
-# --- ENDPOINTS DE TRANSAÇÕES ---
-
-@app.get("/transacoes/", response_model=List[schemas.Transacao])
-def ler_transacoes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), usuario_atual: models.Usuario = Depends(get_usuario_atual)):
-    """
-    Cria uma nova transação. Requer autenticação.
-    O ID do usuário é pego automaticamente do token de acesso.
-    """
-    return crud.criar_transacao(db=db, transacao=transacao, usuario_id=usuario_atual.id)
+@app.get("/")
+def ler_raiz():
+    """Endpoint principal de "Olá, Mundo"."""
+    return {"message": "Bem-vindo à API de Controle Financeiro!"}
 
 
-@app.get("/transacoes/", response_model=List[schemas.Transacao])
-def ler_transacoes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """
-    Endpoint para listar todas as transações existentes. (Atualmente público)
-    """
-    transacoes = crud.listar_transacoes(db, skip=skip, limit=limit)
-    return transacoes
+# --- Endpoints Protegidos (Requerem Login) ---
 
 @app.get("/dashboard/", response_model=schemas.DashboardData)
 def ler_dados_dashboard(
     data_inicio: date, 
     data_fim: date, 
     db: Session = Depends(get_db), 
-    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+    usuario_atual: models.Usuario = Depends(get_usuario_atual) # < O "Segurança"
 ):
     """
     Retorna os dados financeiros consolidados para o dashboard.
-    Requer autenticação e um intervalo de datas.
+    Requer autenticação.
     """
-    # Chama a nova função do CRUD, passando o ID do usuário logado e as datas
     return crud.get_dashboard_data(
         db=db, 
-        usuario_id=usuario_atual.id, 
+        usuario_id=usuario_atual.id, # Filtra dados pelo usuário logado
         data_inicio=data_inicio, 
         data_fim=data_fim
     )
 
-# --- ENDPOINTS DE CATEGORIAS ---
+
+@app.post("/transacoes/", response_model=schemas.Transacao)
+def criar_nova_transacao(
+    transacao: schemas.TransacaoCreate, 
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual) # < O "Segurança"
+):
+    """
+    Cria uma nova transação (gasto ou receita) associada ao usuário logado.
+    Requer autenticação.
+    """
+    return crud.criar_transacao(db=db, transacao=transacao, usuario_id=usuario_atual.id)
+
+
+@app.get("/transacoes/", response_model=List[schemas.Transacao])
+def ler_transacoes(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual) # < O "Segurança"
+):
+    """
+    Lista as transações APENAS do usuário logado.
+    Requer autenticação.
+    """
+    # Aqui usamos a versão SEGURA do crud.listar_transacoes que fizemos
+    transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
+    return transacoes
+
 
 @app.post("/categorias/", response_model=schemas.Categoria)
-def criar_nova_categoria(categoria: schemas.CategoriaCreate, db: Session = Depends(get_db), usuario_atual: models.Usuario = Depends(get_usuario_atual)):
+def criar_nova_categoria(
+    categoria: schemas.CategoriaCreate, 
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual) # < O "Segurança"
+):
     """
-    Endpoint para criar uma nova categoria. (Atualmente público)
+    Cria uma nova categoria. (Protegido).
     """
     return crud.criar_categoria(db=db, categoria=categoria)
 
 
 @app.get("/categorias/", response_model=List[schemas.Categoria])
-def ler_categorias(db: Session = Depends(get_db), usuario_atual: models.Usuario = Depends(get_usuario_atual)):
+def ler_categorias(
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual) # < O "Segurança"
+):
     """
-    Endpoint para listar todas as categorias existentes. (Atualmente público)
+    Lista todas as categorias. (Protegido).
     """
     categorias = crud.listar_categorias(db=db)
     return categorias
-
-
-# --- ENDPOINT RAIZ ---
-
-@app.get("/")
-def ler_raiz():
-    """
-    Endpoint principal de boas-vindas.
-    """
-    return {"message": "Bem-vindo à API de Controle Financeiro!"}
