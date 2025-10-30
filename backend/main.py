@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import timedelta
 from datetime import timedelta, date
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import crud, models, schemas, security
 from .database import SessionLocal, engine
@@ -14,6 +15,20 @@ from .database import SessionLocal, engine
 # --- Configuração Inicial ---
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
+# --- Configuração do CORS ---
+# Lista de "bairros" (origens) que têm permissão para falar com a nossa API.
+origins = [
+    "http://localhost:5173",  # A origem do nosso app React
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,       # Permite as origens da lista
+    allow_credentials=True,    # Permite o envio de cookies/tokens
+    allow_methods=["*"],         # Permite todos os métodos (GET, POST, etc.)
+    allow_headers=["*"],         # Permite todos os cabeçalhos
+)
+# --- Fim da Configuração do CORS ---
 
 # --- Esquema de Segurança (A fechadura) ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
