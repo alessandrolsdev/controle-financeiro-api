@@ -1,9 +1,24 @@
 # Arquivo: backend/schemas.py
 
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, date
 import decimal
-from typing import Optional 
+from typing import Optional, List
+class GastoPorCategoria(BaseModel):
+    """Schema para representar o total de gastos de uma única categoria."""
+    nome_categoria: str
+    valor_total: decimal.Decimal
+
+    # Configuração para permitir a conversão a partir do modelo do SQLAlchemy
+    class Config:
+        from_attributes = True
+
+class DashboardData(BaseModel):
+    """Schema principal de resposta para o endpoint /dashboard/."""
+    total_receitas: decimal.Decimal
+    total_gastos: decimal.Decimal
+    lucro_liquido: decimal.Decimal
+    gastos_por_categoria: List[GastoPorCategoria]
 
 # --- Schemas para Token ---
 class Token(BaseModel):

@@ -1,8 +1,60 @@
 # Arquivo: backend/crud.py (versão atualizada)
 
 from sqlalchemy.orm import Session
-from . import models, schemas
-from . import security
+from sqlalchemy import func  
+from . import models, schemas, security
+from datetime import date  
+import decimal  
+
+# --- ADICIONADO AGORA: Lógica do Dashboard ---
+
+def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim: date):
+    """
+    Busca e calcula os dados de resumo financeiro para o dashboard.
+    """
+    
+    # 1. Calcula o Total de Receitas
+    total_receitas = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
+        models.Transacao.usuario_id == usuario_id,
+        models.Categoria.tipo == "Receita",
+        models.Transacao.data.between(data_inicio, data_fim)
+    ).scalar() or decimal.Decimal(0) # 'scalar()' pega o primeiro valor, 'or 0' trata se for Nulo
+
+    # 2. Calcula o Total de Gastos
+    total_gastos = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
+        models.Transacao.usuario_id == usuario_id,
+        models.Categoria.tipo == "Gasto",
+        models.Transacao.data.between(data_inicio, data_fim)
+    ).scalar() or decimal.Decimal(0)
+
+    # 3. Calcula o Lucro Líquido
+    lucro_liquido = total_receitas - total_gastos
+
+    # 4. Busca o total de gastos agrupado por categoria
+    gastos_por_categoria_query = db.query(
+        models.Categoria.nome,
+        func.sum(models.Transacao.valor).label("valor_total") # 'label' dá um nome ao resultado da soma
+    ).join(models.Transacao).filter(
+        models.Transacao.usuario_id == usuario_id,
+        models.Categoria.tipo == "Gasto",
+        models.Transacao.data.between(data_inicio, data_fim)
+    ).group_by(models.Categoria.nome).order_by(
+        func.sum(models.Transacao.valor).desc() # Ordena do maior gasto para o menor
+    ).all()
+
+    # 5. Formata os resultados da query em objetos do nosso schema
+    gastos_por_categoria = [
+        schemas.GastoPorCategoria(nome_categoria=nome, valor_total=total)
+        for nome, total in gastos_por_categoria_query
+    ]
+
+    # 6. Retorna o objeto de dados completo do dashboard
+    return schemas.DashboardData(
+        total_receitas=total_receitas,
+        total_gastos=total_gastos,
+        lucro_liquido=lucro_liquido,
+        gastos_por_categoria=gastos_por_categoria
+    )
 # --- Funções CRUD para Usuário ---
 
 def get_usuario_por_nome(db: Session, nome_usuario: str):
