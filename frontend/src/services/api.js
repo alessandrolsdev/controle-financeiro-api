@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // Cria uma instância "pré-configurada" do axios
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000', // A URL base do nosso backend
+  baseURL: import.meta.env.VITE_API_BASE_URL, // A URL base do nosso backend
 });
 
 // --- O INTERCEPTADOR MÁGICO ---
