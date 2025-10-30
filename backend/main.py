@@ -15,11 +15,11 @@ from .database import SessionLocal, engine
 # --- Configuração Inicial ---
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
-# --- Configuração do CORS ---
+# --- Configuração do CORS CORRIGIDA ---
 # Lista de origens que têm permissão para falar com a nossa API.
 origins = [
-    "http://localhost:5173", # O seu ambiente de desenvolvimento local
-    "https://controle-financeiro-api-eight.vercel.app", # Link do vercel
+    "http://localhost:5173", # Dev local
+    "https://controle-financeiro-api-eight.vercel.app", # SEU ENDEREÇO VERCEL
 ]
 
 app.add_middleware(
@@ -29,7 +29,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# --- Fim da Configuração do CORS ---
+# --- Fim da Configuração do CORS CORRIGIDA ---
 
 # --- Esquema de Segurança (A fechadura) ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
