@@ -1,28 +1,26 @@
 // Arquivo: frontend/src/services/api.js
+// (CRIE ESTE ARQUIVO)
 
 import axios from 'axios';
 
-// Cria uma instância "pré-configurada" do axios
+// 1. Cria a instância do Axios com a URL base do seu backend
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // A URL base do nosso backend
+  baseURL: 'http://127.0.0.1:8000',
 });
 
-// --- O INTERCEPTADOR MÁGICO ---
-// Isso "ensina" o axios a fazer algo antes de CADA requisição
+// 2. O Interceptor (Porteiro)
 api.interceptors.request.use(
   (config) => {
-    // 1. Pega o token do localStorage (o "crachá" que guardamos)
-    const token = localStorage.getItem('token');
-    
-    // 2. Se o token existir, adiciona ele no cabeçalho da requisição
+    // 3. Pega o token do localStorage
+    const token = localStorage.getItem('authToken'); 
+
     if (token) {
+      // 4. Adiciona o token no cabeçalho
       config.headers['Authorization'] = `Bearer ${token}`;
     }
-    
-    return config; // Continua com a requisição
+    return config;
   },
   (error) => {
-    // Em caso de erro ao preparar a requisição
     return Promise.reject(error);
   }
 );

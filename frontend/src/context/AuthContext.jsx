@@ -1,55 +1,47 @@
-// Arquivo: frontend/src/context/AuthContext.jsx
+// Arquivo: frontend/src/context/AuthContext.js
+// (SUBSTITUA O SEU POR ESTE)
 
-import React, { createContext, useState, useContext } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState } from 'react';
+import api from '../services/api'; // Importa o 'api.js'
 
-// 1. Cria o Contexto
 const AuthContext = createContext();
 
-// 2. Cria o "Provedor" (o componente que vai gerenciar o estado)
 export const AuthProvider = ({ children }) => {
-  // Guarda o token no estado. Inicialmente, tentamos pegar do localStorage.
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('authToken'));
 
   const login = async (username, password) => {
-    // Formata os dados para o backend (como fizemos na página de Login)
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/token`, formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      const formData = new FormData();
+      formData.append('username', username);
+      formData.append('password', password);
+
+      const response = await api.post('/token', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const newToken = response.data.access_token;
-      setToken(newToken); // 1. Atualiza o estado
-      localStorage.setItem('token', newToken); // 2. Salva no localStorage
-      
-      return true; // Sucesso
-
-    } catch (err) {
-      console.error('Erro no login (AuthContext):', err);
-      return false; // Falha
+      if (response.data && response.data.access_token) {
+        // A LINHA MAIS IMPORTANTE:
+        localStorage.setItem('authToken', response.data.access_token);
+        setIsAuthenticated(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Erro na função login (AuthContext):', error);
+      return false;
     }
   };
 
   const logout = () => {
-    setToken(null); // 1. Remove do estado
-    localStorage.removeItem('token'); // 2. Remove do localStorage
+    localStorage.removeItem('authToken');
+    setIsAuthenticated(false);
   };
 
-  // 3. Compartilha o token e as funções com todos os componentes "filhos"
-  return (
-    <AuthContext.Provider value={{ token, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = { isAuthenticated, login, logout };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 4. Cria um "hook" personalizado para facilitar o uso do contexto
 export const useAuth = () => {
   return useContext(AuthContext);
 };
