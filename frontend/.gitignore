@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ignora o arquivo de ambiente de desenvolvimento local
+.env
