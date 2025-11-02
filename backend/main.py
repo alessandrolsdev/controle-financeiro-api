@@ -1,39 +1,30 @@
-# Arquivo: backend/main.py (Versão Completa e Verificada)
-
-# --- Importações ---
+# Arquivo: backend/main.py (VERSÃO FINAL SINCRONIZADA)
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import timedelta
 from datetime import timedelta, date
-from fastapi.middleware.cors import CORSMiddleware
-
 from . import crud, models, schemas, security
 from .database import SessionLocal, engine
 
-# --- Configuração Inicial ---
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
-# --- Configuração do CORS ---
-# Lista de "bairros" (origens) que têm permissão para falar com a nossa API.
-origins = [
-    "http://localhost:5173",  # A origem do nosso app React
-]
 
+origins = [
+    "http://localhost:5173",
+    "https://controle-financeiro-api-eight.vercel.app",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,       # Permite as origens da lista
-    allow_credentials=True,    # Permite o envio de cookies/tokens
-    allow_methods=["*"],         # Permite todos os métodos (GET, POST, etc.)
-    allow_headers=["*"],         # Permite todos os cabeçalhos
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# --- Fim da Configuração do CORS ---
 
-# --- Esquema de Segurança (A fechadura) ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# --- Dependências e Funções Auxiliares ---
 def get_db():
     db = SessionLocal()
     try:
@@ -41,29 +32,20 @@ def get_db():
     finally:
         db.close()
 
-# --- O "SEGURANÇA": Função para obter o usuário logado ---
 def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não foi possível validar as credenciais",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    # Precisamos importar 'schemas' aqui no 'security.py' ou passar 'schemas.TokenData'
-    # Vamos garantir que a importação 'from . import schemas' esteja em security.py
     token_data = security.verificar_token_de_acesso(token, credentials_exception)
     usuario = crud.get_usuario_por_nome(db, nome_usuario=token_data.nome_usuario)
     if usuario is None:
         raise credentials_exception
     return usuario
 
-
-# --- ENDPOINTS DE AUTENTICAÇÃO E USUÁRIOS ---
-
 @app.post("/token", response_model=schemas.Token)
 def login_para_obter_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """
-    Endpoint de login. Recebe usuário e senha, retorna um token de acesso.
-    """
     usuario = crud.get_usuario_por_nome(db, nome_usuario=form_data.username)
     if not usuario or not security.verificar_senha(form_data.password, usuario.senha_hash):
         raise HTTPException(
@@ -77,37 +59,16 @@ def login_para_obter_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-
 @app.post("/usuarios/", response_model=schemas.Usuario)
 def criar_novo_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)):
-    """
-    Endpoint para criar um novo usuário. (Este endpoint é público).
-    """
     db_usuario = crud.get_usuario_por_nome(db, nome_usuario=usuario.nome_usuario)
     if db_usuario:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome de usuário já registrado")
-    
     return crud.criar_usuario(db=db, usuario=usuario)
 
-
-# --- ENDPOINTS DE TRANSAÇÕES ---
-
-@app.get("/transacoes/", response_model=List[schemas.Transacao])
-def ler_transacoes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), usuario_atual: models.Usuario = Depends(get_usuario_atual)):
-    """
-    Cria uma nova transação. Requer autenticação.
-    O ID do usuário é pego automaticamente do token de acesso.
-    """
-    return crud.criar_transacao(db=db, transacao=transacao, usuario_id=usuario_atual.id)
-
-
-@app.get("/transacoes/", response_model=List[schemas.Transacao])
-def ler_transacoes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """
-    Endpoint para listar todas as transações existentes. (Atualmente público)
-    """
-    transacoes = crud.listar_transacoes(db, skip=skip, limit=limit)
-    return transacoes
+@app.get("/")
+def ler_raiz():
+    return {"message": "Bem-vindo à API de Controle Financeiro!"}
 
 @app.get("/dashboard/", response_model=schemas.DashboardData)
 def ler_dados_dashboard(
@@ -116,42 +77,61 @@ def ler_dados_dashboard(
     db: Session = Depends(get_db), 
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    """
-    Retorna os dados financeiros consolidados para o dashboard.
-    Requer autenticação e um intervalo de datas.
-    """
-    # Chama a nova função do CRUD, passando o ID do usuário logado e as datas
     return crud.get_dashboard_data(
         db=db, 
-        usuario_id=usuario_atual.id, 
+        usuario_id=usuario_atual.id,
         data_inicio=data_inicio, 
         data_fim=data_fim
     )
 
-# --- ENDPOINTS DE CATEGORIAS ---
+# --- A MUDANÇA ESTÁ AQUI ---
+@app.post("/transacoes/", response_model=schemas.DashboardData) # 1. MUDAMOS A RESPOSTA
+def criar_nova_transacao(
+    transacao: schemas.TransacaoCreate, 
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
+    """
+    Cria uma nova transação E RETORNA OS DADOS DO DASHBOARD ATUALIZADOS.
+    """
+    # 2. Salva a transação
+    crud.criar_transacao(db=db, transacao=transacao, usuario_id=usuario_atual.id)
+    
+    # 3. Busca os dados do dashboard na MESMA SESSÃO (para evitar o bug)
+    data_fim = date.today()
+    data_inicio = data_fim - timedelta(days=30)
+    
+    # 4. Retorna os dados do dashboard atualizados
+    return crud.get_dashboard_data(
+        db=db, 
+        usuario_id=usuario_atual.id,
+        data_inicio=data_inicio, 
+        data_fim=data_fim
+    )
+# ------------------------------
+
+@app.get("/transacoes/", response_model=List[schemas.Transacao])
+def ler_transacoes(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
+    transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
+    return transacoes
 
 @app.post("/categorias/", response_model=schemas.Categoria)
-def criar_nova_categoria(categoria: schemas.CategoriaCreate, db: Session = Depends(get_db), usuario_atual: models.Usuario = Depends(get_usuario_atual)):
-    """
-    Endpoint para criar uma nova categoria. (Atualmente público)
-    """
+def criar_nova_categoria(
+    categoria: schemas.CategoriaCreate, 
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
     return crud.criar_categoria(db=db, categoria=categoria)
 
-
 @app.get("/categorias/", response_model=List[schemas.Categoria])
-def ler_categorias(db: Session = Depends(get_db), usuario_atual: models.Usuario = Depends(get_usuario_atual)):
-    """
-    Endpoint para listar todas as categorias existentes. (Atualmente público)
-    """
+def ler_categorias(
+    db: Session = Depends(get_db), 
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
     categorias = crud.listar_categorias(db=db)
     return categorias
-
-
-# --- ENDPOINT RAIZ ---
-
-@app.get("/")
-def ler_raiz():
-    """
-    Endpoint principal de boas-vindas.
-    """
-    return {"message": "Bem-vindo à API de Controle Financeiro!"}
