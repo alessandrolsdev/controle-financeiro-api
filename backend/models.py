@@ -46,7 +46,7 @@ class Transacao(Base):
     id = Column(Integer, primary_key=True, index=True)
     descricao = Column(String(255), nullable=False)
     valor = Column(Numeric(10, 2), nullable=False)  # Ex: 12345678.99
-    data = Column(DateTime, nullable=False, default=datetime.utcnow)
+    data = Column(DateTime, nullable=False)
     observacoes = Column(String(500), nullable=True) # O campo que você adicionou!
 
     # Definição das Chaves Estrangeiras (os links físicos entre as tabelas).
