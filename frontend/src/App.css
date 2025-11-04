@@ -1,0 +1,15 @@
+/* * Arquivo: frontend/src/App.css
+ * Responsabilidade: Estilos de layout principais para o componente App.jsx.
+ * Este arquivo define o "container" de toda a nossa aplicação.
+ */
+
+.App {
+  /* Garante que o container principal do nosso app
+     ocupe pelo menos 100% da altura da tela. */
+  min-height: 100vh; 
+  
+  /* Garante que o conteúdo (como o Dashboard) flua
+     verticalmente. */
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,33 @@
+/* Arquivo: frontend/src/index.css */
+/* Responsabilidade: Estilos GLOBAIS e Resets da Aplicação */
+
+/* * 1. O "CSS Reset" mais importante:
+ * Garante que o 'padding' e a 'border' sejam incluídos
+ * na largura/altura total dos elementos. Evita dores de cabeça com layout.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* * 2. Reset do Corpo (Body):
+ * Remove a margem padrão do navegador e define uma fonte limpa e moderna.
+ */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Define a cor de fundo padrão para todo o app */
+  background-color: #f0f2f5; 
+}
+
+/* * 3. Oculta o scroll do React DevTools (apenas uma limpeza visual) 
+ */
+iframe[src*="https://react.dev/link/react-devtools"] {
+  display: none !important;
+}
