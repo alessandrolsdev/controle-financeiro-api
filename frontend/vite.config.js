@@ -1,4 +1,6 @@
 // Arquivo: frontend/vite.config.js
+// Responsabilidade: Configurar o Vite, nosso servidor de desenvolvimento
+// e ferramenta de "build" (compilação) do frontend.
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -7,30 +9,37 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    // Plugin padrão para fazer o React (JSX) funcionar com o Vite.
     react(),
+    
+    // --- O Coração do Modo Offline ---
+    // Este plugin transforma nosso site em um PWA "instalável".
     VitePWA({
-      // O 'registerType' autoUpdate fará o app atualizar automaticamente
-      // quando houver uma nova versão.
+      // 'autoUpdate' fará com que o app do usuário se atualize sozinho
+      // no fundo, assim que publicarmos uma nova versão no Vercel.
       registerType: 'autoUpdate',
-
-      // O 'manifest' é o coração do PWA
+      
+      // 'manifest': É a "carteira de identidade" do nosso app.
+      // É o que diz ao celular "eu sou um app" e como me comportar.
       manifest: {
-        name: 'NOMAD - Aplicativo de Controle Financeiro',
-        short_name: 'NOMAD',
-        description: 'Aplicativo de controle financeiro.',
-        theme_color: '#007bff', // A cor principal do seu app
-        background_color: '#ffffff',
-        display: 'standalone',
-        scope: '/',
-        start_url: '/',
+        name: 'NOMAD - Controle Financeiro', // Nome longo do app
+        short_name: 'NOMAD', // Nome que aparece abaixo do ícone
+        description: 'Aplicativo de controle financeiro para pequenas empresas.',
+        theme_color: '#007bff', // Cor da barra de status no Android (nosso azul)
+        background_color: '#ffffff', // Cor da tela de "splash"
+        display: 'standalone', // Faz o app abrir em tela cheia, sem a barra do navegador
+        scope: '/', // O escopo do app
+        start_url: '/', // A página que abre ao iniciar o app
+        
+        // Ícones que aparecerão na tela inicial do celular
         icons: [
           {
-            src: 'logo-192.png', // O plugin vai criar este a partir do seu logo-512
+            src: 'logo-192.png', // Ícone para Android
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'logo-512.png', // O ícone principal que você criou
+            src: 'logo-512.png', // Ícone principal (maior resolução)
             sizes: '512x512',
             type: 'image/png',
           },
