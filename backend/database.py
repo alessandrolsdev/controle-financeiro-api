@@ -1,29 +1,66 @@
-# Arquivo: backend/database.py (versão corrigida)
+# Arquivo: backend/database.py (VERSÃO FINAL - Produção e Desenvolvimento)
+# Responsabilidade: Configurar a "tomada" (a conexão) com o banco de dados.
+#
+# Este arquivo é "inteligente":
+# 1. Ele tenta ler a DATABASE_URL do arquivo .env (para o PostgreSQL na nuvem).
+# 2. Se não encontrar, ele cria um banco SQLite local (para desenvolvimento).
 
-import os # Importa a biblioteca para lidar com caminhos do sistema
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
 
-# 1. Obtém o caminho absoluto para o diretório onde este arquivo (database.py) está.
-#    Ex: C:\...\controle-financeiro-api\backend
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+# --- 1. Carregamento das Variáveis de Ambiente ---
 
-# 2. Define o nome do arquivo do banco de dados.
-DB_NAME = "financeiro.db"
-
-# 3. Cria a URL completa e absoluta para o banco de dados.
-#    Isto garante que o banco de dados será criado NA PASTA 'backend'.
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, DB_NAME)}"
+# Encontra o arquivo .env na pasta raiz do projeto (um nível acima de 'backend')
+# O caminho de __file__ é 'backend/database.py', então precisamos de dois 'dirname'
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path=env_path)
 
 
-# 4. CRIA O "MOTOR" DO BANCO DE DADOS (ENGINE)
+# --- 2. Lógica de Conexão Inteligente ---
+
+# Tenta ler a URL do banco de dados de produção (PostgreSQL) do ambiente
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Variável de verificação para o 'engine'
+is_sqlite = False
+
+# Se a URL de produção NÃO for encontrada, estamos em modo de desenvolvimento.
+if not DATABASE_URL:
+    print("AVISO: DATABASE_URL não encontrada. Usando banco de dados SQLite local.")
+    is_sqlite = True
+    
+    # Cria o caminho absoluto para o nosso arquivo de banco local
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+    DB_NAME = "financeiro.db"
+    DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, DB_NAME)}"
+else:
+    # Remove um aviso de depreciação do Heroku/Render
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    print("Usando banco de dados de produção (PostgreSQL).")
+
+# --- 3. Criação do "Motor" (Engine) ---
+
+# Prepara os argumentos de conexão.
+# O 'connect_args' é OBRIGATÓRIO para o SQLite em um app multithread
+# (como o FastAPI), mas quebra o PostgreSQL.
+connect_args = {"check_same_thread": False} if is_sqlite else {}
+
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL, 
+    connect_args=connect_args
 )
 
-# 5. CRIA UMA FÁBRICA DE SESSÕES
+# --- 4. Criação da "Fábrica de Sessões" ---
+
+# SessionLocal é uma 'fábrica' que cria novas sessões de banco de dados
+# sempre que a dependência get_db() é chamada em main.py.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 6. CRIA UMA BASE DECLARATIVA
+# --- 5. Criação da Base Declarativa ---
+
+# Todos os nossos 'models.py' (Usuario, Categoria, etc.) herdarão
+# desta classe Base. É como eles se registram no SQLAlchemy.
 Base = declarative_base()

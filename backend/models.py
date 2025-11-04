@@ -1,60 +1,102 @@
 # Arquivo: backend/models.py
-# Responsabilidade: Definir as classes Python (Modelos) que representam as tabelas no nosso banco de dados.
+# Responsabilidade: Definir a ESTRUTURA das tabelas no banco de dados.
+# Esta é a camada "Model" da nossa arquitetura.
+#
+# Utilizamos a sintaxe moderna do SQLAlchemy 2.0 (com Mapped e mapped_column)
+# para garantir "tipagem" (type-hinting) completa no nosso código.
 
-# Importa as ferramentas necessárias do SQLAlchemy para definir colunas e relacionamentos.
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, func
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
+from decimal import Decimal
+from typing import List, Optional
 
-# Importa a classe 'Base' que criamos no arquivo database.py.
-# Todas as nossas classes de modelo herdarão desta Base.
+# Importa a Base declarativa que criamos no arquivo database.py
 from .database import Base
 
 
-# --- MODELO DA TABELA DE USUÁRIOS ---
+# --- 1. MODELO DA TABELA DE USUÁRIOS ---
 class Usuario(Base):
-    # __tablename__ é o nome oficial da tabela no banco de dados.
+    """
+    Representa um usuário no sistema.
+    Este é o "dono" das transações financeiras.
+    """
     __tablename__ = "usuarios"
 
-    # Definição das colunas da tabela "usuarios".
-    id = Column(Integer, primary_key=True, index=True)
-    nome_usuario = Column(String(100), unique=True, index=True, nullable=False)
-    senha_hash = Column(String(255), nullable=False)
-    criado_em = Column(DateTime, default=datetime.utcnow)
+    # Coluna Primária
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    
+    # Informações de Autenticação
+    nome_usuario: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # Metadados
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    # Definição do relacionamento com a tabela de Transacao.
-    # 'transacoes' será um atributo no objeto Usuario que conterá uma lista de todas as suas transações.
-    # 'back_populates' cria o link reverso no modelo Transacao, no atributo 'proprietario'.
-    transacoes = relationship("Transacao", back_populates="proprietario")
+    # Relacionamento Reverso: Um usuário pode ter muitas transações.
+    # O 'lazy="selectin"' é uma otimização de performance moderna.
+    transacoes: Mapped[List["Transacao"]] = relationship(
+        back_populates="proprietario", lazy="selectin"
+    )
 
 
-# --- MODELO DA TABELA DE CATEGORIAS ---
+# --- 2. MODELO DA TABELA DE CATEGORIAS ---
 class Categoria(Base):
+    """
+    Representa uma categoria para classificar transações (ex: "Combustível", "Alimentação").
+    Nesta versão, as categorias são globais (compartilhadas por todos os usuários).
+    """
     __tablename__ = "categorias"
 
-    id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String(100), unique=True, index=True, nullable=False)
-    tipo = Column(String(50), nullable=False, comment="Define se é 'Gasto' ou 'Receita'")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    nome: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    
+    # Define se a categoria é uma "Gasto" (Despesa) ou "Receita" (Ganho)
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    transacoes = relationship("Transacao", back_populates="categoria")
+    # Relacionamento Reverso: Uma categoria pode estar em muitas transações.
+    transacoes: Mapped[List["Transacao"]] = relationship(
+        back_populates="categoria", lazy="selectin"
+    )
 
 
-# --- MODELO DA TABELA DE TRANSAÇÕES ---
+# --- 3. MODELO DA TABELA DE TRANSAÇÕES (O CORAÇÃO DO SISTEMA) ---
 class Transacao(Base):
+    """
+    Representa um único registro financeiro (um gasto ou um ganho).
+    Cada transação pertence a um Usuário e a uma Categoria.
+    """
     __tablename__ = "transacoes"
 
-    id = Column(Integer, primary_key=True, index=True)
-    descricao = Column(String(255), nullable=False)
-    valor = Column(Numeric(10, 2), nullable=False)  # Ex: 12345678.99
-    data = Column(DateTime, nullable=False)
-    observacoes = Column(String(500), nullable=True) # O campo que você adicionou!
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    descricao: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # Usamos Numeric/Decimal para valores financeiros, garantindo precisão.
+    valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    
+    # Data em que a transação ocorreu (definida pelo usuário).
+    data: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    
+    # Campo opcional para notas extras (ex: placa do trator, local).
+    # Usamos 'Text' em vez de 'String(500)' para anotações mais longas.
+    observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Definição das Chaves Estrangeiras (os links físicos entre as tabelas).
-    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    # Chaves Estrangeiras (os links físicos entre as tabelas)
+    
+    # FOREIGN KEY para a tabela Categoria
+    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
+    
+    # FOREIGN KEY para a tabela Usuario (quem fez o registro)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
 
-    # Definição dos relacionamentos a nível de objeto.
-    # Agora, a partir de um objeto Transacao, podemos acessar o objeto Categoria inteiro
-    # através do atributo `transacao.categoria`.
-    categoria = relationship("Categoria", back_populates="transacoes")
-    proprietario = relationship("Usuario", back_populates="transacoes")
+    # Relacionamentos (os "atalhos" do Python para acessar os objetos)
+    
+    # Permite acessar o objeto Categoria completo via 'minha_transacao.categoria'
+    categoria: Mapped["Categoria"] = relationship(
+        back_populates="transacoes", lazy="joined"
+    )
+    
+    # Permite acessar o objeto Usuario completo via 'minha_transacao.proprietario'
+    proprietario: Mapped["Usuario"] = relationship(
+        back_populates="transacoes", lazy="joined"
+    )
