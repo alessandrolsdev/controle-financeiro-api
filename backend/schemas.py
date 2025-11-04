@@ -1,6 +1,5 @@
 # Arquivo: backend/schemas.py
 # Responsabilidade: Definir os "Contratos" de dados da nossa API.
-#
 # Usamos Pydantic (BaseModel) para:
 # 1. Validar os dados que chegam do frontend (ex: garantir que 'valor' é um número).
 # 2. Formatar os dados que saem do backend (ex: converter um objeto do SQLAlchemy em JSON).
@@ -10,16 +9,6 @@ from datetime import datetime, date
 import decimal
 from typing import Optional, List
 
-# --- PADRÃO DE ENGENHARIA: Config com from_attributes ---
-# A classe 'Config' com 'from_attributes = True' é a "cola mágica"
-# que permite ao Pydantic ler dados de objetos SQLAlchemy (ex: models.Usuario)
-# e não apenas de dicionários (como JSON).
-
-class OrmConfig:
-    """Configuração Pydantic para habilitar o modo ORM (from_attributes)."""
-    from_attributes = True
-
-
 # --- 1. SCHEMAS PARA O DASHBOARD ---
 
 class GastoPorCategoria(BaseModel):
@@ -27,8 +16,10 @@ class GastoPorCategoria(BaseModel):
     nome_categoria: str
     valor_total: decimal.Decimal
     
-    Config = OrmConfig # Habilita a leitura de atributos
-
+    # Sintaxe MODERNA (Pydantic V2) para 'from_attributes = True'
+    # Esta é a "cola mágica" que permite ao Pydantic ler dados
+    # de um objeto do SQLAlchemy (ex: models.Categoria).
+    model_config = {'from_attributes': True}
 
 class DashboardData(BaseModel):
     """Schema de RESPOSTA para o endpoint /dashboard/."""
@@ -64,7 +55,7 @@ class Usuario(BaseModel):
     criado_em: datetime
     # NUNCA inclua 'senha_hash' em um schema de resposta!
 
-    Config = OrmConfig
+    model_config = {'from_attributes': True}
 
 
 # --- 4. SCHEMAS PARA CATEGORIA ---
@@ -78,7 +69,7 @@ class Categoria(CategoriaCreate):
     """Schema de RESPOSTA (leitura) para uma categoria."""
     id: int
 
-    Config = OrmConfig
+    model_config = {'from_attributes': True}
 
 
 # --- 5. SCHEMAS PARA TRANSAÇÃO ---
@@ -92,7 +83,8 @@ class TransacaoCreate(BaseModel):
     valor: decimal.Decimal
     categoria_id: int
     data: date # O usuário envia apenas a data (AAAA-MM-DD)
-    observacoes: str | None = None
+    observacoes: str | None = None # Sintaxe moderna para 'Optional[str]'
+
 
 class Transacao(TransacaoCreate):
     """
@@ -104,4 +96,4 @@ class Transacao(TransacaoCreate):
     data: datetime 
     usuario_id: int
 
-    Config = OrmConfig
+    model_config = {'from_attributes': True}
