@@ -120,27 +120,18 @@ def listar_transacoes(db: Session, usuario_id: int, skip: int = 0, limit: int = 
 
 # --- 4. FUNÇÃO DE LÓGICA DE NEGÓCIOS (Dashboard) ---
 
+# Arquivo: backend/crud.py (Substitua esta função)
+
 def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim: date) -> schemas.DashboardData:
     """
     Busca e calcula os dados de resumo financeiro para o dashboard de um usuário
     específico, dentro de um intervalo de datas.
-
-    Args:
-        db (Session): A sessão do banco de dados.
-        usuario_id (int): O ID do usuário para filtrar os dados.
-        data_inicio (date): A data inicial do período (inclusivo).
-        data_fim (date): A data final do período (inclusivo).
-
-    Returns:
-        schemas.DashboardData: Um objeto Pydantic com todos os totais calculados.
     """
-    
+
     # --- Correção do Bug de "Fim do Dia" ---
-    # Adicionamos 1 dia ao 'data_fim' para que a consulta
-    # procure por datas < (menor que) 00:00 do dia seguinte.
     data_fim_query = data_fim + timedelta(days=1)
-    
-    # 1. Calcula o Total de Receitas
+
+    # 1. Calcula o Total de Receitas (sem mudança)
     total_receitas = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
         models.Transacao.usuario_id == usuario_id,
         models.Categoria.tipo == "Receita",
@@ -148,7 +139,7 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         models.Transacao.data < data_fim_query
     ).scalar() or decimal.Decimal(0)
 
-    # 2. Calcula o Total de Gastos
+    # 2. Calcula o Total de Gastos (sem mudança)
     total_gastos = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
         models.Transacao.usuario_id == usuario_id,
         models.Categoria.tipo == "Gasto",
@@ -156,13 +147,14 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         models.Transacao.data < data_fim_query
     ).scalar() or decimal.Decimal(0)
 
-    # 3. Calcula o Lucro Líquido
+    # 3. Calcula o Lucro Líquido (sem mudança)
     lucro_liquido = total_receitas - total_gastos
 
-    # 4. Busca o total de gastos agrupado por categoria
+    # --- 4. A MUDANÇA ESTÁ AQUI: Busca gastos E CONTAGEM agrupados ---
     gastos_por_categoria_query = db.query(
         models.Categoria.nome,
-        func.sum(models.Transacao.valor).label("valor_total")
+        func.sum(models.Transacao.valor).label("valor_total"),
+        func.count(models.Transacao.id).label("total_compras") # <-- ADICIONADO
     ).join(models.Transacao).filter(
         models.Transacao.usuario_id == usuario_id,
         models.Categoria.tipo == "Gasto",
@@ -172,13 +164,17 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         func.sum(models.Transacao.valor).desc()
     ).all()
 
-    # 5. Formata os resultados da query em objetos Pydantic
+    # 5. Formata os resultados da query (agora com 'count')
     gastos_por_categoria = [
-        schemas.GastoPorCategoria(nome_categoria=nome, valor_total=total)
-        for nome, total in gastos_por_categoria_query
+        schemas.GastoPorCategoria(
+            nome_categoria=nome, 
+            valor_total=total, 
+            total_compras=count # <-- ADICIONADO
+        )
+        for nome, total, count in gastos_por_categoria_query # <-- ADICIONADO
     ]
 
-    # 6. Retorna o objeto de dados completo do dashboard
+    # 6. Retorna o objeto de dados completo do dashboard (sem mudança)
     return schemas.DashboardData(
         total_receitas=total_receitas,
         total_gastos=total_gastos,

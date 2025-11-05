@@ -1,28 +1,12 @@
 // Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.jsx
-// (VERSÃO V3.4 - TOOLTIP INTELIGENTE QUE SEGUE O MOUSE)
+// (VERSÃO V3.3 - Tooltip Inteligente)
 
 import React from 'react';
 import { Doughnut } from 'react-chartjs-2';
-// 1. IMPORTAMOS O 'Tooltip' COMPLETO, E NÃO SÓ PARTES
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import './DoughnutChart.css';
 
-// 2. REGISTRAMOS OS ELEMENTOS (COMO ANTES)
 ChartJS.register(ArcElement, Tooltip, Legend);
-
-// --- 3. A "MÁGICA": ENSINANDO O CHART.JS UM NOVO TRUQUE ---
-// Nós criamos um "posicionador" customizado chamado 'mouseFollow'
-Tooltip.positioners.mouseFollow = function(items, eventPosition) {
-  /**
-   * 'eventPosition' é a coordenada {x, y} exata do mouse.
-   * Nós retornamos um novo {x, y} para onde a tooltip deve ser desenhada.
-   */
-  return {
-    x: eventPosition.x,
-    y: eventPosition.y + 15, // <-- O "pulo do gato": 15px ABAIXO do mouse
-  };
-};
-// ---------------------------------------------------------
 
 /**
  * @param {object[]} chartData - Array de { nome: string, valor: number, count: number }
@@ -30,7 +14,7 @@ Tooltip.positioners.mouseFollow = function(items, eventPosition) {
  * @param {string} centerLabel - O texto do rótulo central
  */
 function DoughnutChart({ chartData, totalValue, centerLabel }) {
-  
+
   const colorsPalette = [
     '#FF7A00', // Laranja Voo
     '#00E08F', // Verde Esmeralda
@@ -49,12 +33,12 @@ function DoughnutChart({ chartData, totalValue, centerLabel }) {
       },
     ],
   };
-  
+
   const formatCurrency = (value) => {
     return (parseFloat(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  // --- 4. A CORREÇÃO FINAL NA TOOLTIP ---
+  // --- A CORREÇÃO DA TOOLTIP ESTÁ AQUI ---
   const options = {
     responsive: true,
     maintainAspectRatio: false, 
@@ -62,28 +46,28 @@ function DoughnutChart({ chartData, totalValue, centerLabel }) {
     plugins: {
       legend: { display: false },
       tooltip: {
-        // --- INÍCIO DA CORREÇÃO ---
-        enabled: true, // Garante que a tooltip customizada está ligada
-        position: 'mouseFollow', // <-- USA O NOSSO NOVO "TRUQUE"
-        intersect: false, // Aparece ao passar perto
-        
-        // Alinha a "setinha" (caret) para cima, já que o box está abaixo
-        yAlign: 'bottom', 
-        
-        // Cores (HEX puros, como já corrigimos)
-        backgroundColor: '#0B1A33',
+        // --- 1. Correção do "Pulo" e "Seguir" ---
+        // 'nearest' e 'intersect: false' fazem a tooltip
+        // aparecer suavemente ao passar perto, sem "pular".
+        // 'position: 'average'' ajuda a centralizar no mouse.
+        position: 'average', // 'average' ou 'nearest'
+        intersect: false,
+
+        // --- 2. Correção das Cores (Texto preto/Fundo preto) ---
+        backgroundColor: '#0B1A33', // Azul Guardião
         titleColor: '#FFFFFF',
         bodyColor: '#FFFFFF',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
         borderRadius: 8,
         padding: 10,
-        displayColors: false,
-        caretSize: 8, // O tamanho da "setinha"
-        
-        // --- A LÓGICA DE TEXTO (que já funcionava) ---
+        displayColors: false, // Não mostra a "caixinha" de cor
+
+        // --- 3. A NOVA LÓGICA (Mostrar Contagem) ---
         callbacks: {
+          // Esta função constrói o texto dentro da tooltip
           label: (context) => {
+            // Pega o item de dados completo (ex: {nome: 'Uber', valor: 50, count: 2})
             const item = chartData[context.dataIndex];
             if (!item) return '';
 
@@ -91,16 +75,21 @@ function DoughnutChart({ chartData, totalValue, centerLabel }) {
             const valorFormatado = formatCurrency(item.valor);
             const contagem = item.count;
             const plural = contagem > 1 ? 'ões' : 'ão';
-            
+
+            // Cria o texto: "Uber: R$ 50,00 (2 transações)"
             return `${nome}: ${valorFormatado} (${contagem} transaç${plural})`;
           },
-          title: () => null,
+          title: () => null, // Remove o título
         },
       }
     },
-    // Remove o "piscar" ao passar o mouse
+    // Remove o "piscar" ao passar o mouse em cima de uma fatia
     onHover: (event, chartElement) => {
-      event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
+      if (chartElement.length) {
+        event.native.target.style.cursor = 'pointer';
+      } else {
+        event.native.target.style.cursor = 'default';
+      }
     }
   };
   // ----------------------------------------------------

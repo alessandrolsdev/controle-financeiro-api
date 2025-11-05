@@ -1,180 +1,191 @@
 /* Arquivo: frontend/src/pages/Dashboard/Dashboard.css */
-/* Estilização específica para a página principal do Dashboard */
+/* (VERSÃO V3.1 - COM O GRID LADO A LADO) */
 
 /* --- 1. Layout Geral --- */
 .dashboard-container {
-  font-family: Arial, sans-serif;
-  color: #333;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--cor-texto-primario);
+  padding-bottom: 90px; 
 }
 
-/* --- 2. Barra de Navegação Superior --- */
-.dashboard-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #007bff; /* Azul primário */
-  color: white;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.dashboard-nav h1 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-.dashboard-nav > div {
-  display: flex;
-  align-items: center;
-}
-
-.nav-link {
-  color: white;
-  text-decoration: none;
-  font-weight: bold;
-  margin-right: 1.5rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.logout-button {
-  background-color: #dc3545; /* Vermelho (perigo) */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.logout-button:hover {
-  background-color: #c82333;
-}
-
-/* --- 3. Cabeçalho da Página (Abaixo da Nav) --- */
+/* --- 2. Cabeçalho da Página --- */
 .dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 2rem; /* Alinha com o padding da nav */
-  margin-top: 2rem;
+  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid var(--cor-borda);
 }
 
 .dashboard-header h2 {
   margin: 0;
+  font-weight: 700;
+  font-size: 1.8rem;
+  color: var(--cor-texto-primario);
 }
-
-.add-transaction-button {
-  background-color: #007bff; /* Azul primário */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 0.75rem 1.5rem;
+.dashboard-subtitle {
+  margin: 0;
+  font-weight: 500;
   font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+  color: var(--cor-texto-secundario);
 }
 
-.add-transaction-button:hover {
-  background-color: #0056b3;
-}
-
-/* --- 4. Conteúdo Principal (Cards) --- */
+/* --- 3. Conteúdo Principal (Cards) --- */
 .dashboard-content {
-  padding: 1rem 2rem 2rem 2rem;
+  padding: 1.5rem;
+}
+
+.dashboard-loading, .loading-transactions {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--cor-texto-secundario);
 }
 
 .dashboard-stats {
   display: grid;
-  /* Cria colunas responsivas: 
-     - Tenta encaixar o máximo de colunas de 250px
-     - Se não couber, cada coluna ocupa 1 fração (1fr) */
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
 }
 
+/* --- O CARD "GLASS" --- */
 .stat-card {
-  background-color: #ffffff;
+  background: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda);
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease;
+}
+
+.stat-card:nth-child(3) { /* Card de Lucro Líquido */
+  grid-column: 1 / -1; /* Ocupa a largura toda */
 }
 
 .stat-card h3 {
   margin-top: 0;
-  margin-bottom: 1rem;
-  color: #555;
-  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: var(--cor-texto-secundario);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .stat-card span {
-  font-size: 2rem;
-  font-weight: bold;
+  font-size: 1.8rem;
+  font-weight: 700;
+  display: block;
 }
 
 /* Cores de feedback financeiro */
 .stat-card span.gasto {
-  color: #dc3545; /* Vermelho */
+  color: var(--cor-gasto);
 }
 .stat-card span.lucro {
-  color: #28a745; /* Verde */
+  color: var(--cor-lucro);
+}
+.stat-card span.texto-primario {
+  color: var(--cor-texto-primario);
 }
 
-/* Card de "Gastos por Categoria" */
-.gastos-categoria {
-  /* Faz este card ocupar todas as colunas da linha */
-  grid-column: 1 / -1; 
-  background-color: #ffffff;
+/* --- 4. O GRID LADO A LADO PARA OS GRÁFICOS --- */
+.dashboard-charts-grid {
+  display: grid;
+  /* 1 coluna em telas pequenas (padrão) */
+  grid-template-columns: 1fr; 
+  gap: 1.5rem; /* Espaço entre os gráficos */
+  margin-top: 1.5rem; /* Espaço do card de Lucro */
+}
+
+/* Em telas maiores (ex: tablets e desktops) */
+@media (min-width: 768px) {
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr 1fr; /* 2 colunas */
+  }
+}
+
+/* --- O Container do Gráfico --- */
+.chart-container {
+  background: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda);
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease;
 }
 
-.gastos-categoria h3 {
+.chart-container h3 {
   margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--cor-texto-primario);
+  font-weight: 600;
+  text-align: center;
 }
 
-.gastos-categoria ul {
+/* --- 5. Lista de Transações Recentes --- */
+.recent-transactions {
+  margin-top: 2rem;
+  grid-column: 1 / -1; 
+  /* Adiciona o estilo de card "Glass" à lista também */
+  background: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda);
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease;
+}
+
+.recent-transactions h2 {
+  margin-top: 0;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--cor-texto-primario); /* Título principal */
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.recent-transactions ul {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.gastos-categoria li {
+.recent-transactions li {
   display: flex;
   justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid #f0f2f5;
-  font-size: 1rem;
+  align-items: center;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid var(--cor-borda);
 }
 
-.gastos-categoria li:last-child {
+.recent-transactions li:last-child {
   border-bottom: none;
 }
 
-.gastos-categoria li span:first-child {
-  color: #333;
+.transaction-details {
+  display: flex;
+  flex-direction: column;
 }
 
-.gastos-categoria li span.gasto {
-  font-weight: bold;
+.transaction-details span:first-child {
+  color: var(--cor-texto-primario);
+  font-weight: 500;
+  margin-bottom: 4px;
 }
 
-/* Estilo de erro para a função renderContent */
-.error-message {
-  color: #d93025;
-  background-color: #fbeae9;
-  border: 1px solid #d93025;
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin: 1rem 0;
+.transaction-date {
+  color: var(--cor-texto-secundario);
+  font-size: 0.85rem;
+}
+
+.transaction-amount {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.transaction-amount.gasto {
+  color: var(--cor-gasto);
+}
+.transaction-amount.lucro {
+  color: var(--cor-lucro);
 }

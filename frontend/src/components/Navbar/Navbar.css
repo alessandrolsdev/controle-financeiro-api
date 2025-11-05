@@ -1,0 +1,93 @@
+/* Arquivo: frontend/src/components/Navbar/Navbar.css */
+
+.navbar-container {
+  /* 1. Posicionamento: Fica "grudado" no rodapé da tela */
+  position: fixed; 
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px; /* Altura da barra */
+
+  /* 2. Estilo: Usa as cores do nosso "Brand Guide" */
+  background-color: var(--cor-fundo-card); /* Usa o Azul 'quase preto' dos cards */
+  border-top: 1px solid var(--cor-borda); /* Linha divisória sutil */
+  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
+  z-index: 100; /* Garante que fique acima de todo o conteúdo */
+  border-radius: 20px 20px 0 0; /* Bordas arredondadas no topo */
+}
+
+.navbar-links {
+  display: flex;
+  justify-content: space-around; /* Espaça os itens igualmente */
+  align-items: center;
+  height: 100%;
+  max-width: 600px; /* Limita a largura em desktops */
+  margin: 0 auto; /* Centraliza a barra no meio da tela */
+}
+
+.nav-item {
+  /* 1. Layout: Um ícone em cima do texto */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  
+  /* 2. Estilo: */
+  text-decoration: none;
+  color: var(--cor-texto-secundario); /* Cor padrão (Cinza Suporte) */
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500; /* Medium */
+  
+  /* 3. Espaçamento: */
+  flex-basis: 20%; /* Divide o espaço em 5 */
+  height: 100%;
+  transition: color 0.3s ease;
+}
+
+/* --- O ESTADO "ATIVO" --- */
+/* O 'react-router-dom' (NavLink) adiciona a classe '.active' 
+   automaticamente ao link da página que estamos visitando. */
+.nav-item.active {
+  /* A cor de destaque da marca, mas não o laranja (que é para ação) */
+  color: var(--cor-verde-esmeralda); 
+}
+
+.nav-item span {
+  margin-top: 4px; /* Espaço entre o ícone e o texto */
+}
+
+/* --- O Botão de Ação Flutuante (FAB) --- */
+.nav-fab-container {
+  flex-basis: 20%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.nav-fab {
+  /* 1. Cor e Forma: */
+  background-color: var(--cor-laranja-voo); /* Laranja Voo */
+  color: var(--cor-branco-foco);
+  border: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%; /* Círculo perfeito */
+  
+  /* 2. Efeito de "flutuar" (sobe 20px) */
+  transform: translateY(-20px);
+  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.4);
+  
+  /* 3. Layout Interno: */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.nav-fab:hover {
+  background-color: #e66e00; /* Laranja mais escuro */
+  transform: translateY(-23px); /* Sobe um pouco mais */
+  box-shadow: 0 6px 20px rgba(255, 122, 0, 0.5);
+}

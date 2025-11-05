@@ -11,6 +11,7 @@ import { AuthProvider } from './context/AuthContext'; // O "Cérebro" do Login
 
 // Estilos globais que afetam toda a aplicação
 import './index.css';
+import { ThemeProvider } from './context/ThemeContext';
 
 // --- Inicialização do React ---
 
@@ -32,7 +33,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       através do hook 'useAuth()'.
     */}
     <AuthProvider>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+      
     </AuthProvider>
     
   </React.StrictMode>,

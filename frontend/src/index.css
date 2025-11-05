@@ -1,33 +1,65 @@
 /* Arquivo: frontend/src/index.css */
-/* Responsabilidade: Estilos GLOBAIS e Resets da Aplicação */
+/* Responsabilidade: Definir o "Design System" Global (Fontes, Cores, Resets). */
 
-/* * 1. O "CSS Reset" mais importante:
- * Garante que o 'padding' e a 'border' sejam incluídos
- * na largura/altura total dos elementos. Evita dores de cabeça com layout.
- */
+/* --- 1. IMPORTAÇÃO DA FONTE --- */
+/* Importa a fonte 'Montserrat' do Google Fonts com as espessuras (weights)
+   que o seu designer recomendou: 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold) */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+
+/* --- 2. DEFINIÇÃO DAS VARIÁVEIS DE COR (O "DNA" DA MARCA) --- */
+/* Definimos toda a nossa paleta de cores aqui, no :root.
+   Agora, podemos usar 'var(--cor-base-azul-guardiao)' em qualquer outro arquivo CSS. */
+:root {
+  /* Cor Base (O Alicerce) */
+  --cor-base-azul-guardiao: #0B1A33;
+  
+  /* Cores de Destaque (A Energia) */
+  --cor-laranja-voo: #FF7A00;
+  --cor-verde-esmeralda: #00E08F;
+  --cor-magenta-dinamico: #D400E6;
+
+  /* Cores Neutras (A Legibilidade) */
+  --cor-branco-foco: #FFFFFF;
+  --cor-cinza-suporte: #CED4DA;
+
+  /* Cores Semânticas (Feedback) */
+  --cor-lucro: var(--cor-verde-esmeralda); /* Verde para "bom" */
+  --cor-gasto: var(--cor-laranja-voo);    /* Laranja para "atenção" */
+  --cor-fundo-card: #1C2B4A;       /* Um azul um pouco mais claro para os cards */
+  --cor-borda: rgba(255, 255, 255, 0.1);
+}
+
+
+/* --- 3. RESET GLOBAL E ESTILOS DO "BODY" --- */
+
+/* Reset de 'box-sizing' para um layout previsível */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/* * 2. Reset do Corpo (Body):
- * Remove a margem padrão do navegador e define uma fonte limpa e moderna.
- */
+/* Reset de 'margin' e definição dos padrões do app */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
+  
+  /* APLICAÇÃO DO DESIGN SYSTEM */
+  font-family: 'Montserrat', sans-serif; /* A fonte que seu designer escolheu */
+  background-color: var(--cor-base-azul-guardiao); /* O fundo "Azul Guardião" */
+  color: var(--cor-branco-foco); /* O texto padrão será "Branco Foco" */
+  
+  /* Melhora a renderização das fontes */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
-  /* Define a cor de fundo padrão para todo o app */
-  background-color: #f0f2f5; 
 }
 
-/* * 3. Oculta o scroll do React DevTools (apenas uma limpeza visual) 
- */
+/* Garante que o app ocupe a altura total */
+html, body, #root {
+  height: 100%;
+}
+
+/* Remove o log chato do React DevTools */
 iframe[src*="https://react.dev/link/react-devtools"] {
   display: none !important;
 }

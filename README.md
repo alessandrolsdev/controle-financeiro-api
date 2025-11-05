@@ -110,9 +110,9 @@ npm install
 ```bash
 npm run dev
 
-#### (O frontend estará rodando em http://localhost:5173)
+(O frontend estará rodando em http://localhost:5173)
 ```
-Agora, você pode acessar http://localhost:5173 no seu navegador.
+#### Agora, você pode acessar http://localhost:5173 no seu navegador.
 
 🛣️ Próximos Passos (Roadmap V2.0)
 [ ] 📱 Modo Offline (PWA): Implementar um Service Worker (vite-plugin-pwa) para que o aplicativo seja instalável e permita o registro de gastos mesmo sem conexão com a internet.

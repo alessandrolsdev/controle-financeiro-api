@@ -1,96 +1,116 @@
 /* Arquivo: frontend/src/pages/Settings/Settings.css */
-/* Estilização específica para a página de Configurações */
+/* (VERSÃO V3.0 - COM TEMA DINÂMICO E TOGGLE BONITO) */
 
-/* --- Layout Principal --- */
+/* --- 1. Layout Principal --- */
 .settings-container {
-  font-family: Arial, sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--cor-texto-primario);
+  padding-bottom: 90px; /* Espaço para a Navbar inferior */
 }
 
-.settings-nav {
+/* --- 2. Cabeçalho da Página --- */
+.settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #333; /* Cor escura para a navegação interna */
-  color: white;
-  padding: 1rem 2rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--cor-borda);
 }
 
-.settings-nav h1 {
+.settings-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--cor-texto-primario);
 }
 
-.nav-link-back {
-  color: white;
-  text-decoration: none;
-  font-weight: bold;
-}
-
-.nav-link-back:hover {
-  text-decoration: underline;
-}
-
+/* --- 3. Conteúdo (Cards) --- */
 .settings-content {
-  padding: 2rem;
-  background-color: #f0f2f5;
-  min-height: calc(100vh - 67px); /* 67px é a altura da nav */
+  padding: 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .settings-card {
-  background: #ffffff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: var(--cor-fundo-card); /* Cor dinâmica */
+  border: 1px solid var(--cor-borda);
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
+  /* Transição suave ao trocar de tema */
+  transition: background-color 0.3s ease;
 }
 
 .settings-card h2 {
   margin-top: 0;
-  border-bottom: 2px solid #f0f2f5;
-  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: 1rem;
+  font-weight: 600;
+  color: var(--cor-texto-primario);
 }
 
-/* --- Estilos do Formulário (Reutilizados de outros CSS) --- */
+/* --- 4. Estilos do Formulário (Padrão "Underline") --- */
 .input-group { 
-  margin-bottom: 1rem; 
+  margin-bottom: 1.5rem; 
 }
+
 .input-group label { 
   display: block; 
   margin-bottom: 0.5rem; 
-  color: #555; 
+  color: var(--cor-texto-secundario); /* Cor dinâmica */
+  font-weight: 500; 
 }
+
 .input-group input, 
 .input-group select {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-sizing: border-box;
+  padding: 0.75rem 0.25rem;
+  border: none;
+  border-bottom: 2px solid var(--cor-texto-secundario); /* Cor dinâmica */
+  background-color: transparent;
+  color: var(--cor-texto-primario); /* Cor dinâmica */
+  font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
+  border-radius: 0;
+  transition: border-color 0.3s ease;
+}
+
+.input-group input:focus, 
+.input-group select:focus {
+  outline: none;
+  border-color: var(--cor-laranja-voo); /* Laranja (Ação) */
+}
+
+/* Corrige a cor de fundo das opções do <select> */
+.input-group select option {
+  background-color: var(--cor-fundo-principal); /* Cor dinâmica */
+  color: var(--cor-texto-primario); /* Cor dinâmica */
 }
 
 .settings-button {
   width: auto;
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 4px;
-  background-color: #28a745; /* Verde (sucesso) */
-  color: white;
+  border-radius: 8px;
+  background-color: var(--cor-verde-esmeralda); /* Verde Esmeralda (Marca) */
+  color: #0B1A33; /* Texto escuro para contraste */
+  font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
 
 .settings-button:hover {
-  background-color: #218838;
+  opacity: 0.8;
 }
 
-/* --- Mensagens de Feedback --- */
+/* --- 5. Mensagens de Feedback (Dinâmicas) --- */
 .error-message {
-  color: #d93025;
-  background-color: #fbeae9;
-  border: 1px solid #d93025;
+  color: var(--cor-gasto); /* Cor de Gasto/Alerta do tema */
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid var(--cor-gasto);
   border-radius: 4px;
   padding: 0.75rem;
   text-align: center;
@@ -98,16 +118,16 @@
 }
 
 .success-message {
-  color: #218838;
-  background-color: #e9fbe9;
-  border: 1px solid #28a745;
+  color: var(--cor-lucro); /* Cor de Lucro/Sucesso do tema */
+  background-color: rgba(25, 135, 84, 0.1);
+  border: 1px solid var(--cor-lucro);
   border-radius: 4px;
   padding: 0.75rem;
   text-align: center;
   margin-bottom: 1rem;
 }
 
-/* --- Lista de Categorias --- */
+/* --- 6. Lista de Categorias (Dinâmica) --- */
 .categoria-list ul {
   list-style: none;
   padding: 0;
@@ -117,26 +137,105 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #eee;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid var(--cor-borda);
 }
 
 .categoria-list li:last-child {
   border-bottom: none;
 }
 
+/* Os badges (etiquetas) usam as cores da MARCA (vibrantes) */
 .tipo-badge {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: bold;
-  color: white;
 }
-
 .tipo-badge.tipo-gasto {
-  background-color: #dc3545; /* Vermelho (despesa) */
+  background-color: var(--cor-laranja-voo);
+  color: var(--cor-branco-foco);
+}
+.tipo-badge.tipo-receita {
+  background-color: var(--cor-verde-esmeralda);
+  color: #0B1A33;
 }
 
-.tipo-badge.tipo-receita {
-  background-color: #28a745; /* Verde (ganho) */
+/* --- 7. Estilos de Itens de Menu (Placeholders V2.0) --- */
+.settings-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.settings-item:last-child {
+  border-bottom: none;
+}
+.settings-item span {
+  font-weight: 500;
+  color: var(--cor-texto-primario);
+}
+
+.settings-button-disabled {
+  width: auto;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--cor-texto-secundario);
+  color: var(--cor-fundo-card);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* --- 8. O "Interruptor" (Toggle) de Tema BONITO --- */
+/* Esconde o checkbox feio */
+.theme-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.theme-toggle {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+/* O 'trilho' do interruptor */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #555; /* Fundo do trilho desligado (cinza escuro) */
+  transition: .4s;
+  border-radius: 28px;
+}
+/* A 'bolinha' do interruptor */
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+/* Quando está LIGADO (checked = Modo Claro) */
+input:checked + .slider {
+  background-color: var(--cor-laranja-voo); /* Fica Laranja Voo! */
+}
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--cor-laranja-voo);
+}
+/* Move a bolinha para a direita */
+input:checked + .slider:before {
+  transform: translateX(22px);
 }

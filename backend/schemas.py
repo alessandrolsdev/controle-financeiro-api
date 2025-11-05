@@ -1,8 +1,5 @@
-# Arquivo: backend/schemas.py
+# Arquivo: backend/schemas.py (VERSÃO FINAL CORRIGIDA PARA Pydantic V2)
 # Responsabilidade: Definir os "Contratos" de dados da nossa API.
-# Usamos Pydantic (BaseModel) para:
-# 1. Validar os dados que chegam do frontend (ex: garantir que 'valor' é um número).
-# 2. Formatar os dados que saem do backend (ex: converter um objeto do SQLAlchemy em JSON).
 
 from pydantic import BaseModel
 from datetime import datetime, date
@@ -15,7 +12,8 @@ class GastoPorCategoria(BaseModel):
     """Schema auxiliar para os dados do dashboard."""
     nome_categoria: str
     valor_total: decimal.Decimal
-    
+    total_compras: int
+
     # Sintaxe MODERNA (Pydantic V2) para 'from_attributes = True'
     # Esta é a "cola mágica" que permite ao Pydantic ler dados
     # de um objeto do SQLAlchemy (ex: models.Categoria).
@@ -53,7 +51,6 @@ class Usuario(BaseModel):
     id: int
     nome_usuario: str
     criado_em: datetime
-    # NUNCA inclua 'senha_hash' em um schema de resposta!
 
     model_config = {'from_attributes': True}
 
@@ -95,5 +92,9 @@ class Transacao(TransacaoCreate):
     # Sobrescrevemos 'data' para retornar um 'datetime' completo
     data: datetime 
     usuario_id: int
+
+    # Precisamos incluir o objeto Categoria completo aqui
+    # para que nossa lista de "Transações Recentes" funcione!
+    categoria: Categoria 
 
     model_config = {'from_attributes': True}
