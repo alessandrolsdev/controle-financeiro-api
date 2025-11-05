@@ -1,82 +1,139 @@
 /* Arquivo: frontend/src/pages/Login/Login.css */
+/* (VERSÃO V2.0 - DESIGN "AZUL GUARDIÃO" / "NOMAD") */
 
-/* --- 1. Layout do Container --- 
- * Esta é a regra clássica para centralizar
- * um item perfeitamente no meio da tela.
- */
-.login-container {
+/* --- 1. O Wrapper da Página --- */
+/* O 'login-page-wrapper' centraliza o card de login na tela */
+.login-page-wrapper {
   display: flex;
-  justify-content: center; /* Centraliza horizontalmente */
-  align-items: center;    /* Centraliza verticalmente */
-  height: 100vh;            /* 100% da altura da tela */
-  background-color: #f0f2f5;
-  font-family: Arial, sans-serif;
-}
-
-/* --- 2. O "Card" do Formulário --- */
-.login-form {
-  background: #ffffff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sombra sutil */
+  justify-content: center;
+  align-items: center;
   width: 100%;
-  max-width: 400px; /* Limita a largura em telas grandes */
+  flex-grow: 1; /* Faz este container ocupar o espaço disponível no App.jsx */
+  padding: 2rem;
+  /* O fundo já vem do 'body' (var(--cor-fundo-principal)) */
 }
 
-.login-form h2 {
+/* --- 2. O Card de Login --- */
+.login-container {
+  /* Usamos o fundo do body, sem card flutuante por enquanto,
+     para manter simples e limpo, focado no formulário. */
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 450px;
   text-align: center;
-  color: #333;
-  margin-top: 0; /* Remove a margem do topo */
+}
+
+/* --- 3. Logo e Títulos --- */
+.login-logo {
+  width: 120px; /* Ajuste o tamanho conforme necessário */
+  height: auto;
   margin-bottom: 1.5rem;
 }
 
-/* --- 3. Elementos do Formulário (Inputs) --- */
+.login-title {
+  color: var(--cor-branco-foco);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Bold */
+  font-size: 2.2rem; /* Maior, como no mockup */
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.login-subtitle {
+  color: var(--cor-cinza-suporte); /* Cinza Suporte */
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Regular */
+  font-size: 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 3rem;
+  letter-spacing: 0.5px;
+}
+
+/* --- 4. Formulário e Inputs --- */
+.login-form {
+  text-align: left;
+}
+
 .input-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.input-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #555;
-  font-weight: bold;
-}
-
+/* O input estilo "caixa branca" do mockup */
 .input-group input {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  /* Garante que o padding não "estoure" a largura de 100% */
-  box-sizing: border-box; 
+  padding: 1rem; /* Mais alto */
+  border: none; /* Sem borda */
+  border-radius: 8px; /* Bordas arredondadas */
+  background-color: var(--cor-branco-foco); /* Fundo Branco Foco */
+  color: var(--cor-base-azul-guardiao); /* Texto Azul Guardião */
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500; /* Medium */
   font-size: 1rem;
+  transition: box-shadow 0.3s ease;
 }
 
-/* --- 4. Botão de Login --- */
+/* Efeito "Focus" (ao clicar) */
+.input-group input:focus {
+  outline: none; /* Remove a borda padrão */
+  /* Adiciona um "brilho" Laranja Voo */
+  box-shadow: 0 0 0 3px var(--cor-laranja-voo); 
+}
+
+/* --- 5. Botão de Ação --- */
 .login-button {
   width: 100%;
-  padding: 0.75rem;
+  padding: 1rem; /* Mais alto */
   border: none;
-  border-radius: 4px;
-  background-color: #007bff; /* Azul primário */
-  color: white;
+  border-radius: 8px;
+  background-color: var(--cor-laranja-voo); /* Laranja Voo */
+  color: var(--cor-branco-foco);
+  font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 700; /* Bold */
   cursor: pointer;
-  transition: background-color 0.3s ease; /* Efeito suave ao passar o mouse */
+  transition: all 0.3s ease;
+  margin-top: 1.5rem;
+  text-transform: uppercase; /* ENTRAR */
 }
 
 .login-button:hover {
-  background-color: #0056b3; /* Azul mais escuro */
+  background-color: #e66e00; /* Laranja Voo um pouco mais escuro */
+  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3); /* Brilho laranja */
 }
 
-/* --- 5. Feedback de Erro --- */
+.login-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+/* --- 6. Links Extras --- */
+.login-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+}
+
+.login-link {
+  color: var(--cor-cinza-suporte);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.login-link:hover {
+  color: var(--cor-branco-foco);
+  text-decoration: underline;
+}
+
+/* --- 7. Mensagem de Erro --- */
 .error-message {
-  color: #d93025; /* Vermelho de alerta */
-  background-color: #fbeae9;
-  border: 1px solid #d93025;
+  color: #ff6b6b; /* Um vermelho mais vibrante para o tema escuro */
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid #ff6b6b;
   border-radius: 4px;
   padding: 0.75rem;
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  font-family: 'Montserrat', sans-serif;
 }

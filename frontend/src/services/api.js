@@ -1,47 +1,62 @@
 // Arquivo: frontend/src/services/api.js
-// Responsabilidade: O "Mensageiro" Centralizado da Aplicação.
-//
-// Este arquivo é o "coração" da nossa comunicação com o backend.
-// Nós criamos uma 'instância' do Axios pré-configurada para que
-// nenhum outro componente (Dashboard, Settings, etc.) precise saber
-// a URL completa da API ou como se autenticar.
+// (VERSÃO FINAL COM INTERCEPTADOR DE ERRO 401)
 
 import axios from 'axios';
 
 // 1. Cria a instância "pré-configurada" do axios
 const api = axios.create({
-  
-  // 2. Lê a URL base do nosso backend a partir das variáveis de ambiente.
-  // Em desenvolvimento (npm run dev), ele lerá do 'frontend/.env' (http://127.0.0.1:8000).
-  // Em produção (no Vercel), ele lerá a variável VITE_API_BASE_URL
-  // que configuramos no painel do Vercel (https://...onrender.com).
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
-// --- 3. O INTERCEPTADOR MÁGICO (O "Crachá" Automático) ---
-//
-// 'interceptors.request' "ensina" o axios a fazer algo ANTES
-// de CADA requisição que ele enviar (ex: GET, POST, etc.).
+// --- 2. O INTERCEPTADOR DE REQUISIÇÃO (O "Crachá" Automático) ---
+// (Este código você já tem)
 api.interceptors.request.use(
   (config) => {
-    // 1. Pega o token do localStorage (o "crachá" que guardamos no AuthContext)
     const token = localStorage.getItem('token');
-    
-    // 2. Se o token existir, adiciona ele no cabeçalho da requisição
-    //    no formato 'Authorization: Bearer <token>'
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
-    
-    // 3. Continua com a requisição, agora com o cabeçalho de autorização
     return config;
   },
   (error) => {
-    // Em caso de erro ao preparar a requisição (ex: falha de rede)
     return Promise.reject(error);
   }
 );
 
-// Exporta a instância 'api' configurada para ser usada em todo o app.
-// Ex: import api from '../../services/api';
+// --- 3. O INTERCEPTADOR DE RESPOSTA (O "Segurança" do Frontend) ---
+//
+// Este interceptador "olha" CADA resposta que volta da API.
+api.interceptors.response.use(
+  
+  // (Caso 1: A resposta é 2xx - SUCESSO)
+  // Se a resposta for boa, apenas a repasse.
+  (response) => {
+    return response;
+  },
+  
+  // (Caso 2: A resposta é 4xx ou 5xx - ERRO)
+  // Se a API retornar um erro...
+  async (error) => {
+    // Verificamos se o erro é o "401 - Não Autorizado"
+    // (ou seja, nosso token está vencido ou inválido)
+    if (error.response && error.response.status === 401) {
+      console.error("Token vencido ou inválido detectado. Deslogando...");
+      
+      // 1. Limpa o "crachá" vencido do bolso
+      localStorage.removeItem('token');
+      
+      // 2. "Chuta" o usuário de volta para a tela de login
+      //    (Isso força o AuthContext a recarregar sem token)
+      //    Usamos window.location para forçar um recarregamento total da página,
+      //    limpando qualquer estado antigo do React.
+      window.location.href = '/login'; 
+    }
+    
+    // Para qualquer outro erro (404, 500, etc.), apenas rejeite a promessa
+    // para que os componentes (ex: Dashboard) possam tratar
+    return Promise.reject(error);
+  }
+);
+
+
 export default api;

@@ -1,108 +1,100 @@
 // Arquivo: frontend/src/pages/Login/Login.jsx
-// Responsabilidade: "Página" (cômodo) de Login.
-// Renderiza o formulário de login e gerencia o estado (usuário, senha, erro).
+// (VERSÃO V2.0 - DESIGN "AZUL GUARDIÃO" / "NOMAD")
 
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext'; // O "cérebro" do login
-import { useNavigate } from 'react-router-dom'; // O "mapa" para redirecionar
-import './Login.css'; // Estilos específicos desta página
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import './Login.css'; // Importa os nossos novos estilos
+
+// 1. IMPORTA O LOGO
+// O React/Vite encontrará o logo na pasta 'assets'
+import logoNomad from '../../assets/logo.png'; // Certifique-se que o nome do arquivo é 'logo.png'
 
 /**
- * Componente da página de Login.
- * É um formulário "controlado" (controlled component), onde o React
- * gerencia o valor de cada campo de input através de 'useState'.
+ * Componente da Página de Login, agora com o design "NOMAD".
  */
-function Login() { 
-  
-  // --- 1. Hooks (O "cérebro" do componente) ---
-  
-  // Estados para controlar os campos do formulário
+function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
-  // Estado para exibir mensagens de erro ao usuário
   const [error, setError] = useState('');
-  
-  // Pega a função de 'login' do nosso cérebro global (AuthContext)
+  const [loading, setLoading] = useState(false); // Estado de "carregando"
+
   const { login } = useAuth();
-  
-  // Pega a função 'navigate' do React Router para podermos redirecionar o usuário
   const navigate = useNavigate();
 
-  // --- 2. Função de Envio ---
-  
-  /**
-   * Função chamada quando o usuário clica no botão "Entrar" (envia o formulário).
-   * @param {React.FormEvent} event - O evento do formulário.
-   */
   const handleSubmit = async (event) => {
-    // Impede o comportamento padrão do HTML, que é recarregar a página
     event.preventDefault();
-    // Limpa qualquer erro antigo antes de tentar o login
     setError('');
+    setLoading(true); // Ativa o "carregando"
 
     try {
-      // Chama a função 'login' que está no AuthContext.
-      // O AuthContext é que faz a chamada de API (axios) para o backend.
       const success = await login(username, password);
 
       if (success) {
-        // Se o login der certo (retornar true)...
-        console.log("LOGIN BEM-SUCEDIDO! Redirecionando...");
-        navigate('/'); // Redireciona o usuário para o Dashboard (página principal)
+        navigate('/'); // Redireciona para o Dashboard
       } else {
-        // Se o login falhar (retornar false, ex: 401 do backend)...
         setError('Nome de usuário ou senha incorretos.');
+        setLoading(false); // Para o "carregando" se der erro
       }
-    } catch (err) { // Pega erros inesperados (ex: rede caiu)
+    } catch (err) {
       console.error('Erro no handleSubmit do Login:', err);
       setError('Ocorreu um erro inesperado. Tente novamente.');
+      setLoading(false);
     }
   };
 
-  // --- 3. Renderização do JSX (O que aparece na tela) ---
+  // --- O NOVO JSX (baseado no seu mockup) ---
   return (
-    <div className="login-container">
-      {/* Conecta nossa função handleSubmit ao evento onSubmit do formulário */}
-      <form className="login-form" onSubmit={handleSubmit}>
-        <h2>Login</h2>
-        
-        {/* Renderização Condicional: 
-            Mostra o <p> de erro APENAS SE a variável 'error' tiver algum texto */}
-        {error && <p className="error-message">{error}</p>}
+    // O 'login-page-wrapper' ajuda a centralizar verticalmente
+    <div className="login-page-wrapper">
+      <div className="login-container">
 
-        {/* Campo de Usuário (Componente Controlado) */}
-        <div className="input-group">
-          <label htmlFor="username">Usuário</label>
-          <input
-            type="text"
-            id="username"
-            placeholder="Digite seu usuário"
-            value={username} // O valor é "amarrado" ao nosso estado 'username'
-            onChange={(e) => setUsername(e.target.value)} // A cada tecla, atualiza o estado
-            required
-          />
-        </div>
+        {/* Logo da Marca */}
+        <img src={logoNomad} alt="Logo NOMAD" className="login-logo" />
 
-        {/* Campo de Senha (Componente Controlado) */}
-        <div className="input-group">
-          <label htmlFor="password">Senha</label>
-          <input
-            type="password"
-            id="password"
-            placeholder="Digite sua senha"
-            value={password} // O valor é "amarrado" ao nosso estado 'password'
-            onChange={(e) => setPassword(e.target.value)} // A cada tecla, atualiza o estado
-            required
-          />
-        </div>
-        
-        <button type="submit" className="login-button">
-          Entrar
-        </button>
-      </form>
+        <h1 className="login-title">NOMAD</h1>
+        <p className="login-subtitle">Offline. Sempre. Seu.</p>
+
+        <form className="login-form" onSubmit={handleSubmit}>
+
+          {/* Mostra o erro aqui */}
+          {error && <p className="error-message">{error}</p>}
+
+          <div className="input-group">
+            {/* Usamos o placeholder como label, como no mockup */}
+            <input
+              type="text"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="E-mail"
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Senha"
+              required
+            />
+          </div>
+
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? 'Entrando...' : 'ENTRAR'}
+          </button>
+
+          <div className="login-links">
+            <Link to="/forgot-password" className="login-link">Esqueci minha senha</Link>
+            <Link to="/signup" className="login-link">Criar nova conta</Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
-} 
+}
 
 export default Login;

@@ -1,0 +1,130 @@
+/* Arquivo: frontend/src/pages/SignUp/SignUp.css */
+/* (VERSÃO V2.0 - DESIGN "AZUL GUARDIÃO") */
+
+.signup-page-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  flex-grow: 1; 
+  padding: 2rem;
+}
+
+.signup-container {
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 450px;
+  text-align: center;
+}
+
+.signup-logo {
+  width: 100px; /* Um pouco menor que o do login */
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
+.signup-title {
+  color: var(--cor-branco-foco);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 2rem;
+  margin: 0;
+}
+
+.signup-subtitle {
+  color: var(--cor-cinza-suporte);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.signup-form {
+  text-align: left;
+}
+
+/* Usando os mesmos estilos do Login.css */
+.input-group {
+  margin-bottom: 1.5rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--cor-branco-foco);
+  color: var(--cor-base-azul-guardiao);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: box-shadow 0.3s ease;
+}
+
+.input-group input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--cor-laranja-voo); 
+}
+
+/* Botão de Ação (Laranja) */
+.signup-button {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--cor-laranja-voo);
+  color: var(--cor-branco-foco);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1.5rem;
+  text-transform: uppercase;
+}
+.signup-button:hover {
+  background-color: #e66e00;
+  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3);
+}
+.signup-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+/* Link para "Já tem conta?" */
+.signup-links {
+  text-align: center;
+  margin-top: 2rem;
+}
+.signup-link {
+  color: var(--cor-cinza-suporte);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+.signup-link:hover {
+  color: var(--cor-branco-foco);
+  text-decoration: underline;
+}
+
+/* Mensagens de Feedback */
+.error-message {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid #ff6b6b;
+  border-radius: 4px;
+  padding: 0.75rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.success-message {
+  color: var(--cor-verde-esmeralda);
+  background-color: rgba(0, 224, 143, 0.1);
+  border: 1px solid var(--cor-verde-esmeralda);
+  border-radius: 4px;
+  padding: 0.75rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}

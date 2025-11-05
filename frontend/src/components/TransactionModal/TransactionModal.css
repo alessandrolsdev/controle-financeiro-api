@@ -1,8 +1,6 @@
-/* Arquivo: frontend/src/components/TransactionModal/TransactionModal.css */
-/* Estilização específica para o componente do Modal de Transação */
+/* Arquivo: frontend/src/components/TransactionModal/TransactionModal.css (VERSÃO V3.0 - COM TEMA DINÂMICO) */
 
 /* --- 1. Layout do Overlay --- */
-/* O fundo escuro que cobre a tela inteira */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -13,33 +11,27 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000; /* Garante que fique acima de tudo */
-  font-family: Arial, sans-serif;
+  z-index: 1000;
+  font-family: 'Montserrat', sans-serif;
 }
 
 /* --- 2. O Card do Modal --- */
-/* A caixa branca que contém o formulário */
 .modal-content {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  background: var(--cor-fundo-card); /* Cor dinâmica */
+  border: 1px solid var(--cor-borda);
+  padding: 2.5rem 3rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 500px;
-  z-index: 1001; /* Garante que fique acima do overlay */
+  z-index: 1001;
   animation: slide-down 0.3s ease-out;
+  transition: background-color 0.3s ease;
 }
 
-/* Animação sutil de entrada */
 @keyframes slide-down {
-  from {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(-50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* --- 3. Cabeçalho do Modal --- */
@@ -47,32 +39,32 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--cor-borda);
   padding-bottom: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .modal-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--cor-texto-primario);
+  font-weight: 600;
 }
 
 .close-button {
   background: none;
   border: none;
   font-size: 2.5rem;
-  color: #aaa;
+  color: var(--cor-texto-secundario);
   cursor: pointer;
   line-height: 1;
 }
-
 .close-button:hover {
-  color: #333;
+  color: var(--cor-texto-primario);
 }
 
-/* --- 4. Estilos do Formulário (Reutilizados) --- */
+/* --- 4. Estilos do Formulário (Padrão "Underline") --- */
 .modal-form {
-  font-family: Arial, sans-serif;
+  font-family: 'Montserrat', sans-serif;
 }
 
 .input-group { 
@@ -81,42 +73,64 @@
 .input-group label { 
   display: block; 
   margin-bottom: 0.5rem; 
-  color: #555; 
-  font-weight: bold; 
+  color: var(--cor-texto-secundario);
+  font-weight: 500;
+  font-size: 0.9rem;
 }
+
 .input-group input,
 .input-group select,
 .input-group textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-sizing: border-box;
+  padding: 0.75rem 0.25rem;
+  border: none;
+  border-bottom: 2px solid var(--cor-texto-secundario);
+  background-color: transparent;
+  color: var(--cor-texto-primario);
+  font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
+  border-radius: 0;
+  transition: border-color 0.3s ease;
 }
 
+.input-group input:focus,
+.input-group select:focus,
+.input-group textarea:focus {
+  outline: none;
+  border-color: var(--cor-laranja-voo); 
+}
+
+.input-group select option {
+  background-color: var(--cor-fundo-principal);
+  color: var(--cor-texto-primario);
+}
+
+/* --- 5. Botão de Ação --- */
+/* O designer pediu o botão de salvar gasto como Laranja Voo */
 .submit-button {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.85rem;
   border: none;
-  border-radius: 4px;
-  background-color: #007bff; /* Azul primário */
-  color: white;
+  border-radius: 8px;
+  background-color: var(--cor-laranja-voo); /* Laranja Voo */
+  color: var(--cor-branco-foco);
+  font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-top: 1rem;
 }
 
 .submit-button:hover {
-  background-color: #0056b3;
+  background-color: #e66e00;
 }
 
-/* --- 5. Mensagens de Feedback --- */
+/* --- 6. Mensagens de Feedback (Dinâmicas) --- */
 .error-message {
-  color: #d93025;
-  background-color: #fbeae9;
-  border: 1px solid #d93025;
+  color: var(--cor-gasto);
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid var(--cor-gasto);
   border-radius: 4px;
   padding: 0.75rem;
   text-align: center;
@@ -124,9 +138,9 @@
 }
 
 .success-message {
-  color: #218838;
-  background-color: #e9fbe9;
-  border: 1px solid #28a745;
+  color: var(--cor-lucro);
+  background-color: rgba(25, 135, 84, 0.1);
+  border: 1px solid var(--cor-lucro);
   border-radius: 4px;
   padding: 0.75rem;
   text-align: center;

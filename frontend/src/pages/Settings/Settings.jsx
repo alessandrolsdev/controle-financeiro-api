@@ -1,39 +1,27 @@
 // Arquivo: frontend/src/pages/Settings/Settings.jsx
-// Responsabilidade: "Página" (cômodo) de Configurações.
-// Permite que o usuário crie e visualize as Categorias de transação.
+// (VERSÃO V3.0 - Refatorado para o MainLayout e "Glassmorphism")
 
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api'; // Nosso "mensageiro" axios pré-configurado
-import { Link } from 'react-router-dom'; // Para o botão "Voltar"
+import api from '../../services/api';
 import './Settings.css';
+import { useTheme } from '../../context/ThemeContext';
 
-/**
- * Componente da página de Configurações.
- * Exibe um formulário para criar novas categorias e uma lista das categorias existentes.
- */
 function Settings() {
-  // --- Estados de Dados ---
-  const [categorias, setCategorias] = useState([]); // Armazena a lista de categorias vinda da API
-  const [loading, setLoading] = useState(true);     // Controla a exibição da mensagem "Carregando..."
-  
-  // --- Estados do Formulário ---
-  const [nomeCategoria, setNomeCategoria] = useState('');     // Controla o campo de "Nome"
-  const [tipoCategoria, setTipoCategoria] = useState('Gasto'); // Controla o campo "Tipo"
-  
-  // --- Estados de Feedback (UI) ---
-  const [error, setError] = useState('');       // Mensagem de erro do formulário
-  const [success, setSuccess] = useState('');     // Mensagem de sucesso do formulário
+  const { theme, toggleTheme } = useTheme();
+  const [categorias, setCategorias] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  /**
-   * Busca a lista de categorias na API.
-   * Chamada pelo useEffect (ao carregar) e após criar uma nova categoria.
-   */
+  const [nomeCategoria, setNomeCategoria] = useState('');
+  const [tipoCategoria, setTipoCategoria] = useState('Gasto');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
   const fetchCategorias = async () => {
     try {
-      // Usa nosso 'api.js', que já injeta o token de autenticação
-      const response = await api.get('/categorias/'); 
+      setLoading(true); // Liga o "carregando"
+      const response = await api.get('/categorias/');
       setCategorias(response.data);
-      setLoading(false);
+      setLoading(false); // Desliga o "carregando"
     } catch (err) {
       console.error("Erro ao buscar categorias:", err);
       setError("Não foi possível carregar as categorias.");
@@ -41,76 +29,48 @@ function Settings() {
     }
   };
 
-  // Efeito "On Mount": Roda UMA VEZ quando o componente é carregado
-  // O array vazio '[]' garante que ele só rode no carregamento inicial.
   useEffect(() => {
     fetchCategorias();
   }, []);
 
-  /**
-   * Lida com o envio (submit) do formulário de criação de categoria.
-   */
   const handleCreateCategoria = async (event) => {
-    event.preventDefault(); // Impede o recarregamento padrão da página
+    event.preventDefault();
     setError('');
     setSuccess('');
-
-    // Validação simples de frontend
     if (!nomeCategoria) {
       setError("O nome da categoria é obrigatório.");
       return;
     }
-
     try {
-      // 1. Envia os dados do formulário (nome, tipo) para a API
       await api.post('/categorias/', {
         nome: nomeCategoria,
         tipo: tipoCategoria,
       });
-
-      // 2. Feedback de Sucesso para o Usuário
       setSuccess(`Categoria "${nomeCategoria}" criada com sucesso!`);
-      setNomeCategoria(''); // Limpa o campo do formulário
-
-      // 3. ATUALIZAÇÃO EM TEMPO REAL:
-      // Busca a lista de categorias novamente para que o usuário
-      // veja a nova categoria aparecer na "Categorias Existentes"
-      // sem precisar recarregar a página.
-      fetchCategorias(); 
-      
+      setNomeCategoria('');
+      fetchCategorias(); // Atualiza a lista
     } catch (err) {
       console.error("Erro ao criar categoria:", err);
-      // Pega o erro específico do backend, se houver
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError("Erro ao criar categoria. Tente novamente.");
-      }
+      setError("Erro ao criar categoria. Tente novamente.");
     }
   };
 
-  // --- Renderização do Componente (JSX) ---
   return (
-    <div className="settings-container">
-      {/* Barra de Navegação Específica da Página */}
-      <nav className="settings-nav">
-        <h1>Configurações</h1>
-        <Link to="/" className="nav-link-back">
-          &larr; Voltar ao Dashboard
-        </Link>
-      </nav>
 
-      {/* Conteúdo Principal */}
+    // O 'settings-container' agora usa o padding-bottom para a Navbar
+    <div className="settings-container">
+      {/* O novo cabeçalho, igual ao do Dashboard */}
+      <header className="settings-header">
+        <h2>Ajustes e Configurações</h2>
+      </header>
+
       <main className="settings-content">
-        
-        {/* Card 1: Formulário de Criação */}
         <div className="settings-card">
           <h2>Criar Nova Categoria</h2>
           <form onSubmit={handleCreateCategoria}>
-            {/* Exibe mensagens de feedback (erro ou sucesso) */}
             {error && <p className="error-message">{error}</p>}
             {success && <p className="success-message">{success}</p>}
-            
+
             <div className="input-group">
               <label htmlFor="nome">Nome da Categoria</label>
               <input
@@ -121,7 +81,7 @@ function Settings() {
                 placeholder="Ex: Combustível, Peças, Almoço"
               />
             </div>
-            
+
             <div className="input-group">
               <label htmlFor="tipo">Tipo</label>
               <select
@@ -133,14 +93,13 @@ function Settings() {
                 <option value="Receita">Receita (Ganho)</option>
               </select>
             </div>
-            
+
             <button type="submit" className="settings-button">
               Criar Categoria
             </button>
           </form>
         </div>
 
-        {/* Card 2: Lista de Categorias Existentes */}
         <div className="settings-card">
           <h2>Categorias Existentes</h2>
           <div className="categoria-list">
@@ -151,11 +110,9 @@ function Settings() {
                 {categorias.length === 0 ? (
                   <p>Nenhuma categoria encontrada.</p>
                 ) : (
-                  // Loop (map) para renderizar cada item da lista
                   categorias.map((cat) => (
                     <li key={cat.id}>
                       <span>{cat.nome}</span>
-                      {/* Badge (etiqueta) colorida para 'Gasto' ou 'Receita' */}
                       <span className={`tipo-badge tipo-${cat.tipo.toLowerCase()}`}>
                         {cat.tipo}
                       </span>
@@ -164,6 +121,31 @@ function Settings() {
                 )}
               </ul>
             )}
+          </div>
+        </div>
+        <div className="settings-card">
+          <h2>Aparência</h2>
+          <div className="settings-item">
+            <span>Modo {theme === 'dark' ? 'Escuro' : 'Claro'}</span>
+            {/* Este é um interruptor (toggle) feito em CSS puro */}
+            <label className="theme-toggle">
+              <input
+                type="checkbox"
+                onChange={toggleTheme}
+                checked={theme === 'light'}
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div className="settings-card">
+          <h2>Segurança e Backup (V2.0)</h2>
+          <div className="settings-item">
+            <span>Exportar Backup de Dados</span>
+            {/* O botão 'disabled' mostra que a feature existe no plano, mas não está pronta */}
+            <button className="settings-button-disabled" disabled>
+              Em breve
+            </button>
           </div>
         </div>
       </main>
