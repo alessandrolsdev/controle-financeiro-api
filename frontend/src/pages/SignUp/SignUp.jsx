@@ -115,5 +115,4 @@ function SignUp() {
   );
 } 
 
-// --- A LINHA QUE FALTAVA ---
 export default SignUp;

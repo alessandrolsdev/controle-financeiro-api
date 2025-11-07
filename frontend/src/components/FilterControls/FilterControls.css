@@ -1,0 +1,71 @@
+/* Arquivo: frontend/src/components/FilterControls/FilterControls.css */
+/* (VERSÃO COMPLETA V3.8 - COM ESTILO DE RANGE) */
+
+.filter-tabs-container {
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.tab-button {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--cor-borda);
+  background-color: transparent;
+  color: var(--cor-texto-secundario);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.tab-button:hover {
+  background-color: var(--cor-fundo-card);
+  color: var(--cor-branco-foco);
+}
+.tab-button.active {
+  background-color: var(--cor-laranja-voo);
+  color: var(--cor-branco-foco);
+  border-color: var(--cor-laranja-voo);
+}
+
+.date-picker-container {
+  /* (O flex-wrap no pai já cuida do alinhamento) */
+}
+
+.date-picker-input {
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-branco-foco);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.date-picker-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* --- ESTILO PARA O FILTRO PERSONALIZADO --- */
+.date-range-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.date-range-wrapper span {
+  color: var(--cor-cinza-suporte);
+  font-size: 0.9rem;
+}

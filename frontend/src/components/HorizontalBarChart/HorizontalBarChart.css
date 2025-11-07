@@ -1,0 +1,27 @@
+/* Arquivo: frontend/src/components/HorizontalBarChart/HorizontalBarChart.css (NOVO ARQUIVO) */
+
+.horizontal-bar-wrapper {
+  width: 100%;
+  /* A altura será controlada pelo 'data.length' no componente */
+}
+
+/* --- ESTILO DA TOOLTIP (Copiado do DoughnutChart) --- */
+.horizontal-bar-tooltip {
+  background-color: var(--cor-fundo-card); 
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 10px 15px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  opacity: 1;
+}
+.tooltip-label {
+  color: var(--cor-texto-primario);
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.tooltip-sublabel {
+  color: var(--cor-texto-secundario);
+  font-size: 0.8rem;
+  margin: 4px 0 0 0;
+}

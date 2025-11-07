@@ -10,7 +10,7 @@
 .doughnut-chart-wrapper {
   position: relative;
   width: 100%;
-  max-width: 250px;
+  max-width: 250px; 
   height: 250px;
   margin: 0 auto;
 }
@@ -76,4 +76,25 @@
 
 .legend-label {
   font-weight: 600; 
+}
+
+/* --- ESTILO DA NOVA TOOLTIP (RECHARTS) --- */
+.custom-tooltip {
+  background-color: var(--cor-fundo-card); /* 🚨 NOVIDADE: Use uma cor mais sólida, como a do card */
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 10px 15px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Um pouco mais de sombra para se destacar */
+  opacity: 1; /* 🚨 NOVIDADE: Garante que não há transparência indesejada */
+}
+.tooltip-label {
+  color: var(--cor-texto-primario);
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.tooltip-sublabel {
+  color: var(--cor-texto-secundario);
+  font-size: 0.8rem;
+  margin: 4px 0 0 0;
 }

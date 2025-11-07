@@ -1,48 +1,90 @@
 // Arquivo: frontend/src/components/TransactionModal/TransactionModal.jsx
-// Responsabilidade: O "Móvel" (componente) de formulário para criar transações.
-// Esta é a versão final, com a lógica "Offline-First".
+// (VERSÃO V6.0 - MODO DE CRIAÇÃO/EDIÇÃO)
+/*
+REATORAÇÃO (Missão V6.0):
+1. O modal agora aceita a prop 'transactionToEdit'.
+2. Um estado 'isEditMode' é derivado dessa prop.
+3. Os 'useState' (descricao, valor, etc.) agora são
+   pré-preenchidos com os dados de 'transactionToEdit' se
+   ele existir.
+4. 'handleSubmit' foi REESCRITO:
+   - Se 'isEditMode', ele chama 'api.put(...)'.
+   - Se não, ele chama 'api.post(...)'.
+5. O modo OFFLINE foi desabilitado para EDIÇÃO (mais seguro).
+6. O Título e o Botão de Salvar mudam (ex: "Editar Transação").
+*/
 
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api'; // Nosso "mensageiro" axios
+import api from '../../services/api'; 
 import './TransactionModal.css';
 
+// --- FUNÇÕES AUXILIARES ---
+
 /**
- * Componente de Modal para Registrar uma Nova Transação.
- *
- * @param {object} props - Propriedades recebidas do "Pai" (Dashboard).
- * @param {function} props.onClose - Função a ser chamada para fechar o modal.
- * @param {function} props.onSaveSuccess - Função de "callback" a ser chamada
- * quando a transação for salva ONLINE, passando os novos dados
- * do dashboard de volta para o "Pai".
+ * Pega uma string ISO (do DB) ou 'undefined' (para novo)
+ * e formata para o input 'datetime-local'.
  */
-function TransactionModal({ onClose, onSaveSuccess }) {
-  // --- 1. Estados do Formulário ---
-  const [descricao, setDescricao] = useState('');
-  const [valor, setValor] = useState('');
-  const [categoriaId, setCategoriaId] = useState('');
-  const [data, setData] = useState(new Date().toISOString().split('T')[0]); // Padrão: data de hoje
-  const [observacoes, setObservacoes] = useState('');
+const formatToInput = (isoDate) => {
+   // Usa a data passada ou a data de AGORA
+   const d = isoDate ? new Date(isoDate) : new Date();
+   
+   // Formata como AAAA-MM-DDTHH:MM no fuso LOCAL
+   const year = d.getFullYear();
+   const month = (d.getMonth() + 1).toString().padStart(2, '0');
+   const day = d.getDate().toString().padStart(2, '0');
+   const hours = d.getHours().toString().padStart(2, '0');
+   const minutes = d.getMinutes().toString().padStart(2, '0');
+   
+   return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+/**
+ * Limpa e converte uma string de dinheiro (ex: "R$ 1.234,56")
+ * para um número que o 'parseFloat' entende (ex: "1234.56").
+ */
+const parseValor = (valorString) => {
+  if (!valorString) return 0.0;
+  let limpo = valorString.toString().replace(/[^0-9,.-]/g, ''); 
+  if (limpo.includes(',')) {
+    limpo = limpo.replace(/\./g, '');
+    limpo = limpo.replace(',', '.');
+  }
+  return parseFloat(limpo) || 0.0;
+};
+// -----------------------------
+
+
+function TransactionModal({ onClose, onSaveSuccess, transactionToEdit }) {
   
-  // --- 2. Estados de UI (Interface) ---
+  // 1. DETERMINA O MODO
+  const isEditMode = Boolean(transactionToEdit);
+
+  // 2. ESTADOS DO FORMULÁRIO (PRÉ-PREENCHIDOS)
+  const [descricao, setDescricao] = useState(transactionToEdit?.descricao || '');
+  const [valor, setValor] = useState(transactionToEdit?.valor.toString() || '');
+  const [categoriaId, setCategoriaId] = useState(transactionToEdit?.categoria?.id || '');
+  const [data, setData] = useState(formatToInput(transactionToEdit?.data)); // Usa o helper
+  const [observacoes, setObservacoes] = useState(transactionToEdit?.observacoes || '');
+  
+  // --- Estados de UI (Sem mudança) ---
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // --- 3. Efeito de Busca de Dados ---
-  // Roda UMA VEZ assim que o modal é aberto.
+  // --- Efeito de Busca de Dados (Categorias) ---
   useEffect(() => {
-    /** Busca a lista de categorias na API para preencher o dropdown. */
     const fetchCategorias = async () => {
-      // Nota: Esta parte SÓ funciona se o usuário estiver ONLINE
-      // ao abrir o modal. A V2.0 seria salvar as categorias no PWA.
       try {
         setLoading(true);
         const response = await api.get('/categorias/');
         setCategorias(response.data);
-        if (response.data.length > 0) {
+        
+        // Se for MODO DE CRIAÇÃO e não houver categoria selecionada
+        if (!isEditMode && response.data.length > 0 && !categoriaId) {
           setCategoriaId(response.data[0].id);
         }
+        
         setLoading(false);
       } catch (err) {
         console.error("Erro ao buscar categorias para o modal:", err);
@@ -51,37 +93,47 @@ function TransactionModal({ onClose, onSaveSuccess }) {
       }
     };
     fetchCategorias();
-  }, []); // O [] garante que rode só uma vez.
+  }, [isEditMode, categoriaId]); // Re-roda se o modo mudar
 
-  // --- 4. Função de Envio (COM LÓGICA ONLINE/OFFLINE) ---
+  // --- 4. Função de Envio (ATUALIZADA) ---
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setSuccess('');
 
-    // Prepara o "pacote" da transação que será salvo
+    const valorNumerico = parseValor(valor);
+    if (valorNumerico <= 0) {
+      setError("O valor deve ser maior que zero.");
+      return;
+    }
+
+    // O "pacote" de dados é o mesmo para criar ou editar
     const transactionPayload = {
       descricao: descricao,
-      valor: parseFloat(valor),
+      valor: valorNumerico,
       categoria_id: parseInt(categoriaId),
       data: data,
       observacoes: observacoes,
     };
 
-    // --- A MÁGICA DO PWA (PLANO A vs PLANO B) ---
-    // Verificamos a API nativa do navegador para ver se há conexão
+    // --- A NOVA LÓGICA DE 'SAVE' ---
     if (navigator.onLine) {
-      // --- PLANO A (ESTAMOS ONLINE) ---
-      // O fluxo normal que já tínhamos.
       try {
-        setSuccess('Salvando e sincronizando...');
-        const response = await api.post('/transacoes/', transactionPayload);
-
-        setSuccess('Transação salva com sucesso!');
+        setSuccess(isEditMode ? 'Atualizando...' : 'Salvando...');
         
-        // Avisa o Dashboard (Pai) para atualizar os totais
+        if (isEditMode) {
+          // --- MODO DE EDIÇÃO (PUT) ---
+          await api.put(`/transacoes/${transactionToEdit.id}`, transactionPayload);
+        } else {
+          // --- MODO DE CRIAÇÃO (POST) ---
+          await api.post('/transacoes/', transactionPayload);
+        }
+
+        setSuccess(isEditMode ? 'Transação atualizada com sucesso!' : 'Transação salva com sucesso!');
+        
+        // Avisa o Pai (MainLayout) para fechar e re-buscar os dados
         setTimeout(() => {
-          onSaveSuccess(response.data); 
+          onSaveSuccess(); 
         }, 1000); 
 
       } catch (err) {
@@ -89,27 +141,22 @@ function TransactionModal({ onClose, onSaveSuccess }) {
         setError("Erro ao salvar. Verifique os campos e tente novamente.");
       }
     } else {
-      // --- PLANO B (ESTAMOS OFFLINE) ---
-      // A internet caiu! Salvamos na "fila de espera" do localStorage.
+      // --- MODO OFFLINE ---
+      if (isEditMode) {
+        setError("A edição de transações não está disponível offline.");
+        return;
+      }
+      
+      // (Lógica de Fila Offline - apenas para Criação)
       try {
         setSuccess('Salvando offline...');
-        
-        // 1. Pega a "fila" (queue) atual do localStorage, ou cria uma lista vazia
         const queue = JSON.parse(localStorage.getItem('offlineTransactionsQueue') || '[]');
-        
-        // 2. Adiciona o novo "pacote" (gasto) na fila
         queue.push(transactionPayload);
-        
-        // 3. Salva a fila atualizada de volta no localStorage
         localStorage.setItem('offlineTransactionsQueue', JSON.stringify(queue));
-
         setSuccess('Gasto salvo offline! Será sincronizado quando a internet voltar.');
-
-        // 4. Apenas fecha o modal (não podemos atualizar o Dashboard)
         setTimeout(() => {
-          onClose(); 
-        }, 1500); // 1.5s para o usuário ler a msg
-        
+           onClose(); 
+        }, 1500);
       } catch (err) {
         console.error("Erro ao salvar transação (offline):", err);
         setError("Não foi possível salvar offline. Tente novamente.");
@@ -117,12 +164,13 @@ function TransactionModal({ onClose, onSaveSuccess }) {
     }
   };
   
-  // --- 5. Renderização do JSX (sem mudanças) ---
+  // --- 5. Renderização do JSX (Títulos Dinâmicos) ---
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Registrar Nova Transação</h2>
+          {/* TÍTULO DINÂMICO */}
+          <h2>{isEditMode ? 'Editar Transação' : 'Registrar Nova Transação'}</h2>
           <button onClick={onClose} className="close-button">&times;</button>
         </div>
         
@@ -137,12 +185,27 @@ function TransactionModal({ onClose, onSaveSuccess }) {
 
           <div className="input-group">
             <label htmlFor="valor">Valor (R$)</label>
-            <input type="number" id="valor" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0.00" required />
+            <input 
+              type="text"
+              inputMode="decimal"
+              id="valor" 
+              value={valor} 
+              onChange={(e) => setValor(e.target.value)} 
+              placeholder="0,00" 
+              required 
+            />
           </div>
 
           <div className="input-group">
-            <label htmlFor="data">Data da Transação</label>
-            <input type="date" id="data" value={data} onChange={(e) => setData(e.target.value)} required />
+            <label htmlFor="data">Data e Hora da Transação</label>
+            <input 
+              type="datetime-local"
+              id="data" 
+              value={data} 
+              onChange={(e) => setData(e.target.value)} 
+              required 
+              max={formatToInput()} // Max = Agora
+            />
           </div>
 
           <div className="input-group">
@@ -164,8 +227,9 @@ function TransactionModal({ onClose, onSaveSuccess }) {
             <textarea id="observacoes" rows="3" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Ex: Placa do caminhão..."></textarea>
           </div>
 
+          {/* BOTÃO DINÂMICO */}
           <button type="submit" className="submit-button">
-            Salvar Transação
+            {isEditMode ? 'Salvar Alterações' : 'Salvar Transação'}
           </button>
         </form>
       </div>

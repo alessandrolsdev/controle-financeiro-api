@@ -1,0 +1,87 @@
+/* Arquivo: frontend/src/pages/Reports/Reports.css */
+/* (VERSÃO V4.2 - COM BOTÃO DE EXPORTAR) */
+
+/* --- 1. Layout Principal --- */
+.reports-container {
+  font-family: 'Montserrat', sans-serif;
+  color: var(--cor-texto-primario);
+  padding-bottom: 90px;
+}
+
+/* --- 2. Cabeçalho da Página (ATUALIZADO) --- */
+.reports-header {
+  display: flex;
+  justify-content: space-between; /* <-- Isso alinha o botão à direita */
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.reports-header h2 {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--cor-texto-primario);
+}
+
+/* --- 3. NOVO BOTÃO DE EXPORTAR (V4.2) --- */
+.export-button {
+  /* Cor verde-esmeralda, com texto escuro para contraste */
+  background-color: var(--cor-verde-esmeralda);
+  color: var(--cor-base-azul-guardiao);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.export-button:hover {
+  opacity: 0.8;
+  box-shadow: 0 4px 10px rgba(0, 224, 143, 0.3);
+}
+
+/* --- 4. Conteúdo (Cards) --- */
+.reports-content {
+  padding: 1.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* --- 5. Card do Gráfico --- */
+.report-card {
+  background: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda);
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  transition: background-color 0.3s ease;
+  overflow-x: auto; 
+}
+
+.report-card h3 {
+  margin-top: 0;
+  margin-bottom: 2rem;
+  font-weight: 600;
+  color: var(--cor-texto-primario);
+}
+
+/* --- 6. ESTILOS DE FEEDBACK --- */
+.loading-transactions {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--cor-texto-secundario);
+}
+
+.error-message {
+  color: var(--cor-gasto);
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid var(--cor-gasto);
+  border-radius: 4px;
+  padding: 0.75rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}

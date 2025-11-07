@@ -1,65 +1,79 @@
 /* Arquivo: frontend/src/index.css */
-/* Responsabilidade: Definir o "Design System" Global (Fontes, Cores, Resets). */
+/* (VERSÃO V4.5 - DESIGN SYSTEM FINAL) */
 
 /* --- 1. IMPORTAÇÃO DA FONTE --- */
-/* Importa a fonte 'Montserrat' do Google Fonts com as espessuras (weights)
-   que o seu designer recomendou: 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold) */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
 
-/* --- 2. DEFINIÇÃO DAS VARIÁVEIS DE COR (O "DNA" DA MARCA) --- */
-/* Definimos toda a nossa paleta de cores aqui, no :root.
-   Agora, podemos usar 'var(--cor-base-azul-guardiao)' em qualquer outro arquivo CSS. */
+/* --- 2. DEFINIÇÃO DAS VARIÁVEIS DE COR (TEMA ESCURO - PADRÃO) --- */
 :root {
-  /* Cor Base (O Alicerce) */
-  --cor-base-azul-guardiao: #0B1A33;
-  
-  /* Cores de Destaque (A Energia) */
+  /* Cor Base (Fundo e Cards) */
+  --cor-fundo-principal: #0B1A33; /* Azul Guardião */
+  --cor-fundo-secundario: #1C2B4A; /* Azul do Card (nosso antigo 'fundo-card') */
+  --cor-fundo-card: var(--cor-fundo-secundario);
+  --cor-borda: rgba(255, 255, 255, 0.1);
+
+  /* Cores de Texto */
+  --cor-texto-principal: #FFFFFF;
+  --cor-texto-secundario: #CED4DA; /* Cinza Suporte */
+
+  /* Cores Semânticas (Escuro) */
+  --cor-lucro: #00E08F; /* Verde Esmeralda (Vibrante) */
+  --cor-gasto: #FF7A00; /* Laranja Voo (Vibrante) */
+
+  /* Cores de Destaque */
   --cor-laranja-voo: #FF7A00;
   --cor-verde-esmeralda: #00E08F;
   --cor-magenta-dinamico: #D400E6;
+}
 
-  /* Cores Neutras (A Legibilidade) */
-  --cor-branco-foco: #FFFFFF;
-  --cor-cinza-suporte: #CED4DA;
+/* --- 3. REGRAS DO TEMA CLARO (SOBRESCRITA) --- */
+.light-mode {
+  /* 1. FUNDO PRINCIPAL (BODY): Cinza Gelo */
+  --cor-fundo-principal: #F8F9FA;
+  
+  /* 2. FUNDO DOS CARDS: Branco Neve (Flutuante) */
+  --cor-fundo-card: #FFFFFF; 
+  --cor-fundo-secundario: var(--cor-fundo-card); 
+  
+  /* 3. BORDA: Cinza sutil */
+  --cor-borda: rgba(0, 0, 0, 0.1); 
 
-  /* Cores Semânticas (Feedback) */
-  --cor-lucro: var(--cor-verde-esmeralda); /* Verde para "bom" */
-  --cor-gasto: var(--cor-laranja-voo);    /* Laranja para "atenção" */
-  --cor-fundo-card: #1C2B4A;       /* Um azul um pouco mais claro para os cards */
-  --cor-borda: rgba(255, 255, 255, 0.1);
+  /* 4. CORES DE TEXTO (Invertidas) */
+  --cor-texto-principal: #0B1A33; /* Azul Guardião (do designer) */
+  --cor-texto-secundario: #6C757D; /* Cinza Névoa (do designer) */
+
+  /* 5. CORES SEMÂNTICAS (Ajustadas para Contraste no Branco) */
+  --cor-lucro: #198754; /* Verde Sucesso */
+  --cor-gasto: #DC3545; /* Vermelho Alerta */
 }
 
 
-/* --- 3. RESET GLOBAL E ESTILOS DO "BODY" --- */
-
-/* Reset de 'box-sizing' para um layout previsível */
+/* --- 4. RESET GLOBAL E ESTILOS DO "BODY" --- */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/* Reset de 'margin' e definição dos padrões do app */
 body {
   margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  /* Estas regras agora usam as variáveis dinâmicas */
+  background-color: var(--cor-fundo-principal); 
+  color: var(--cor-texto-principal); 
   
-  /* APLICAÇÃO DO DESIGN SYSTEM */
-  font-family: 'Montserrat', sans-serif; /* A fonte que seu designer escolheu */
-  background-color: var(--cor-base-azul-guardiao); /* O fundo "Azul Guardião" */
-  color: var(--cor-branco-foco); /* O texto padrão será "Branco Foco" */
-  
-  /* Melhora a renderização das fontes */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* TRANSITION: Efeito suave ao mudar o tema */
+  transition: background-color 0.3s, color 0.3s; 
 }
 
-/* Garante que o app ocupe a altura total */
 html, body, #root {
   height: 100%;
 }
 
-/* Remove o log chato do React DevTools */
 iframe[src*="https://react.dev/link/react-devtools"] {
   display: none !important;
 }

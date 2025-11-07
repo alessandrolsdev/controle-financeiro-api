@@ -1,136 +1,112 @@
-// Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.jsx
-// (VERSÃO V3.3 - Tooltip Inteligente)
+// Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.jsx (VERSÃO V5.1 - CORREÇÃO DE SINTAXE)
+/*
+REATORAÇÃO (Missão V5.1 - Correção):
+1. REMOVIDO o comentário '// <-- item.cor' da linha 99,
+   que estava quebrando o parser do Vite (Erro 'Unexpected token').
+*/
 
 import React from 'react';
-import { Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import './DoughnutChart.css';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
-
 /**
- * @param {object[]} chartData - Array de { nome: string, valor: number, count: number }
+ * @param {object[]} chartData - Array de { nome: string, valor: number, count: number, cor: string }
  * @param {number} totalValue - O valor total para exibir no centro
  * @param {string} centerLabel - O texto do rótulo central
  */
 function DoughnutChart({ chartData, totalValue, centerLabel }) {
 
-  const colorsPalette = [
-    '#FF7A00', // Laranja Voo
-    '#00E08F', // Verde Esmeralda
-    '#D400E6', // Magenta Dinâmico
-    '#FFC107', '#20C997', '#6F42C1',
-  ];
-
-  const data = {
-    labels: chartData.map(c => c.nome),
-    datasets: [
-      {
-        data: chartData.map(c => c.valor),
-        backgroundColor: chartData.map((_, i) => colorsPalette[i % colorsPalette.length]),
-        borderColor: '#1C2B4A', 
-        borderWidth: 3,
-      },
-    ],
-  };
+  // A paleta hard-coded não é mais necessária
 
   const formatCurrency = (value) => {
     return (parseFloat(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  // --- A CORREÇÃO DA TOOLTIP ESTÁ AQUI ---
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false, 
-    cutout: '75%', 
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        // --- 1. Correção do "Pulo" e "Seguir" ---
-        // 'nearest' e 'intersect: false' fazem a tooltip
-        // aparecer suavemente ao passar perto, sem "pular".
-        // 'position: 'average'' ajuda a centralizar no mouse.
-        position: 'average', // 'average' ou 'nearest'
-        intersect: false,
-
-        // --- 2. Correção das Cores (Texto preto/Fundo preto) ---
-        backgroundColor: '#0B1A33', // Azul Guardião
-        titleColor: '#FFFFFF',
-        bodyColor: '#FFFFFF',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 10,
-        displayColors: false, // Não mostra a "caixinha" de cor
-
-        // --- 3. A NOVA LÓGICA (Mostrar Contagem) ---
-        callbacks: {
-          // Esta função constrói o texto dentro da tooltip
-          label: (context) => {
-            // Pega o item de dados completo (ex: {nome: 'Uber', valor: 50, count: 2})
-            const item = chartData[context.dataIndex];
-            if (!item) return '';
-
-            const nome = item.nome;
-            const valorFormatado = formatCurrency(item.valor);
-            const contagem = item.count;
-            const plural = contagem > 1 ? 'ões' : 'ão';
-
-            // Cria o texto: "Uber: R$ 50,00 (2 transações)"
-            return `${nome}: ${valorFormatado} (${contagem} transaç${plural})`;
-          },
-          title: () => null, // Remove o título
-        },
-      }
-    },
-    // Remove o "piscar" ao passar o mouse em cima de uma fatia
-    onHover: (event, chartElement) => {
-      if (chartElement.length) {
-        event.native.target.style.cursor = 'pointer';
-      } else {
-        event.native.target.style.cursor = 'default';
-      }
-    }
-  };
-  // ----------------------------------------------------
-
   const formattedTotal = formatCurrency(totalValue);
+
+  // --- O Tooltip Customizado (Sem mudança) ---
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const plural = data.count > 1 ? 'ões' : 'ão';
+
+      return (
+        <div className="custom-tooltip">
+          <p className="tooltip-label">{`${data.nome}: ${formatCurrency(data.valor)}`}</p>
+          <p className="tooltip-sublabel">{`(${data.count} transaç${plural})`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+  // ---------------------------------------------
 
   return (
     <div className="doughnut-chart-container">
       <div className="doughnut-chart-wrapper">
-        {chartData && chartData.length > 0 && chartData.some(item => item.valor > 0) ? (
-          <Doughnut data={data} options={options} />
-        ) : (
-          <div className="no-chart-data">
-            <p>Sem dados para exibir.</p>
+
+        <ResponsiveContainer width="100%" height="100%">
+          {chartData && chartData.length > 0 ? (
+            <PieChart>
+              <Tooltip
+                coordinate={{ x: 0, y: 0 }} 
+                offset={40} 
+                cursor={false}
+                wrapperStyle={{ zIndex: 1100, pointerEvents: 'none' }}
+                content={<CustomTooltip />}
+              />
+              <Pie
+                data={chartData}
+                dataKey="valor"
+                nameKey="nome"
+                cx="50%"
+                cy="50%"
+                innerRadius="70%"
+                outerRadius="100%"
+                fill="#8884d8"
+                paddingAngle={2}
+              >
+                {/* 1. A MUDANÇA: USANDO entry.cor */}
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.cor} />
+                ))}
+              </Pie>
+            </PieChart>
+          ) : (
+            <div className="no-chart-data">
+              <p>Sem dados para exibir.</p>
+            </div>
+          )}
+        </ResponsiveContainer>
+
+        {/* O texto central (Sem mudança) */}
+        {chartData && chartData.length > 0 && (
+          <div className="doughnut-center-text">
+            <span className="total-amount">{formattedTotal}</span>
+            <span className="label">{centerLabel}</span>
           </div>
         )}
-        <div className="doughnut-center-text">
-          <span className="total-amount">{formattedTotal}</span>
-          <span className="label">{centerLabel}</span>
-        </div>
       </div>
-      <div className="chart-legend">
-        {chartData && chartData.length > 0 ? (
-          chartData.map((item, index) => (
+
+      {/* 2. A Legenda (USANDO entry.cor) */}
+      {chartData && chartData.length > 0 && (
+        <div className="chart-legend">
+          {chartData.map((item) => (
             <div key={item.nome} className="legend-item">
-              <span 
-                className="legend-color" 
-                style={{ backgroundColor: colorsPalette[index % colorsPalette.length] }}
+              <span
+                className="legend-color"
+                style={{ backgroundColor: item.cor }} 
               ></span>
-              <span className="legend-label" style={{ color: colorsPalette[index % colorsPalette.length] }}>
+              {/* A CORREÇÃO ESTÁ AQUI: O comentário '//' foi removido 
+                desta linha para corrigir o erro de sintaxe.
+              */}
+              <span className="legend-label" style={{ color: item.cor }}>
                 {item.nome}
               </span>
             </div>
-          ))
-        ) : (
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--cor-texto-secundario)' }}></span>
-            <span className="legend-label" style={{ color: 'var(--cor-texto-secundario)' }}>Nenhuma Categoria</span>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

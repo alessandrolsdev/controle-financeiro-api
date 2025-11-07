@@ -1,46 +1,70 @@
 // Arquivo: frontend/src/context/AuthContext.jsx
-// (VERSÃO FINAL COM DECODIFICAÇÃO DE TOKEN)
+// (VERSÃO V7.1 - BUSCA O PERFIL COMPLETO NO LOGIN)
+/*
+REATORAÇÃO (Missão V7.1):
+Este é o "Cérebro" atualizado.
+1. O estado 'user' agora armazena o OBJETO DE USUÁRIO COMPLETO
+   (vindo de /usuarios/me), não apenas os dados do token.
+2. O 'useEffect[token]' agora é o responsável por buscar o
+   perfil do usuário. Ele roda no login ou no carregamento da página.
+3. O 'login' e 'logout' apenas manipulam o 'token'; o 'useEffect'
+   reage a essa mudança.
+4. O 'user.nome_completo' estará disponível para todo o app.
+*/
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
-import api from '../services/api';
-import { jwtDecode } from 'jwt-decode'; // 1. IMPORTA A NOVA FERRAMENTA
+import api from '../services/api'; // O "Embaixador"
+import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   
-  // --- 2. NOVO ESTADO PARA O OBJETO DO USUÁRIO ---
-  // Vai guardar os dados de dentro do token (ex: { sub: 'admin', exp: 12345 })
+  // 1. ESTE ESTADO AGORA É O OBJETO DE USUÁRIO COMPLETO
   const [user, setUser] = useState(null); 
   
   const [syncTrigger, setSyncTrigger] = useState(0);
 
-  // --- 3. NOVO 'useEffect' PARA LER O TOKEN ---
-  // Este efeito "ouve" qualquer mudança no 'token'
+  // 2. O NOVO 'useEffect' QUE BUSCA O PERFIL
   useEffect(() => {
-    if (token) {
-      try {
-        // Se o token existe, decodifica ele
-        const decodedToken = jwtDecode(token); 
-        setUser(decodedToken); // Salva os dados (ex: { sub: 'admin', exp: ... }) no estado
-        localStorage.setItem('token', token); // Garante que o token está salvo
-      } catch (error) {
-        // Se o token estiver corrompido ou for inválido
-        console.error("Token inválido. Deslogando.", error);
+    // Esta função roda sempre que o 'token' mudar (login/logout)
+    // ou quando a página carregar pela primeira vez.
+    const fetchUserProfile = async () => {
+      if (token) {
+        try {
+          // Garante que o 'api.js' (nosso interceptador)
+          // use o token mais recente que temos no estado.
+          api.defaults.headers['Authorization'] = `Bearer ${token}`;
+          
+          // Busca os dados completos do perfil
+          const response = await api.get('/usuarios/me');
+          
+          // Salva o objeto de usuário completo no estado
+          setUser(response.data); 
+          
+          localStorage.setItem('token', token);
+        } catch (error) {
+          // Se o token for inválido (ex: expirado), desloga o usuário
+          console.error("Token inválido ou sessão expirou. Deslogando.", error);
+          localStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+        }
+      } else {
+        // Se não há token, limpa tudo
         localStorage.removeItem('token');
-        setToken(null);
+        api.defaults.headers['Authorization'] = null;
         setUser(null);
       }
-    } else {
-      // Se o token for nulo (logout)
-      localStorage.removeItem('token');
-      setUser(null);
-    }
+    };
+
+    fetchUserProfile();
   }, [token]); // Roda toda vez que o 'token' mudar
 
-  // ... (função syncOfflineQueue - sem alteração) ...
+  
+  // (Lógica de Sincronização Offline - Sem mudança)
   const syncOfflineQueue = async () => {
     const queue = JSON.parse(localStorage.getItem('offlineTransactionsQueue') || '[]');
     if (queue.length === 0) { return; }
@@ -67,7 +91,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   
-  // --- 4. Função de Login (Simplificada) ---
+  // 3. Função de Login (Simplificada)
+  // (Ela só precisa definir o token; o 'useEffect' fará o resto)
   const login = async (username, password) => {
     const formData = new URLSearchParams();
     formData.append('username', username);
@@ -79,9 +104,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       const newToken = response.data.access_token;
-      // APENAS salvamos o token. O 'useEffect' acima vai
-      // cuidar de decodificar e salvar o 'user' automaticamente.
-      setToken(newToken); 
+      setToken(newToken); // <-- Define o token
       
       syncOfflineQueue();
       return true;
@@ -91,14 +114,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // --- 5. Função de Logout (Simplificada) ---
+  // 4. Função de Logout (Simplificada)
   const logout = () => {
-    // APENAS limpamos o token. O 'useEffect' acima vai
-    // cuidar de limpar o 'user' automaticamente.
-    setToken(null); 
+    setToken(null); // <-- Limpa o token (o 'useEffect' fará o resto)
   };
 
-  // --- 6. COMPARTILHANDO TUDO (INCLUINDO O 'user') ---
+  // 5. COMPARTILHA O 'user' COMPLETO
   return (
     <AuthContext.Provider value={{ token, user, login, logout, syncTrigger }}>
       {children}
@@ -106,7 +127,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// --- 7. Hook "useAuth" (código existente) ---
+// --- Hook "useAuth" (Sem mudança) ---
 export const useAuth = () => {
   return useContext(AuthContext);
 };
