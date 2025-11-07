@@ -1,13 +1,14 @@
-# Arquivo: backend/core/config.py (VERSÃO REATORADA)
+# Arquivo: backend/core/config.py (VERSÃO V-REVERTIDA COMPLETA)
 """
-Módulo de Configuração Central - A "Fonte Única da Verdade".
-REATORAÇÃO (Missão V2.1):
-Adicionamos a 'CELERY_BROKER_URL' para que o FastAPI e o Worker
-saibam como se conectar ao Redis (o "Carteiro" das tarefas).
+REVERSÃO (MISSÃO DE DEPLOY GRATUITO):
+O Render não permite um DB e um Redis gratuitos.
+Tornamos o 'CELERY_BROKER_URL' 100% opcional ('Optional[str] = None').
+A API agora pode iniciar sem ele.
 """
 
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+# 1. IMPORTA 'Optional'
 from typing import Optional
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -27,14 +28,9 @@ class Settings(BaseSettings):
     # --- Configurações do Banco de Dados ---
     DATABASE_URL: Optional[str] = None
     
-    # --- 1. NOVA CONFIGURAÇÃO DA FILA (CELERY) ---
-    # O Pydantic vai procurar por 'CELERY_BROKER_URL' no .env,
-    # mas se não achar, usará o valor padrão do Docker/localhost.
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    # --- 2. CONFIGURAÇÃO DA FILA (AGORA OPCIONAL) ---
+    CELERY_BROKER_URL: Optional[str] = None # <-- MUDANÇA CRÍTICA
     
-    # (O Celery também pode usar um 'result_backend' para armazenar
-    # resultados, mas para nossa tarefa de "dispare e esqueça",
-    # o broker é o suficiente por enquanto.)
     
     model_config = SettingsConfigDict(
         env_file=ENV_PATH,

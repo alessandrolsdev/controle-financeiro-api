@@ -1,8 +1,12 @@
-# Arquivo: backend/main.py (VERSÃO V7.2 - COMPLETA)
+# Arquivo: backend/main.py (VERSÃO V-REVERTIDA COMPLETA)
 """
-CHECK-UP (V7.2): Adiciona 'try/except IntegrityError'
-no endpoint 'atualizar_perfil_do_usuario' para
-capturar o erro "username já existe" (V7.2).
+REVERSÃO (MISSÃO DE DEPLOY GRATUITO):
+1. REMOVEMOS (comentamos) a importação 'from . import tasks'.
+2. REMOVEMOS (comentamos) as chamadas 'tasks.task_recalculate_dashboard.delay()'
+   dos endpoints 'POST /transacoes' e 'PUT /transacoes'.
+   
+Esta API agora é 100% SÍNCRONA e não tem
+dependência do Celery/Redis para iniciar.
 """
 
 # --- 1. Importações ---
@@ -10,19 +14,20 @@ from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-# IMPORTAÇÃO NECESSÁRIA PARA O TRATAMENTO DE ERRO
-from sqlalchemy.exc import IntegrityError 
 from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-from . import tasks 
+# 1. REMOVE A IMPORTAÇÃO DO CELERY
+# from . import tasks 
 from .database import SessionLocal, engine
 from .core.config import settings 
 
-# --- (Configuração, CORS, Dependências - Sem mudança) ---
+# --- 2. Configuração Inicial ---
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
+
+# --- 3. Configuração do CORS ---
 origins = [
     "http://localhost:5173",
     "http://localhost:4173",
@@ -32,16 +37,20 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"], 
     allow_headers=["*"],
 )
+
+# --- 4. Dependências de Segurança ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,8 +63,8 @@ def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends
         raise credentials_exception
     return usuario
 
+
 # --- 5. ENDPOINTS (Autenticação) ---
-# (Sem mudanças)
 @app.post("/token", response_model=schemas.Token)
 def login_para_obter_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -88,8 +97,7 @@ def ler_raiz():
     return {"message": "Bem-vindo à API de Controle Financeiro!"}
 
 
-# --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (ATUALIZADO) ---
-
+# --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (V7.0) ---
 @app.get("/usuarios/me", response_model=schemas.Usuario)
 def ler_perfil_do_usuario(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
@@ -99,13 +107,9 @@ def ler_perfil_do_usuario(
 @app.put("/usuarios/me", response_model=schemas.Usuario)
 def atualizar_perfil_do_usuario(
     detalhes: schemas.UsuarioUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_DB),
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    """
-    Atualiza os detalhes do perfil do usuário logado.
-    (V7.2: Adiciona tratamento de erro para 'nome_usuario' duplicado)
-    """
     try:
         return crud.atualizar_detalhes_usuario(
             db=db, 
@@ -113,12 +117,10 @@ def atualizar_perfil_do_usuario(
             detalhes=detalhes
         )
     except IntegrityError:
-        # (O 'crud.py' já é agnóstico, mas a 'IntegrityError'
-        #  acontece aqui se o 'nome_usuario' já estiver em uso)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Esse nome de usuário já está em uso."
+            detail="Esse nome de usuário ou email já está em uso."
         )
 
 @app.post("/usuarios/mudar-senha")
@@ -140,7 +142,6 @@ def mudar_senha(
     return {"message": "Senha atualizada com sucesso."}
 
 # --- 7. ENDPOINTS (Relatórios e Dashboard) ---
-# (Sem mudanças)
 @app.get("/dashboard/", response_model=schemas.DashboardData)
 def ler_dados_dashboard(
     data_inicio: date, 
@@ -154,6 +155,7 @@ def ler_dados_dashboard(
         data_inicio=data_inicio, 
         data_fim=data_fim
     )
+
 @app.get("/relatorios/tendencia", response_model=schemas.DadosDeTendencia)
 def ler_dados_de_tendencia(
     data_inicio: date, 
@@ -169,6 +171,7 @@ def ler_dados_de_tendencia(
         data_fim=data_fim,
         filtro=filtro 
     ) 
+
 @app.get("/transacoes/periodo/", response_model=List[schemas.Transacao])
 def ler_transacoes_por_periodo(
     data_inicio: date, 
@@ -184,14 +187,15 @@ def ler_transacoes_por_periodo(
     )
     return transacoes
 
-# --- 8. ENDPOINTS (Transação) ---
-# (Sem mudanças)
+# --- 8. ENDPOINTS DE TRANSAÇÃO (REVERTIDO PARA SÍNCRONO) ---
+
 @app.post("/transacoes/", 
-    response_model=schemas.Transacao,
-    status_code=status.HTTP_201_CREATED
+    response_model=schemas.DashboardData
 )
 def criar_nova_transacao(
     transacao: schemas.TransacaoCreate, 
+    data_inicio: date, 
+    data_fim: date,
     db: Session = Depends(get_db), 
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
@@ -200,12 +204,27 @@ def criar_nova_transacao(
         transacao=transacao, 
         usuario_id=usuario_atual.id
     )
-    tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
-    return db_transacao
-@app.put("/transacoes/{transacao_id}", response_model=schemas.Transacao)
+    
+    # 2. REMOVEMOS O CELERY
+    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
+    
+    dashboard_data = crud.get_dashboard_data(
+        db=db,
+        usuario_id=usuario_atual.id,
+        data_inicio=data_inicio,
+        data_fim=data_fim
+    )
+    return dashboard_data
+
+
+@app.put("/transacoes/{transacao_id}", 
+    response_model=schemas.DashboardData
+)
 def editar_transacao(
     transacao_id: int,
     transacao: schemas.TransacaoCreate,
+    data_inicio: date, 
+    data_fim: date,
     db: Session = Depends(get_db),
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
@@ -216,9 +235,20 @@ def editar_transacao(
         usuario_id=usuario_atual.id
     )
     if db_transacao is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada ou não pertence ao usuário")
-    tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
-    return db_transacao
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
+    
+    # 2. REMOVEMOS O CELERY
+    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
+
+    dashboard_data = crud.get_dashboard_data(
+        db=db,
+        usuario_id=usuario_atual.id,
+        data_inicio=data_inicio,
+        data_fim=data_fim
+    )
+    return dashboard_data
+
+
 @app.get("/transacoes/", response_model=List[schemas.Transacao])
 def ler_transacoes(
     skip: int = 0, 
@@ -228,6 +258,8 @@ def ler_transacoes(
 ):
     transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
     return transacoes
+
+# --- 9. ENDPOINTS DE CATEGORIA (Sem mudança) ---
 @app.post("/categorias/", response_model=schemas.Categoria)
 def criar_nova_categoria(
     categoria: schemas.CategoriaCreate, 
@@ -235,6 +267,7 @@ def criar_nova_categoria(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     return crud.criar_categoria(db=db, categoria=categoria)
+
 @app.get("/categorias/", response_model=List[schemas.Categoria])
 def ler_categorias(
     db: Session = Depends(get_db), 
