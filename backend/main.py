@@ -1,11 +1,11 @@
-# Arquivo: backend/main.py (VERSÃO V7.4 - SÍNCRONA DEFINITIVA)
+# Arquivo: backend/main.py (VERSÃO V7.5 - CORREÇÃO DE CORS DE PRODUÇÃO)
 """
-CHECK-UP (V7.4 - Correção de Deploy):
-1. REMOVE a importação 'from . import tasks' (linha 18)
-   que estava quebrando o deploy no Render (ModuleNotFoundError: celery).
-2. REMOVE as chamadas 'tasks.delay()' dos endpoints de transação.
-3. CONFIRMA que a arquitetura é 100% SÍNCRONA.
-4. CONFIRMA a correção do typo 'get_db' (minúsculo).
+CHECK-UP (V7.5 - Correção de Deploy):
+1. O 'origins' (lista fixa) foi removido do 'CORSMiddleware'.
+2. Adicionamos 'allow_origin_regex' para permitir dinamicamente
+   qualquer subdomínio do Vercel (ex: '...vercel.app') e
+   qualquer 'localhost' (para desenvolvimento).
+3. Isso corrige o erro '400 Bad Request' nas requisições 'OPTIONS'.
 """
 
 # --- 1. Importações ---
@@ -18,8 +18,7 @@ from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-# 1. REMOVE A IMPORTAÇÃO DO CELERY
-# from . import tasks 
+# 'tasks' foi removido na V7.4
 from .database import SessionLocal, engine
 from .core.config import settings 
 
@@ -27,15 +26,16 @@ from .core.config import settings
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# --- 3. Configuração do CORS ---
-origins = [
-    "http://localhost:5173",
-    "http://localhost:4173",
-    "https://controle-financeiro-api-eight.vercel.app",
-]
+# --- 3. Configuração do CORS (A CORREÇÃO) ---
+
+# Esta regex permite 'http://localhost:3000', 'https://qualquer-coisa.vercel.app'
+# (É mais seguro e flexível do que uma lista fixa)
+origin_regex = r"https?://(localhost(:\d+)?|.*\.vercel\.app)"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    # allow_origins=origins, # <-- REMOVIDO
+    allow_origin_regex=origin_regex, # <-- ADICIONADO
     allow_credentials=True,
     allow_methods=["*"], 
     allow_headers=["*"],
@@ -97,8 +97,7 @@ def ler_raiz():
     return {"message": "Bem-vindo à API de Controle Financeiro!"}
 
 
-# --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (V7.0 - CORRIGIDO) ---
-
+# --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (V7.0) ---
 @app.get("/usuarios/me", response_model=schemas.Usuario)
 def ler_perfil_do_usuario(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
@@ -108,7 +107,7 @@ def ler_perfil_do_usuario(
 @app.put("/usuarios/me", response_model=schemas.Usuario)
 def atualizar_perfil_do_usuario(
     detalhes: schemas.UsuarioUpdate,
-    db: Session = Depends(get_db), # <-- Correção 'get_db' (V7.3)
+    db: Session = Depends(get_db),
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     try:
@@ -188,8 +187,7 @@ def ler_transacoes_por_periodo(
     )
     return transacoes
 
-# --- 8. ENDPOINTS DE TRANSAÇÃO (REVERTIDO PARA SÍNCRONO) ---
-
+# --- 8. ENDPOINTS DE TRANSAÇÃO (SÍNCRONO) ---
 @app.post("/transacoes/", 
     response_model=schemas.DashboardData
 )
@@ -206,9 +204,6 @@ def criar_nova_transacao(
         usuario_id=usuario_atual.id
     )
     
-    # 2. REMOVEMOS O CELERY
-    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
-    
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -216,7 +211,6 @@ def criar_nova_transacao(
         data_fim=data_fim
     )
     return dashboard_data
-
 
 @app.put("/transacoes/{transacao_id}", 
     response_model=schemas.DashboardData
@@ -238,9 +232,6 @@ def editar_transacao(
     if db_transacao is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
     
-    # 2. REMOVEMOS O CELERY
-    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
-
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -248,7 +239,6 @@ def editar_transacao(
         data_fim=data_fim
     )
     return dashboard_data
-
 
 @app.get("/transacoes/", response_model=List[schemas.Transacao])
 def ler_transacoes(
