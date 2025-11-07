@@ -1,12 +1,15 @@
 // Arquivo: frontend/src/layouts/MainLayout.jsx
-// (VERSÃO V6.1 - CORREÇÃO DEFINITIVA DO LOOP INFINITO)
+// (VERSÃO V-REVERTIDA - SÍNCRONA/GRATUITA)
 /*
-REATORAÇÃO (Missão V6.1 - Correção):
-Este é o 'merge' correto.
-1. Contém a lógica de Edição (V6.0) 'editingTransaction'.
-2. Contém a lógica de 'useEffect' (V3.9) que NÃO causa o loop
-   'Maximum update depth exceeded'. O 'useEffect' principal
-   NÃO chama 'setDataInicio'.
+REVERSÃO (MISSÃO DE DEPLOY GRATUITO):
+Revertemos este arquivo para a arquitetura "V1.0" Síncrona.
+
+1. 'handleSaveSuccess' agora ACEITA 'novosDadosDoDashboard'
+   (vindos diretamente da resposta da API).
+2. Ele chama 'setData(novosDadosDoDashboard)' (atualização instantânea).
+3. Ele NÃO chama mais 'fetchDashboardData()' (removendo a 2ª chamada de API).
+4. O modal 'TransactionModal' agora recebe 'dataInicioStr' e 'dataFimStr'
+   para que ele possa enviá-los para o backend.
 */
 
 import React, { useState, useEffect } from 'react';
@@ -38,7 +41,6 @@ function MainLayout() {
   const [filterType, setFilterType] = useState('daily');
   const [dataInicio, setDataInicio] = useState(new Date());
   const [dataFim, setDataFim] = useState(new Date());       
-  
   const [dataInicioStr, setDataInicioStr] = useState('');
   const [dataFimStr, setDataFimStr] = useState('');
 
@@ -47,48 +49,43 @@ function MainLayout() {
   const [editingTransaction, setEditingTransaction] = useState(null);
 
   /**
-   * Efeito 1: Calcula o 'dataFim' (A VERSÃO CORRIGIDA V3.9)
-   * Roda quando 'filterType' ou 'dataInicio' mudam.
-   * NÃO causa loops, pois não chama 'setDataInicio'.
+   * Efeito 1: Calcula o 'dataFim' (V3.9)
    */
   useEffect(() => {
-    // Se o filtro for personalizado, o 'dataFim' é controlado
-    // pelo usuário no FilterControls.
     if (filterType === 'personalizado') return;
-
     let dataFimCalculada;
-    // Usa a data de início (que o FilterControls definiu) como base
     const dataBase = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
 
     switch (filterType) {
       case 'weekly':
-        // A data de início já foi definida para o início da semana
-        // pelo FilterControls, então apenas calculamos o fim.
-        dataFimCalculada = new Date(dataBase);
+        const diaDaSemana = dataBase.getDay();
+        const diff = dataBase.getDate() - diaDaSemana + (diaDaSemana === 0 ? -6 : 1);
+        const inicioSemana = new Date(dataBase.setDate(diff));
+        dataFimCalculada = new Date(inicioSemana);
         dataFimCalculada.setDate(dataFimCalculada.getDate() + 6);
+        setDataInicio(inicioSemana); 
         break;
       case 'monthly':
-        // A data de início já é dia 1
+        const inicioMes = new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
         dataFimCalculada = new Date(dataBase.getFullYear(), dataBase.getMonth() + 1, 0);
+        setDataInicio(inicioMes);
         break;
       case 'yearly':
-        // A data de início já é 1º de Jan
+        const inicioAno = new Date(dataBase.getFullYear(), 0, 1);
         dataFimCalculada = new Date(dataBase.getFullYear(), 11, 31);
+        setDataInicio(inicioAno);
         break;
       case 'daily':
       default:
         dataFimCalculada = dataBase; 
         break;
     }
-    // Atualiza APENAS o 'dataFim'
     setDataFim(dataFimCalculada);
-
-  }, [filterType, dataInicio]); // <-- Ouve 'dataInicio', mas não o define
+  }, [filterType, dataInicio]);
 
 
   /**
-   * Efeito 2: Converte as datas (Date objects) para Strings (AAAA-MM-DD)
-   * (Sem mudança)
+   * Efeito 2: Converte as datas para Strings
    */
   useEffect(() => {
     setDataInicioStr(formatDateForAPI(dataInicio));
@@ -98,7 +95,6 @@ function MainLayout() {
 
   /**
    * Função principal que busca os dados do backend.
-   * (Sem mudança)
    */
   const fetchDashboardData = async () => {
     if (!dataInicioStr || !dataFimStr) return;
@@ -121,42 +117,38 @@ function MainLayout() {
   
   /**
    * Efeito 3: Busca os dados
-   * (Sem mudança)
    */
   useEffect(() => {
     fetchDashboardData();
   }, [dataInicioStr, dataFimStr, syncTrigger]);
   
-  // --- FUNÇÕES DE CONTROLE DO MODAL (V6.0) ---
+  // --- FUNÇÕES DE CONTROLE DO MODAL ---
 
-  /**
-   * Chamado pelo botão '+' da Navbar (Modo de Criação)
-   */
   const handleAddTransactionClick = () => {
     setEditingTransaction(null);
     setIsModalOpen(true);
   };
 
-  /**
-   * Chamado pelo botão 'Editar' no Dashboard.jsx (Modo de Edição)
-   */
   const handleEditClick = (transaction) => {
     setEditingTransaction(transaction);
     setIsModalOpen(true);
   };
 
   /**
-   * Chamado quando o modal é salvo
+   * REVERSÃO (A MUDANÇA ESTÁ AQUI)
+   * Chamado quando o modal é salvo.
+   * Agora aceita 'novosDadosDoDashboard' da API.
    */
-  const handleSaveSuccess = () => {
+  const handleSaveSuccess = (novosDadosDoDashboard) => {
     setIsModalOpen(false); 
     setEditingTransaction(null);
-    fetchDashboardData(); // Força o recarregamento dos dados
+    
+    // ATUALIZAÇÃO SÍNCRONA:
+    // Em vez de forçar um 'fetch', nós usamos os dados
+    // que o backend (lentamente) já calculou e nos enviou.
+    setData(novosDadosDoDashboard); 
   };
 
-  /**
-   * Chamado quando o modal é fechado pelo 'X'
-   */
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingTransaction(null);
@@ -166,7 +158,6 @@ function MainLayout() {
   return (
     <div className="layout-container">
       <main className="layout-content">
-        {/* Passa TODOS os estados e setters para os Filhos */}
         <Outlet context={{ 
           data, 
           loading, 
@@ -179,19 +170,20 @@ function MainLayout() {
           setDataFim,
           dataInicioStr,  
           dataFimStr,
-          handleEditClick // <-- Prop de Edição (V6.0)
+          handleEditClick
         }} />
       </main>
 
-      {/* Navbar (V6.0) */}
       <Navbar onAddTransaction={handleAddTransactionClick} />
 
-      {/* Modal (V6.0) */}
+      {/* MUDANÇA: Passa as datas do filtro para o Modal */}
       {isModalOpen && (
         <TransactionModal 
           onClose={handleCloseModal}
           onSaveSuccess={handleSaveSuccess}
           transactionToEdit={editingTransaction}
+          dataInicioStr={dataInicioStr} // <-- NOVO PROP
+          dataFimStr={dataFimStr}     // <-- NOVO PROP
         />
       )}
     </div>
