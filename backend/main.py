@@ -1,8 +1,11 @@
-# Arquivo: backend/main.py (VERSÃO V7.3 - CORREÇÃO DO 'get_DB')
+# Arquivo: backend/main.py (VERSÃO V7.4 - SÍNCRONA DEFINITIVA)
 """
-CHECK-UP (V7.3):
-1. Corrige o 'NameError' de 'get_DB' para 'get_db'
-   no endpoint 'atualizar_perfil_do_usuario'.
+CHECK-UP (V7.4 - Correção de Deploy):
+1. REMOVE a importação 'from . import tasks' (linha 18)
+   que estava quebrando o deploy no Render (ModuleNotFoundError: celery).
+2. REMOVE as chamadas 'tasks.delay()' dos endpoints de transação.
+3. CONFIRMA que a arquitetura é 100% SÍNCRONA.
+4. CONFIRMA a correção do typo 'get_db' (minúsculo).
 """
 
 # --- 1. Importações ---
@@ -10,12 +13,13 @@ from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError # (Importado na V7.2)
+from sqlalchemy.exc import IntegrityError 
 from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-from . import tasks 
+# 1. REMOVE A IMPORTAÇÃO DO CELERY
+# from . import tasks 
 from .database import SessionLocal, engine
 from .core.config import settings 
 
@@ -33,7 +37,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"], 
     allow_headers=["*"],
 )
 
@@ -104,13 +108,9 @@ def ler_perfil_do_usuario(
 @app.put("/usuarios/me", response_model=schemas.Usuario)
 def atualizar_perfil_do_usuario(
     detalhes: schemas.UsuarioUpdate,
-    # A CORREÇÃO DO 'NameError' ESTÁ AQUI:
-    db: Session = Depends(get_db), # <-- CORRIGIDO (de get_DB)
+    db: Session = Depends(get_db), # <-- Correção 'get_db' (V7.3)
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    """
-    Atualiza os detalhes do perfil do usuário logado.
-    """
     try:
         return crud.atualizar_detalhes_usuario(
             db=db, 
@@ -189,7 +189,6 @@ def ler_transacoes_por_periodo(
     return transacoes
 
 # --- 8. ENDPOINTS DE TRANSAÇÃO (REVERTIDO PARA SÍNCRONO) ---
-# (Versão V-Revertida Síncrona/Gratuita)
 
 @app.post("/transacoes/", 
     response_model=schemas.DashboardData
@@ -206,6 +205,9 @@ def criar_nova_transacao(
         transacao=transacao, 
         usuario_id=usuario_atual.id
     )
+    
+    # 2. REMOVEMOS O CELERY
+    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
     
     dashboard_data = crud.get_dashboard_data(
         db=db,
@@ -236,6 +238,9 @@ def editar_transacao(
     if db_transacao is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
     
+    # 2. REMOVEMOS O CELERY
+    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
+
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
