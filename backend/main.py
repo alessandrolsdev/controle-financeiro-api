@@ -1,12 +1,8 @@
-# Arquivo: backend/main.py (VERSÃO V-REVERTIDA COMPLETA)
+# Arquivo: backend/main.py (VERSÃO V7.3 - CORREÇÃO DO 'get_DB')
 """
-REVERSÃO (MISSÃO DE DEPLOY GRATUITO):
-1. REMOVEMOS (comentamos) a importação 'from . import tasks'.
-2. REMOVEMOS (comentamos) as chamadas 'tasks.task_recalculate_dashboard.delay()'
-   dos endpoints 'POST /transacoes' e 'PUT /transacoes'.
-   
-Esta API agora é 100% SÍNCRONA e não tem
-dependência do Celery/Redis para iniciar.
+CHECK-UP (V7.3):
+1. Corrige o 'NameError' de 'get_DB' para 'get_db'
+   no endpoint 'atualizar_perfil_do_usuario'.
 """
 
 # --- 1. Importações ---
@@ -14,12 +10,12 @@ from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError # (Importado na V7.2)
 from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-# 1. REMOVE A IMPORTAÇÃO DO CELERY
-# from . import tasks 
+from . import tasks 
 from .database import SessionLocal, engine
 from .core.config import settings 
 
@@ -37,7 +33,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], 
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -97,7 +93,8 @@ def ler_raiz():
     return {"message": "Bem-vindo à API de Controle Financeiro!"}
 
 
-# --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (V7.0) ---
+# --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (V7.0 - CORRIGIDO) ---
+
 @app.get("/usuarios/me", response_model=schemas.Usuario)
 def ler_perfil_do_usuario(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
@@ -107,9 +104,13 @@ def ler_perfil_do_usuario(
 @app.put("/usuarios/me", response_model=schemas.Usuario)
 def atualizar_perfil_do_usuario(
     detalhes: schemas.UsuarioUpdate,
-    db: Session = Depends(get_DB),
+    # A CORREÇÃO DO 'NameError' ESTÁ AQUI:
+    db: Session = Depends(get_db), # <-- CORRIGIDO (de get_DB)
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
+    """
+    Atualiza os detalhes do perfil do usuário logado.
+    """
     try:
         return crud.atualizar_detalhes_usuario(
             db=db, 
@@ -188,6 +189,7 @@ def ler_transacoes_por_periodo(
     return transacoes
 
 # --- 8. ENDPOINTS DE TRANSAÇÃO (REVERTIDO PARA SÍNCRONO) ---
+# (Versão V-Revertida Síncrona/Gratuita)
 
 @app.post("/transacoes/", 
     response_model=schemas.DashboardData
@@ -204,9 +206,6 @@ def criar_nova_transacao(
         transacao=transacao, 
         usuario_id=usuario_atual.id
     )
-    
-    # 2. REMOVEMOS O CELERY
-    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
     
     dashboard_data = crud.get_dashboard_data(
         db=db,
@@ -237,9 +236,6 @@ def editar_transacao(
     if db_transacao is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
     
-    # 2. REMOVEMOS O CELERY
-    # tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
-
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -259,7 +255,7 @@ def ler_transacoes(
     transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
     return transacoes
 
-# --- 9. ENDPOINTS DE CATEGORIA (Sem mudança) ---
+# --- 9. ENDPOINTS DE CATEGORIA ---
 @app.post("/categorias/", response_model=schemas.Categoria)
 def criar_nova_categoria(
     categoria: schemas.CategoriaCreate, 
