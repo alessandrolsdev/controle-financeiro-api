@@ -1,5 +1,13 @@
 // Arquivo: frontend/src/layouts/MainLayout.jsx
-// (VERSÃO V3.0 - O "Pai" que busca os dados)
+// (VERSÃO V6.1 - CORREÇÃO DEFINITIVA DO LOOP INFINITO)
+/*
+REATORAÇÃO (Missão V6.1 - Correção):
+Este é o 'merge' correto.
+1. Contém a lógica de Edição (V6.0) 'editingTransaction'.
+2. Contém a lógica de 'useEffect' (V3.9) que NÃO causa o loop
+   'Maximum update depth exceeded'. O 'useEffect' principal
+   NÃO chama 'setDataInicio'.
+*/
 
 import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -8,29 +16,101 @@ import TransactionModal from '../components/TransactionModal/TransactionModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
+/**
+ * Função auxiliar para formatar datas para a API (AAAA-MM-DD)
+ */
+const formatDateForAPI = (date) => {
+  const dateObj = new Date(date);
+  const year = dateObj.getFullYear();
+  const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+  const day = dateObj.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 function MainLayout() {
-  // --- LÓGICA DE DADOS (Agora mora no "Pai") ---
-  const [data, setData] = useState(null); // Armazena os dados do /dashboard/
+  // --- LÓGICA DE DADOS ---
+  const [data, setData] = useState(null); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Pega a "campainha" de sincronização do AuthContext
   const { syncTrigger } = useAuth(); 
+
+  // --- NOSSOS ESTADOS DE FILTRO ---
+  const [filterType, setFilterType] = useState('daily');
+  const [dataInicio, setDataInicio] = useState(new Date());
+  const [dataFim, setDataFim] = useState(new Date());       
+  
+  const [dataInicioStr, setDataInicioStr] = useState('');
+  const [dataFimStr, setDataFimStr] = useState('');
+
+  // --- LÓGICA DO MODAL (V6.0) ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+
+  /**
+   * Efeito 1: Calcula o 'dataFim' (A VERSÃO CORRIGIDA V3.9)
+   * Roda quando 'filterType' ou 'dataInicio' mudam.
+   * NÃO causa loops, pois não chama 'setDataInicio'.
+   */
+  useEffect(() => {
+    // Se o filtro for personalizado, o 'dataFim' é controlado
+    // pelo usuário no FilterControls.
+    if (filterType === 'personalizado') return;
+
+    let dataFimCalculada;
+    // Usa a data de início (que o FilterControls definiu) como base
+    const dataBase = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
+
+    switch (filterType) {
+      case 'weekly':
+        // A data de início já foi definida para o início da semana
+        // pelo FilterControls, então apenas calculamos o fim.
+        dataFimCalculada = new Date(dataBase);
+        dataFimCalculada.setDate(dataFimCalculada.getDate() + 6);
+        break;
+      case 'monthly':
+        // A data de início já é dia 1
+        dataFimCalculada = new Date(dataBase.getFullYear(), dataBase.getMonth() + 1, 0);
+        break;
+      case 'yearly':
+        // A data de início já é 1º de Jan
+        dataFimCalculada = new Date(dataBase.getFullYear(), 11, 31);
+        break;
+      case 'daily':
+      default:
+        dataFimCalculada = dataBase; 
+        break;
+    }
+    // Atualiza APENAS o 'dataFim'
+    setDataFim(dataFimCalculada);
+
+  }, [filterType, dataInicio]); // <-- Ouve 'dataInicio', mas não o define
+
+
+  /**
+   * Efeito 2: Converte as datas (Date objects) para Strings (AAAA-MM-DD)
+   * (Sem mudança)
+   */
+  useEffect(() => {
+    setDataInicioStr(formatDateForAPI(dataInicio));
+    setDataFimStr(formatDateForAPI(dataFim));
+  }, [dataInicio, dataFim]); 
+
 
   /**
    * Função principal que busca os dados do backend.
+   * (Sem mudança)
    */
   const fetchDashboardData = async () => {
-    // Busca dos últimos 30 dias
-    const dataFim = new Date().toISOString().split('T')[0];
-    const dataInicio = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
+    if (!dataInicioStr || !dataFimStr) return;
     try {
       setLoading(true);
       const response = await api.get('/dashboard/', {
-        params: { data_inicio: dataInicio, data_fim: dataFim },
+        params: { 
+          data_inicio: dataInicioStr, 
+          data_fim: dataFimStr
+        },
       });
-      setData(response.data); // Salva os dados no estado
+      setData(response.data);
       setLoading(false);
     } catch (err) {
       console.error('Erro ao buscar dados do dashboard:', err);
@@ -38,52 +118,80 @@ function MainLayout() {
       setLoading(false);
     }
   };
-
+  
   /**
-   * O "Ouvido" do Layout.
-   * Roda quando o app carrega E quando a "campainha" (syncTrigger) toca.
+   * Efeito 3: Busca os dados
+   * (Sem mudança)
    */
   useEffect(() => {
     fetchDashboardData();
-  }, [syncTrigger]); // <-- Ouve a campainha!
-
+  }, [dataInicioStr, dataFimStr, syncTrigger]);
   
-  // --- LÓGICA DO MODAL ---
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // --- FUNÇÕES DE CONTROLE DO MODAL (V6.0) ---
 
   /**
-   * Chamado pelo Navbar (botão "+")
+   * Chamado pelo botão '+' da Navbar (Modo de Criação)
    */
   const handleAddTransactionClick = () => {
+    setEditingTransaction(null);
     setIsModalOpen(true);
   };
 
   /**
-   * Chamado pelo TransactionModal (quando o 'api.post' dá certo)
-   * @param {object} novosDadosDoDashboard - Os dados atualizados que o backend retornou
+   * Chamado pelo botão 'Editar' no Dashboard.jsx (Modo de Edição)
    */
-  const handleSaveSuccess = (novosDadosDoDashboard) => {
-    setIsModalOpen(false); // 1. Fecha o modal
-    setData(novosDadosDoDashboard); // 2. ATUALIZA O ESTADO com os novos dados
+  const handleEditClick = (transaction) => {
+    setEditingTransaction(transaction);
+    setIsModalOpen(true);
   };
+
+  /**
+   * Chamado quando o modal é salvo
+   */
+  const handleSaveSuccess = () => {
+    setIsModalOpen(false); 
+    setEditingTransaction(null);
+    fetchDashboardData(); // Força o recarregamento dos dados
+  };
+
+  /**
+   * Chamado quando o modal é fechado pelo 'X'
+   */
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+  };
+
 
   return (
     <div className="layout-container">
       <main className="layout-content">
-        {/* O 'Outlet' é o "buraco" onde o Dashboard ou Settings vão aparecer.
-            Usamos 'context' para "entregar" os dados para o filho que
-            estiver lá dentro. */}
-        <Outlet context={{ data, loading, error, fetchDashboardData }} />
+        {/* Passa TODOS os estados e setters para os Filhos */}
+        <Outlet context={{ 
+          data, 
+          loading, 
+          error,
+          filterType,
+          setFilterType,
+          dataInicio,
+          setDataInicio,
+          dataFim,
+          setDataFim,
+          dataInicioStr,  
+          dataFimStr,
+          handleEditClick // <-- Prop de Edição (V6.0)
+        }} />
       </main>
 
-      {/* A Navbar fica fixa no rodapé */}
+      {/* Navbar (V6.0) */}
       <Navbar onAddTransaction={handleAddTransactionClick} />
 
-      {/* O Modal (controlado pelo Pai) */}
+      {/* Modal (V6.0) */}
       {isModalOpen && (
         <TransactionModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSaveSuccess={handleSaveSuccess} 
+          onClose={handleCloseModal}
+          onSaveSuccess={handleSaveSuccess}
+          transactionToEdit={editingTransaction}
         />
       )}
     </div>

@@ -1,22 +1,18 @@
 /* Arquivo: frontend/src/pages/Login/Login.css */
-/* (VERSÃO V2.0 - DESIGN "AZUL GUARDIÃO" / "NOMAD") */
+/* (VERSÃO V4.0 - INPUTS ESCUROS) */
 
 /* --- 1. O Wrapper da Página --- */
-/* O 'login-page-wrapper' centraliza o card de login na tela */
 .login-page-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
-  flex-grow: 1; /* Faz este container ocupar o espaço disponível no App.jsx */
+  flex-grow: 1; 
   padding: 2rem;
-  /* O fundo já vem do 'body' (var(--cor-fundo-principal)) */
 }
 
 /* --- 2. O Card de Login --- */
 .login-container {
-  /* Usamos o fundo do body, sem card flutuante por enquanto,
-     para manter simples e limpo, focado no formulário. */
   padding: 2.5rem 2rem;
   width: 100%;
   max-width: 450px;
@@ -25,7 +21,7 @@
 
 /* --- 3. Logo e Títulos --- */
 .login-logo {
-  width: 120px; /* Ajuste o tamanho conforme necessário */
+  width: 120px;
   height: auto;
   margin-bottom: 1.5rem;
 }
@@ -33,23 +29,23 @@
 .login-title {
   color: var(--cor-branco-foco);
   font-family: 'Montserrat', sans-serif;
-  font-weight: 700; /* Bold */
-  font-size: 2.2rem; /* Maior, como no mockup */
+  font-weight: 700;
+  font-size: 2.2rem;
   margin: 0;
   letter-spacing: 1px;
 }
 
 .login-subtitle {
-  color: var(--cor-cinza-suporte); /* Cinza Suporte */
+  color: var(--cor-cinza-suporte);
   font-family: 'Montserrat', sans-serif;
-  font-weight: 400; /* Regular */
+  font-weight: 400;
   font-size: 1rem;
   margin-top: 0.5rem;
   margin-bottom: 3rem;
   letter-spacing: 0.5px;
 }
 
-/* --- 4. Formulário e Inputs --- */
+/* --- 4. Formulário e Inputs (A MUDANÇA ESTÁ AQUI) --- */
 .login-form {
   text-align: left;
 }
@@ -58,47 +54,50 @@
   margin-bottom: 1.5rem;
 }
 
-/* O input estilo "caixa branca" do mockup */
+/* (Substituímos o estilo 'caixa branca' pelo 'underline' do Modal) */
 .input-group input {
   width: 100%;
-  padding: 1rem; /* Mais alto */
-  border: none; /* Sem borda */
-  border-radius: 8px; /* Bordas arredondadas */
-  background-color: var(--cor-branco-foco); /* Fundo Branco Foco */
-  color: var(--cor-base-azul-guardiao); /* Texto Azul Guardião */
+  padding: 0.75rem 0.25rem;
+  border: none;
+  /* USA O ESTILO "UNDERLINE" */
+  border-bottom: 2px solid var(--cor-cinza-suporte);
+  background-color: transparent; /* Fundo transparente */
+  color: var(--cor-branco-foco); /* TEXTO BRANCO */
   font-family: 'Montserrat', sans-serif;
-  font-weight: 500; /* Medium */
+  font-weight: 500;
   font-size: 1rem;
-  transition: box-shadow 0.3s ease;
+  border-radius: 0; /* (Típico do estilo underline) */
+  transition: border-color 0.3s ease;
 }
 
 /* Efeito "Focus" (ao clicar) */
 .input-group input:focus {
-  outline: none; /* Remove a borda padrão */
-  /* Adiciona um "brilho" Laranja Voo */
-  box-shadow: 0 0 0 3px var(--cor-laranja-voo); 
+  outline: none; 
+  /* Adiciona um "brilho" Laranja Voo na borda */
+  border-color: var(--cor-laranja-voo); 
+  box-shadow: none; /* Remove o 'box-shadow' antigo */
 }
 
-/* --- 5. Botão de Ação --- */
+/* --- 5. Botão de Ação (Sem mudança) --- */
 .login-button {
   width: 100%;
-  padding: 1rem; /* Mais alto */
+  padding: 1rem;
   border: none;
   border-radius: 8px;
-  background-color: var(--cor-laranja-voo); /* Laranja Voo */
+  background-color: var(--cor-laranja-voo);
   color: var(--cor-branco-foco);
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
-  font-weight: 700; /* Bold */
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
   margin-top: 1.5rem;
-  text-transform: uppercase; /* ENTRAR */
+  text-transform: uppercase;
 }
 
 .login-button:hover {
-  background-color: #e66e00; /* Laranja Voo um pouco mais escuro */
-  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3); /* Brilho laranja */
+  background-color: #e66e00;
+  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3);
 }
 
 .login-button:disabled {
@@ -106,7 +105,7 @@
   cursor: not-allowed;
 }
 
-/* --- 6. Links Extras --- */
+/* --- 6. Links Extras (Sem mudança) --- */
 .login-links {
   display: flex;
   justify-content: space-between;
@@ -126,9 +125,9 @@
   text-decoration: underline;
 }
 
-/* --- 7. Mensagem de Erro --- */
+/* --- 7. Mensagem de Erro (Sem mudança) --- */
 .error-message {
-  color: #ff6b6b; /* Um vermelho mais vibrante para o tema escuro */
+  color: #ff6b6b;
   background-color: rgba(255, 107, 107, 0.1);
   border: 1px solid #ff6b6b;
   border-radius: 4px;

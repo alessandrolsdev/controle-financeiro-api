@@ -1,5 +1,5 @@
 /* Arquivo: frontend/src/pages/SignUp/SignUp.css */
-/* (VERSÃO V2.0 - DESIGN "AZUL GUARDIÃO") */
+/* (VERSÃO V4.0 - INPUTS ESCUROS) */
 
 .signup-page-wrapper {
   display: flex;
@@ -18,7 +18,7 @@
 }
 
 .signup-logo {
-  width: 100px; /* Um pouco menor que o do login */
+  width: 100px;
   height: auto;
   margin-bottom: 1.5rem;
 }
@@ -44,30 +44,35 @@
   text-align: left;
 }
 
-/* Usando os mesmos estilos do Login.css */
+/* --- A MUDANÇA ESTÁ AQUI --- */
 .input-group {
   margin-bottom: 1.5rem;
 }
 
+/* (Substituímos o estilo 'caixa branca' pelo 'underline' do Modal) */
 .input-group input {
   width: 100%;
-  padding: 1rem;
+  padding: 0.75rem 0.25rem;
   border: none;
-  border-radius: 8px;
-  background-color: var(--cor-branco-foco);
-  color: var(--cor-base-azul-guardiao);
+  /* USA O ESTILO "UNDERLINE" */
+  border-bottom: 2px solid var(--cor-cinza-suporte);
+  background-color: transparent; /* Fundo transparente */
+  color: var(--cor-branco-foco); /* TEXTO BRANCO */
   font-family: 'Montserrat', sans-serif;
   font-weight: 500;
   font-size: 1rem;
-  transition: box-shadow 0.3s ease;
+  border-radius: 0;
+  transition: border-color 0.3s ease;
 }
 
 .input-group input:focus {
   outline: none;
-  box-shadow: 0 0 0 3px var(--cor-laranja-voo); 
+  /* Adiciona um "brilho" Laranja Voo na borda */
+  border-color: var(--cor-laranja-voo); 
+  box-shadow: none; /* Remove o 'box-shadow' antigo */
 }
 
-/* Botão de Ação (Laranja) */
+/* Botão de Ação (Laranja) (Sem mudança) */
 .signup-button {
   width: 100%;
   padding: 1rem;
@@ -92,7 +97,7 @@
   cursor: not-allowed;
 }
 
-/* Link para "Já tem conta?" */
+/* Link para "Já tem conta?" (Sem mudança) */
 .signup-links {
   text-align: center;
   margin-top: 2rem;
@@ -109,7 +114,7 @@
   text-decoration: underline;
 }
 
-/* Mensagens de Feedback */
+/* Mensagens de Feedback (Sem mudança) */
 .error-message {
   color: #ff6b6b;
   background-color: rgba(255, 107, 107, 0.1);

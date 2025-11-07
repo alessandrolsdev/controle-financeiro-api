@@ -1,11 +1,11 @@
 /* Arquivo: frontend/src/pages/Settings/Settings.css */
-/* (VERSÃO V3.0 - COM TEMA DINÂMICO E TOGGLE BONITO) */
+/* (VERSÃO V5.0 - COMPLETA COM ESTILOS DE COLOR PICKER) */
 
 /* --- 1. Layout Principal --- */
 .settings-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
-  padding-bottom: 90px; /* Espaço para a Navbar inferior */
+  padding-bottom: 90px;
 }
 
 /* --- 2. Cabeçalho da Página --- */
@@ -32,13 +32,12 @@
 }
 
 .settings-card {
-  background: var(--cor-fundo-card); /* Cor dinâmica */
+  background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
   padding: 1.5rem 2rem;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
-  /* Transição suave ao trocar de tema */
   transition: background-color 0.3s ease;
 }
 
@@ -58,7 +57,7 @@
 .input-group label { 
   display: block; 
   margin-bottom: 0.5rem; 
-  color: var(--cor-texto-secundario); /* Cor dinâmica */
+  color: var(--cor-texto-secundario);
   font-weight: 500; 
 }
 
@@ -67,9 +66,9 @@
   width: 100%;
   padding: 0.75rem 0.25rem;
   border: none;
-  border-bottom: 2px solid var(--cor-texto-secundario); /* Cor dinâmica */
+  border-bottom: 2px solid var(--cor-texto-secundario);
   background-color: transparent;
-  color: var(--cor-texto-primario); /* Cor dinâmica */
+  color: var(--cor-texto-primario); 
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
   border-radius: 0;
@@ -79,22 +78,52 @@
 .input-group input:focus, 
 .input-group select:focus {
   outline: none;
-  border-color: var(--cor-laranja-voo); /* Laranja (Ação) */
+  border-color: var(--cor-laranja-voo);
 }
 
-/* Corrige a cor de fundo das opções do <select> */
+/* CORREÇÃO DEFINITIVA DO BUG DE CONTRASSTE */
 .input-group select option {
-  background-color: var(--cor-fundo-principal); /* Cor dinâmica */
-  color: var(--cor-texto-primario); /* Cor dinâmica */
+  background-color: #ffffff; 
+  color: #0B1A33 !important; 
 }
 
+/* --- NOVO ESTILO: Seletor de Cores (V5.0) --- */
+.color-picker-group input[type="color"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 40px; 
+    height: 40px;
+    background: none;
+    border: 1px solid var(--cor-borda); /* Borda sutil */
+    padding: 0;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.color-picker-group input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+.color-picker-group input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+}
+
+.color-picker-group .color-code-display {
+    color: var(--cor-texto-secundario);
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+
+/* --- 5. Botões e Badges (Estilos de Botões e Badges) --- */
 .settings-button {
   width: auto;
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
-  background-color: var(--cor-verde-esmeralda); /* Verde Esmeralda (Marca) */
-  color: #0B1A33; /* Texto escuro para contraste */
+  background-color: var(--cor-laranja-voo); 
+  color: var(--cor-branco-foco);
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
   font-weight: 700;
@@ -103,36 +132,15 @@
 }
 
 .settings-button:hover {
-  opacity: 0.8;
+  background-color: #e66e00;
+  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3);
 }
 
-/* --- 5. Mensagens de Feedback (Dinâmicas) --- */
-.error-message {
-  color: var(--cor-gasto); /* Cor de Gasto/Alerta do tema */
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid var(--cor-gasto);
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-.success-message {
-  color: var(--cor-lucro); /* Cor de Lucro/Sucesso do tema */
-  background-color: rgba(25, 135, 84, 0.1);
-  border: 1px solid var(--cor-lucro);
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-/* --- 6. Lista de Categorias (Dinâmica) --- */
+/* --- 6. Lista de Categorias (Ajustes de Badge para a cor salva) --- */
 .categoria-list ul {
   list-style: none;
   padding: 0;
 }
-
 .categoria-list li {
   display: flex;
   justify-content: space-between;
@@ -140,28 +148,29 @@
   padding: 1rem 0.5rem;
   border-bottom: 1px solid var(--cor-borda);
 }
-
 .categoria-list li:last-child {
   border-bottom: none;
 }
-
-/* Os badges (etiquetas) usam as cores da MARCA (vibrantes) */
 .tipo-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: bold;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--cor-texto-principal); /* O texto será branco/preto dependendo do tema */
 }
+
+/* Regras originais do badge (reajustadas para garantir contraste) */
+/* (Estas regras são menos importantes agora, pois o 'style' inline 
+    em Settings.jsx define o background) */
 .tipo-badge.tipo-gasto {
-  background-color: var(--cor-laranja-voo);
-  color: var(--cor-branco-foco);
+    /* cor de texto garantida pelo .tipo-badge */
 }
 .tipo-badge.tipo-receita {
-  background-color: var(--cor-verde-esmeralda);
-  color: #0B1A33;
+    /* cor de texto garantida pelo .tipo-badge */
 }
 
-/* --- 7. Estilos de Itens de Menu (Placeholders V2.0) --- */
+
+/* --- 7. Estilos de Itens de Menu (Sem mudança) --- */
 .settings-item {
   display: flex;
   justify-content: space-between;
@@ -191,8 +200,7 @@
   opacity: 0.5;
 }
 
-/* --- 8. O "Interruptor" (Toggle) de Tema BONITO --- */
-/* Esconde o checkbox feio */
+/* --- 8. O "Interruptor" (Toggle) de Tema BONITO (Sem mudança) --- */
 .theme-toggle input {
   opacity: 0;
   width: 0;
@@ -204,7 +212,6 @@
   width: 50px;
   height: 28px;
 }
-/* O 'trilho' do interruptor */
 .slider {
   position: absolute;
   cursor: pointer;
@@ -212,11 +219,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #555; /* Fundo do trilho desligado (cinza escuro) */
+  background-color: var(--cor-fundo-secundario); 
   transition: .4s;
   border-radius: 28px;
 }
-/* A 'bolinha' do interruptor */
 .slider:before {
   position: absolute;
   content: "";
@@ -224,18 +230,17 @@
   width: 20px;
   left: 4px;
   bottom: 4px;
-  background-color: white;
+  background-color: var(--cor-texto-secundario); 
   transition: .4s;
   border-radius: 50%;
 }
-/* Quando está LIGADO (checked = Modo Claro) */
 input:checked + .slider {
-  background-color: var(--cor-laranja-voo); /* Fica Laranja Voo! */
+  background-color: var(--cor-laranja-voo);
 }
 input:focus + .slider {
   box-shadow: 0 0 1px var(--cor-laranja-voo);
 }
-/* Move a bolinha para a direita */
 input:checked + .slider:before {
   transform: translateX(22px);
+  background-color: var(--cor-branco-foco); 
 }

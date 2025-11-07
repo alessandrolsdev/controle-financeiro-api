@@ -1,37 +1,36 @@
-# Arquivo: backend/database.py (VERSÃO FINAL - Produção e Desenvolvimento)
+# Arquivo: backend/database.py (VERSÃO REATORADA)
 # Responsabilidade: Configurar a "tomada" (a conexão) com o banco de dados.
 #
-# Este arquivo é "inteligente":
-# 1. Ele tenta ler a DATABASE_URL do arquivo .env (para o PostgreSQL na nuvem).
-# 2. Se não encontrar, ele cria um banco SQLite local (para desenvolvimento).
+# REATORAÇÃO:
+# Removemos a lógica 'load_dotenv' e 'os.getenv'.
+# Agora, importamos a 'settings' do nosso módulo de configuração central.
 
-import os
+import os # 'os' ainda é necessário para construir o caminho do SQLite
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 
-# --- 1. Carregamento das Variáveis de Ambiente ---
-
-# Encontra o arquivo .env na pasta raiz do projeto (um nível acima de 'backend')
-# O caminho de __file__ é 'backend/database.py', então precisamos de dois 'dirname'
-env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-load_dotenv(dotenv_path=env_path)
+# --- 1. IMPORTAÇÃO DA CONFIGURAÇÃO CENTRAL ---
+# Em vez de carregar o .env, importamos nossa fonte única da verdade
+from .core.config import settings
 
 
 # --- 2. Lógica de Conexão Inteligente ---
 
-# Tenta ler a URL do banco de dados de produção (PostgreSQL) do ambiente
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Lê a URL do banco de dados a partir da nossa configuração central
+DATABASE_URL = settings.DATABASE_URL
 
 # Variável de verificação para o 'engine'
 is_sqlite = False
 
-# Se a URL de produção NÃO for encontrada, estamos em modo de desenvolvimento.
+# A lógica de fallback permanece a MESMA.
+# Se a 'DATABASE_URL' for None (conforme definido em config.py),
+# caímos no modo de desenvolvimento SQLite.
 if not DATABASE_URL:
     print("AVISO: DATABASE_URL não encontrada. Usando banco de dados SQLite local.")
     is_sqlite = True
     
     # Cria o caminho absoluto para o nosso arquivo de banco local
+    # (A lógica 'BASE_DIR' foi simplificada pois 'os' já estava importado)
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     DB_NAME = "financeiro.db"
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, DB_NAME)}"
@@ -43,9 +42,7 @@ else:
 
 # --- 3. Criação do "Motor" (Engine) ---
 
-# Prepara os argumentos de conexão.
-# O 'connect_args' é OBRIGATÓRIO para o SQLite em um app multithread
-# (como o FastAPI), mas quebra o PostgreSQL.
+# A lógica permanece a mesma, pois 'is_sqlite' ainda é válido.
 connect_args = {"check_same_thread": False} if is_sqlite else {}
 
 engine = create_engine(
@@ -55,12 +52,7 @@ engine = create_engine(
 
 # --- 4. Criação da "Fábrica de Sessões" ---
 
-# SessionLocal é uma 'fábrica' que cria novas sessões de banco de dados
-# sempre que a dependência get_db() é chamada em main.py.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- 5. Criação da Base Declarativa ---
-
-# Todos os nossos 'models.py' (Usuario, Categoria, etc.) herdarão
-# desta classe Base. É como eles se registram no SQLAlchemy.
 Base = declarative_base()

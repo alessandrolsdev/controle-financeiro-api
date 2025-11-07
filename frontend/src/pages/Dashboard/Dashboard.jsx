@@ -1,149 +1,248 @@
-// Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.jsx
-// (VERSÃO V3.4 - TOOLTIP INTELIGENTE QUE SEGUE O MOUSE)
+// Arquivo: frontend/src/pages/Dashboard/Dashboard.jsx
+// (VERSÃO V7.2 - CORREÇÃO DO 'Olá, user.sub')
 
-import React from 'react';
-import { Doughnut } from 'react-chartjs-2';
-// 1. IMPORTAMOS O 'Tooltip' COMPLETO, E NÃO SÓ PARTES
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import './DoughnutChart.css';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useOutletContext } from 'react-router-dom';
+import api from '../../services/api';
+import './Dashboard.css';
+import DoughnutChart from '../../components/DoughnutChart/DoughnutChart';
+import FilterControls from '../../components/FilterControls/FilterControls';
+import { IoPencil } from 'react-icons/io5'; // (Importa o lápis V6.0)
 
-// 2. REGISTRAMOS OS ELEMENTOS (COMO ANTES)
-ChartJS.register(ArcElement, Tooltip, Legend);
-
-// --- 3. A "MÁGICA": ENSINANDO O CHART.JS UM NOVO TRUQUE ---
-// Nós criamos um "posicionador" customizado chamado 'mouseFollow'
-Tooltip.positioners.mouseFollow = function(items, eventPosition) {
-  /**
-   * 'eventPosition' é a coordenada {x, y} exata do mouse.
-   * Nós retornamos um novo {x, y} para onde a tooltip deve ser desenhada.
-   */
-  return {
-    x: eventPosition.x,
-    y: eventPosition.y + 15, // <-- O "pulo do gato": 15px ABAIXO do mouse
-  };
+const formatCurrency = (value) => {
+  const number = parseFloat(value) || 0;
+  return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
-// ---------------------------------------------------------
 
-/**
- * @param {object[]} chartData - Array de { nome: string, valor: number, count: number }
- * @param {number} totalValue - O valor total para exibir no centro
- * @param {string} centerLabel - O texto do rótulo central
- */
-function DoughnutChart({ chartData, totalValue, centerLabel }) {
+function Dashboard() {
+  // 1. O 'user' agora é o PERFIL COMPLETO (V7.1)
+  const { user } = useAuth(); 
   
-  const colorsPalette = [
-    '#FF7A00', // Laranja Voo
-    '#00E08F', // Verde Esmeralda
-    '#D400E6', // Magenta Dinâmico
-    '#FFC107', '#20C997', '#6F42C1',
-  ];
-
-  const data = {
-    labels: chartData.map(c => c.nome),
-    datasets: [
-      {
-        data: chartData.map(c => c.valor),
-        backgroundColor: chartData.map((_, i) => colorsPalette[i % colorsPalette.length]),
-        borderColor: '#1C2B4A', 
-        borderWidth: 3,
-      },
-    ],
-  };
+  const { 
+    data, 
+    loading, 
+    error, 
+    filterType,
+    setFilterType,
+    dataInicio,
+    setDataInicio,
+    dataFim,
+    setDataFim,
+    dataInicioStr,
+    dataFimStr,
+    handleEditClick
+  } = useOutletContext();
   
-  const formatCurrency = (value) => {
-    return (parseFloat(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+  const [periodTransactions, setPeriodTransactions] = useState([]);
+  const [loadingPeriod, setLoadingPeriod] = useState(true);
 
-  // --- 4. A CORREÇÃO FINAL NA TOOLTIP ---
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false, 
-    cutout: '75%', 
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        // --- INÍCIO DA CORREÇÃO ---
-        enabled: true, // Garante que a tooltip customizada está ligada
-        position: 'mouseFollow', // <-- USA O NOSSO NOVO "TRUQUE"
-        intersect: false, // Aparece ao passar perto
-        
-        // Alinha a "setinha" (caret) para cima, já que o box está abaixo
-        yAlign: 'bottom', 
-        
-        // Cores (HEX puros, como já corrigimos)
-        backgroundColor: '#0B1A33',
-        titleColor: '#FFFFFF',
-        bodyColor: '#FFFFFF',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 10,
-        displayColors: false,
-        caretSize: 8, // O tamanho da "setinha"
-        
-        // --- A LÓGICA DE TEXTO (que já funcionava) ---
-        callbacks: {
-          label: (context) => {
-            const item = chartData[context.dataIndex];
-            if (!item) return '';
+  // --- Efeitos e Funções (Sem mudança) ---
+  useEffect(() => {
+    if (!data) return; 
+    setLoadingRecent(true);
+    api.get('/transacoes/?skip=0&limit=5')
+      .then(response => {
+        setRecentTransactions(response.data);
+        setLoadingRecent(false);
+      })
+      .catch(err => {
+        console.error("Erro ao buscar transações recentes:", err);
+        setLoadingRecent(false);
+      });
+  }, [data]);
 
-            const nome = item.nome;
-            const valorFormatado = formatCurrency(item.valor);
-            const contagem = item.count;
-            const plural = contagem > 1 ? 'ões' : 'ão';
-            
-            return `${nome}: ${valorFormatado} (${contagem} transaç${plural})`;
-          },
-          title: () => null,
-        },
+  useEffect(() => {
+    if (!dataInicioStr || !dataFimStr) return;
+    const fetchPeriodTransactions = async () => {
+      setLoadingPeriod(true);
+      try {
+        const response = await api.get('/transacoes/periodo/', {
+          params: {
+            data_inicio: dataInicioStr,
+            data_fim: dataFimStr
+          }
+        });
+        setPeriodTransactions(response.data);
+      } catch (err) {
+        console.error("Erro ao buscar transações do período:", err);
       }
-    },
-    // Remove o "piscar" ao passar o mouse
-    onHover: (event, chartElement) => {
-      event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
+      setLoadingPeriod(false);
+    };
+    fetchPeriodTransactions();
+  }, [dataInicioStr, dataFimStr]);
+
+  const getGastosChartData = () => {
+      return data && data.gastos_por_categoria
+      ? data.gastos_por_categoria
+          .filter(item => parseFloat(item.valor_total) > 0) 
+          .map(item => ({
+            nome: item.nome_categoria,
+            valor: parseFloat(item.valor_total),
+            count: item.total_compras,
+            cor: item.cor
+          }))
+      : []; 
+  };
+  const getReceitasChartData = () => {
+      if (data && data.receitas_por_categoria && data.receitas_por_categoria.length > 0) {
+        return data.receitas_por_categoria
+          .filter(item => parseFloat(item.valor_total) > 0)
+          .map(item => ({
+            nome: item.nome_categoria,
+            valor: parseFloat(item.valor_total),
+            count: item.total_compras,
+            cor: item.cor
+          }));
+      }
+      if (data && data.total_receitas > 0) {
+          const totalReceitasFloat = parseFloat(data.total_receitas);
+          return [
+            { nome: 'Serviços', valor: totalReceitasFloat, count: 1, cor: '#00E08F' },
+          ].filter(item => item.valor > 0);
+      }
+      return [];
+  };
+  
+  const getSubtituloFiltro = () => {
+    const dataInicioObj = new Date(dataInicio);
+    const dataFimObj = new Date(dataFim);
+    switch (filterType) {
+      case 'weekly':
+        return `Resumo da Semana: ${dataInicioObj.toLocaleDateString('pt-BR')} - ${dataFimObj.toLocaleDateString('pt-BR')}`;
+      case 'monthly':
+        return `Resumo de: ${dataInicioObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+      case 'yearly':
+        return `Resumo do Ano de: ${dataInicioObj.getFullYear()}`;
+      case 'personalizado':
+         return `Resumo: ${dataInicioObj.toLocaleDateString('pt-BR')} - ${dataFimObj.toLocaleDateString('pt-BR')}`;
+      case 'daily':
+      default:
+        return `Resumo de: ${dataInicioObj.toLocaleDateString('pt-BR', { dateStyle: 'full' })}`;
     }
   };
-  // ----------------------------------------------------
-
-  const formattedTotal = formatCurrency(totalValue);
-
-  return (
-    <div className="doughnut-chart-container">
-      <div className="doughnut-chart-wrapper">
-        {chartData && chartData.length > 0 && chartData.some(item => item.valor > 0) ? (
-          <Doughnut data={data} options={options} />
-        ) : (
-          <div className="no-chart-data">
-            <p>Sem dados para exibir.</p>
-          </div>
-        )}
-        <div className="doughnut-center-text">
-          <span className="total-amount">{formattedTotal}</span>
-          <span className="label">{centerLabel}</span>
-        </div>
+  
+  const renderTransactionList = (title, transactions, loadingState, onEditClick) => {
+    let content;
+    if (loadingState) {
+      content = <p className="loading-transactions">Buscando transações...</p>;
+    } else if (transactions.length === 0) {
+      content = <p className="loading-transactions">Nenhuma transação encontrada.</p>;
+    } else {
+      content = (
+        <ul>
+          {transactions.map((tx) => (
+            <li key={tx.id}>
+              <div className="transaction-details">
+                <span>{tx.descricao}</span>
+                <span className="transaction-date">
+                  {new Date(tx.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  , {new Date(tx.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <div className="transaction-actions">
+                <span className={`transaction-amount ${tx.categoria.tipo === 'Gasto' ? 'gasto' : 'lucro'}`}>
+                  {tx.categoria.tipo === 'Gasto' ? '-' : '+'}
+                  {formatCurrency(tx.valor)}
+                </span>
+                {onEditClick && (
+                  <button className="edit-button" onClick={() => onEditClick(tx)}>
+                    <IoPencil size={16} />
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <div className="recent-transactions">
+        <h2>{title}</h2>
+        {content}
       </div>
-      <div className="chart-legend">
-        {chartData && chartData.length > 0 ? (
-          chartData.map((item, index) => (
-            <div key={item.nome} className="legend-item">
-              <span 
-                className="legend-color" 
-                style={{ backgroundColor: colorsPalette[index % colorsPalette.length] }}
-              ></span>
-              <span className="legend-label" style={{ color: colorsPalette[index % colorsPalette.length] }}>
-                {item.nome}
+    );
+  };
+
+  const renderContent = () => {
+    if (loading) { return <p className="dashboard-loading">Carregando dados...</p>; }
+    if (error) { return <p className="error-message">{error}</p>; }
+    
+    if (data) {
+      const gastosChartData = getGastosChartData();
+      const receitasChartData = getReceitasChartData();
+      return (
+        <>
+          <div className="dashboard-stats">
+             <div className="stat-card">
+              <h3>Total Receitas</h3>
+              <span className="lucro">{formatCurrency(data.total_receitas)}</span>
+            </div>
+            <div className="stat-card">
+              <h3>Total Gastos</h3>
+              <span className="gasto">{formatCurrency(data.total_gastos)}</span>
+            </div>
+            <div className="stat-card">
+              <h3>Lucro Líquido</h3>
+              <span className={data.lucro_liquido >= 0 ? 'lucro' : 'gasto'}>
+                {formatCurrency(data.lucro_liquido)}
               </span>
             </div>
-          ))
-        ) : (
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--cor-texto-secundario)' }}></span>
-            <span className="legend-label" style={{ color: 'var(--cor-texto-secundario)' }}>Nenhuma Categoria</span>
           </div>
-        )}
-      </div>
+          
+          <div className="dashboard-charts-grid">
+            <div className="chart-container">
+              <h3>Receitas por Categoria</h3>
+              <DoughnutChart 
+                chartData={receitasChartData}
+                totalValue={parseFloat(data.total_receitas)}
+                centerLabel="Total Receita"
+              />
+            </div>
+            <div className="chart-container">
+              <h3>Gastos por Categoria</h3>
+              <DoughnutChart 
+                chartData={gastosChartData}
+                totalValue={parseFloat(data.total_gastos)}
+                centerLabel="Total Gasto"
+              />
+            </div>
+          </div>
+
+          {renderTransactionList("Transações no Período", periodTransactions, loadingPeriod, handleEditClick)}
+          {renderTransactionList("Últimas 5 Transações", recentTransactions, loadingRecent, handleEditClick)}
+        </>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="dashboard-container">
+      <header className="dashboard-header">
+        {/* 2. A CORREÇÃO (V7.2)
+            Usa 'nome_completo' (se existir) ou 'nome_usuario' (fallback)
+        */}
+        <h2>Olá, {user ? (user.nome_completo || user.nome_usuario) : '...'}!</h2>
+        <span className="dashboard-subtitle">{getSubtituloFiltro()}</span>
+      </header>
+
+      <FilterControls 
+        filterType={filterType}
+        setFilterType={setFilterType}
+        dataInicio={dataInicio}
+        setDataInicio={setDataInicio}
+        dataFim={dataFim}
+        setDataFim={setDataFim}
+      />
+
+      <main className="dashboard-content">
+        {renderContent()}
+      </main>
     </div>
   );
 }
 
-export default DoughnutChart;
+export default Dashboard;

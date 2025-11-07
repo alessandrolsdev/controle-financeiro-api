@@ -1,4 +1,5 @@
-/* Arquivo: frontend/src/components/TransactionModal/TransactionModal.css (VERSÃO V3.0 - COM TEMA DINÂMICO) */
+/* Arquivo: frontend/src/components/TransactionModal/TransactionModal.css */
+/* (VERSÃO REATORADA V2.5 - CORREÇÃO FINAL com '!important') */
 
 /* --- 1. Layout do Overlay --- */
 .modal-overlay {
@@ -17,7 +18,7 @@
 
 /* --- 2. O Card do Modal --- */
 .modal-content {
-  background: var(--cor-fundo-card); /* Cor dinâmica */
+  background: var(--cor-fundo-card); 
   border: 1px solid var(--cor-borda);
   padding: 2.5rem 3rem;
   border-radius: 12px;
@@ -46,7 +47,7 @@
 
 .modal-header h2 {
   margin: 0;
-  color: var(--cor-texto-primario);
+  color: var(--cor-branco-foco);
   font-weight: 600;
 }
 
@@ -54,12 +55,12 @@
   background: none;
   border: none;
   font-size: 2.5rem;
-  color: var(--cor-texto-secundario);
+  color: var(--cor-cinza-suporte);
   cursor: pointer;
   line-height: 1;
 }
 .close-button:hover {
-  color: var(--cor-texto-primario);
+  color: var(--cor-branco-foco);
 }
 
 /* --- 4. Estilos do Formulário (Padrão "Underline") --- */
@@ -73,7 +74,7 @@
 .input-group label { 
   display: block; 
   margin-bottom: 0.5rem; 
-  color: var(--cor-texto-secundario);
+  color: var(--cor-cinza-suporte);
   font-weight: 500;
   font-size: 0.9rem;
 }
@@ -84,9 +85,10 @@
   width: 100%;
   padding: 0.75rem 0.25rem;
   border: none;
-  border-bottom: 2px solid var(--cor-texto-secundario);
+  border-bottom: 2px solid var(--cor-cinza-suporte);
   background-color: transparent;
-  color: var(--cor-texto-primario);
+  /* Esta cor (branca) é para o item SELECIONADO (a caixa) */
+  color: var(--cor-branco-foco); 
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
   border-radius: 0;
@@ -100,19 +102,25 @@
   border-color: var(--cor-laranja-voo); 
 }
 
+/* --- A CORREÇÃO DO DROPDOWN (BUG VISUAL V2.5) --- */
 .input-group select option {
-  background-color: var(--cor-fundo-principal);
-  color: var(--cor-texto-primario);
+  /* 1. (Opcional) Garante o fundo branco */
+  background-color: #ffffff; 
+  
+  /* 2. A CORREÇÃO (FORÇADA):
+     Usamos '!important' para ANULAR a herança do
+     'color: white' do <select> pai e forçar
+     o nosso texto azul escuro. */
+  color: var(--cor-base-azul-guardiao) !important; 
 }
 
 /* --- 5. Botão de Ação --- */
-/* O designer pediu o botão de salvar gasto como Laranja Voo */
 .submit-button {
   width: 100%;
   padding: 0.85rem;
   border: none;
   border-radius: 8px;
-  background-color: var(--cor-laranja-voo); /* Laranja Voo */
+  background-color: var(--cor-laranja-voo);
   color: var(--cor-branco-foco);
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;

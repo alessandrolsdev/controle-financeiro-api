@@ -12,7 +12,9 @@ import MainLayout from './layouts/MainLayout';
 import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Settings from './pages/Settings/Settings';
-import SignUp from './pages/SignUp/SignUp'; // A NOVA PÁGINA QUE CRIAMOS
+import SignUp from './pages/SignUp/SignUp';
+import Profile from './pages/Profile/Profile';
+import Reports from './pages/Reports/Reports';
 
 /**
  * Componente "Guarda de Trânsito" (Roteador Principal).
@@ -69,19 +71,9 @@ function App() {
           
           {/* Rotas "Placeholder" para os links da Navbar */}
           {/* Elas ainda não têm uma página bonita, mas já funcionam! */}
-          <Route path="reports" element={
-            <div style={{ padding: '2rem' }}>
-              <h1>Relatórios</h1>
-              <p>(Página em construção...)</p>
-            </div>
-          } />
+          <Route path="reports" element={<Reports />} />
           
-          <Route path="profile" element={
-            <div style={{ padding: '2rem' }}>
-              <h1>Perfil do Usuário</h1>
-              <p>(Página em construção...)</p>
-            </div>
-          } />
+          <Route path="profile" element={<Profile />} />
 
         </Route>
 
