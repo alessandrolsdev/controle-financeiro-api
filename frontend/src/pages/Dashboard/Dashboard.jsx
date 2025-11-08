@@ -1,5 +1,14 @@
 // Arquivo: frontend/src/pages/Dashboard/Dashboard.jsx
-// (VERSÃO V7.2 - CORREÇÃO DO 'Olá, user.sub')
+// (VERSÃO V9.0 - COM BOTÃO DE EXCLUIR)
+/*
+REATORAÇÃO (Missão V9.0):
+1. Importa 'IoTrash' (Lixeira).
+2. Recebe 'handleDeleteSuccess' do Pai (via 'useOutletContext').
+3. Adiciona a nova função local 'handleDeleteTransaction'.
+4. 'handleDeleteTransaction' chama o novo endpoint 'api.delete'
+   e passa os dados atualizados para 'handleDeleteSuccess'.
+5. 'renderTransactionList' agora renderiza o botão de lixeira.
+*/
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -8,17 +17,20 @@ import api from '../../services/api';
 import './Dashboard.css';
 import DoughnutChart from '../../components/DoughnutChart/DoughnutChart';
 import FilterControls from '../../components/FilterControls/FilterControls';
-import { IoPencil } from 'react-icons/io5'; // (Importa o lápis V6.0)
 
+// 1. IMPORTA O ÍCONE DE LIXEIRA
+import { IoPencil, IoTrash } from 'react-icons/io5';
+
+// --- (Função Auxiliar) ---
 const formatCurrency = (value) => {
   const number = parseFloat(value) || 0;
   return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 function Dashboard() {
-  // 1. O 'user' agora é o PERFIL COMPLETO (V7.1)
   const { user } = useAuth(); 
   
+  // 2. RECEBE O NOVO HANDLER DO PAI
   const { 
     data, 
     loading, 
@@ -31,15 +43,20 @@ function Dashboard() {
     setDataFim,
     dataInicioStr,
     dataFimStr,
-    handleEditClick
+    handleEditClick,
+    handleDeleteSuccess // <-- NOVO HANDLER
   } = useOutletContext();
   
+  // --- Estados Locais (Sem mudança) ---
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
   const [periodTransactions, setPeriodTransactions] = useState([]);
   const [loadingPeriod, setLoadingPeriod] = useState(true);
+  
+  // (Este estado é para o feedback do 'delete')
+  const [deleteError, setDeleteError] = useState('');
 
-  // --- Efeitos e Funções (Sem mudança) ---
+  // --- Efeito 1: Busca "Últimas Transações" ---
   useEffect(() => {
     if (!data) return; 
     setLoadingRecent(true);
@@ -54,6 +71,7 @@ function Dashboard() {
       });
   }, [data]);
 
+  // --- EFEITO 2: Busca "Transações no Período" ---
   useEffect(() => {
     if (!dataInicioStr || !dataFimStr) return;
     const fetchPeriodTransactions = async () => {
@@ -74,6 +92,7 @@ function Dashboard() {
     fetchPeriodTransactions();
   }, [dataInicioStr, dataFimStr]);
 
+  // --- Funções Auxiliares (getGastosChartData, etc. - Sem mudança) ---
   const getGastosChartData = () => {
       return data && data.gastos_por_categoria
       ? data.gastos_por_categoria
@@ -105,7 +124,6 @@ function Dashboard() {
       }
       return [];
   };
-  
   const getSubtituloFiltro = () => {
     const dataInicioObj = new Date(dataInicio);
     const dataFimObj = new Date(dataFim);
@@ -124,6 +142,36 @@ function Dashboard() {
     }
   };
   
+  // 3. A NOVA FUNÇÃO DE DELETAR (V9.0)
+  const handleDeleteTransaction = async (transaction) => {
+    setDeleteError(''); // Limpa erros antigos
+    
+    if (!window.confirm(`Tem certeza que deseja excluir a transação: "${transaction.descricao}"?`)) {
+      return;
+    }
+    
+    try {
+      // Chama o endpoint SÍNCRONO de 'delete'
+      // (Envia as datas do filtro para o backend recalcular)
+      const response = await api.delete(`/transacoes/${transaction.id}`, {
+        params: {
+          data_inicio: dataInicioStr,
+          data_fim: dataFimStr
+        }
+      });
+      
+      // A 'response.data' é o DashboardData atualizado
+      handleDeleteSuccess(response.data);
+      
+    } catch (err) {
+      console.error("Erro ao deletar transação:", err);
+      // (Não usamos 'alert' aqui para não ser muito intrusivo)
+      setDeleteError("Não foi possível excluir a transação. Tente novamente.");
+    }
+  };
+  
+  
+  // 4. FUNÇÃO DE RENDERIZAR LISTAS (ATUALIZADA)
   const renderTransactionList = (title, transactions, loadingState, onEditClick) => {
     let content;
     if (loadingState) {
@@ -142,16 +190,24 @@ function Dashboard() {
                   , {new Date(tx.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
+              
               <div className="transaction-actions">
                 <span className={`transaction-amount ${tx.categoria.tipo === 'Gasto' ? 'gasto' : 'lucro'}`}>
                   {tx.categoria.tipo === 'Gasto' ? '-' : '+'}
                   {formatCurrency(tx.valor)}
                 </span>
+                
+                {/* Botão de Editar (V6.0) */}
                 {onEditClick && (
                   <button className="edit-button" onClick={() => onEditClick(tx)}>
                     <IoPencil size={16} />
                   </button>
                 )}
+                
+                {/* 5. O NOVO BOTÃO DE EXCLUIR (V9.0) */}
+                <button className="delete-button" onClick={() => handleDeleteTransaction(tx)}>
+                  <IoTrash size={16} />
+                </button>
               </div>
             </li>
           ))}
@@ -161,11 +217,15 @@ function Dashboard() {
     return (
       <div className="recent-transactions">
         <h2>{title}</h2>
+        {/* Mostra o erro de 'delete' (se houver) */}
+        {title === "Transações no Período" && deleteError && 
+          <p className="error-message">{deleteError}</p>}
         {content}
       </div>
     );
   };
 
+  // --- Renderização (Conteúdo Principal) ---
   const renderContent = () => {
     if (loading) { return <p className="dashboard-loading">Carregando dados...</p>; }
     if (error) { return <p className="error-message">{error}</p>; }
@@ -211,6 +271,7 @@ function Dashboard() {
             </div>
           </div>
 
+          {/* (As listas agora têm 'handleEditClick') */}
           {renderTransactionList("Transações no Período", periodTransactions, loadingPeriod, handleEditClick)}
           {renderTransactionList("Últimas 5 Transações", recentTransactions, loadingRecent, handleEditClick)}
         </>
@@ -222,9 +283,6 @@ function Dashboard() {
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
-        {/* 2. A CORREÇÃO (V7.2)
-            Usa 'nome_completo' (se existir) ou 'nome_usuario' (fallback)
-        */}
         <h2>Olá, {user ? (user.nome_completo || user.nome_usuario) : '...'}!</h2>
         <span className="dashboard-subtitle">{getSubtituloFiltro()}</span>
       </header>

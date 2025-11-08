@@ -1,5 +1,5 @@
 /* Arquivo: frontend/src/pages/Settings/Settings.css */
-/* (VERSÃO V5.0 - COMPLETA COM ESTILOS DE COLOR PICKER) */
+/* (VERSÃO V8.0 - COMPLETA COM ESTILOS DE EDIÇÃO) */
 
 /* --- 1. Layout Principal --- */
 .settings-container {
@@ -16,7 +16,6 @@
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--cor-borda);
 }
-
 .settings-header h2 {
   margin: 0;
   font-weight: 600;
@@ -30,7 +29,6 @@
   max-width: 800px;
   margin: 0 auto;
 }
-
 .settings-card {
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
@@ -40,7 +38,6 @@
   margin-bottom: 2rem;
   transition: background-color 0.3s ease;
 }
-
 .settings-card h2 {
   margin-top: 0;
   border-bottom: 1px solid var(--cor-borda);
@@ -49,18 +46,16 @@
   color: var(--cor-texto-primario);
 }
 
-/* --- 4. Estilos do Formulário (Padrão "Underline") --- */
+/* --- 4. Estilos do Formulário --- */
 .input-group { 
   margin-bottom: 1.5rem; 
 }
-
 .input-group label { 
   display: block; 
   margin-bottom: 0.5rem; 
   color: var(--cor-texto-secundario);
   font-weight: 500; 
 }
-
 .input-group input, 
 .input-group select {
   width: 100%;
@@ -74,20 +69,17 @@
   border-radius: 0;
   transition: border-color 0.3s ease;
 }
-
 .input-group input:focus, 
 .input-group select:focus {
   outline: none;
   border-color: var(--cor-laranja-voo);
 }
-
-/* CORREÇÃO DEFINITIVA DO BUG DE CONTRASSTE */
 .input-group select option {
   background-color: #ffffff; 
   color: #0B1A33 !important; 
 }
 
-/* --- NOVO ESTILO: Seletor de Cores (V5.0) --- */
+/* --- Seletor de Cores (V5.0) --- */
 .color-picker-group input[type="color"] {
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -95,7 +87,7 @@
     width: 40px; 
     height: 40px;
     background: none;
-    border: 1px solid var(--cor-borda); /* Borda sutil */
+    border: 1px solid var(--cor-borda);
     padding: 0;
     cursor: pointer;
     border-radius: 4px;
@@ -107,7 +99,6 @@
     border: none;
     border-radius: 4px;
 }
-
 .color-picker-group .color-code-display {
     color: var(--cor-texto-secundario);
     font-weight: 500;
@@ -115,8 +106,13 @@
     margin-top: 0.5rem;
 }
 
+/* --- 5. Botões de Formulário (ATUALIZADO V8.0) --- */
+.form-button-group {
+  display: flex;
+  gap: 1rem; /* Espaço entre "Salvar" e "Cancelar" */
+  align-items: center;
+}
 
-/* --- 5. Botões e Badges (Estilos de Botões e Badges) --- */
 .settings-button {
   width: auto;
   padding: 0.75rem 1.5rem;
@@ -130,13 +126,30 @@
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
-
 .settings-button:hover {
   background-color: #e66e00;
   box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3);
 }
 
-/* --- 6. Lista de Categorias (Ajustes de Badge para a cor salva) --- */
+/* NOVO BOTÃO DE CANCELAR (V8.0) */
+.cancel-button {
+  background: none;
+  border: 1px solid var(--cor-texto-secundario);
+  color: var(--cor-texto-secundario);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.cancel-button:hover {
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-primario);
+}
+
+/* --- 6. Lista de Categorias (ATUALIZADO V8.0) --- */
 .categoria-list ul {
   list-style: none;
   padding: 0;
@@ -151,24 +164,64 @@
 .categoria-list li:last-child {
   border-bottom: none;
 }
-.tipo-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: var(--cor-texto-principal); /* O texto será branco/preto dependendo do tema */
+
+/* Lado Esquerdo da Lista */
+.categoria-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Espaço entre a cor, nome e tipo */
 }
 
-/* Regras originais do badge (reajustadas para garantir contraste) */
-/* (Estas regras são menos importantes agora, pois o 'style' inline 
-    em Settings.jsx define o background) */
-.tipo-badge.tipo-gasto {
-    /* cor de texto garantida pelo .tipo-badge */
-}
-.tipo-badge.tipo-receita {
-    /* cor de texto garantida pelo .tipo-badge */
+/* O "quadradinho" de cor */
+.categoria-cor-preview {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--cor-borda);
 }
 
+/* O badge (etiqueta) de tipo */
+.tipo-badge-list {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+.tipo-badge-list.tipo-gasto {
+  background-color: var(--cor-gasto);
+  color: var(--cor-branco-foco);
+}
+.tipo-badge-list.tipo-receita {
+  background-color: var(--cor-lucro);
+  color: var(--cor-branco-foco);
+}
+
+/* Lado Direito da Lista (OS NOVOS BOTÕES) */
+.categoria-list-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-btn, .delete-btn {
+  background: none;
+  border: none;
+  color: var(--cor-texto-secundario);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+.edit-btn:hover {
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-primario);
+}
+.delete-btn:hover {
+  background-color: var(--cor-gasto); /* Fica vermelho/laranja */
+  color: var(--cor-branco-foco);
+}
 
 /* --- 7. Estilos de Itens de Menu (Sem mudança) --- */
 .settings-item {
@@ -185,7 +238,6 @@
   font-weight: 500;
   color: var(--cor-texto-primario);
 }
-
 .settings-button-disabled {
   width: auto;
   padding: 0.5rem 1rem;
@@ -200,7 +252,7 @@
   opacity: 0.5;
 }
 
-/* --- 8. O "Interruptor" (Toggle) de Tema BONITO (Sem mudança) --- */
+/* --- 8. O "Interruptor" (Toggle) de Tema (Sem mudança) --- */
 .theme-toggle input {
   opacity: 0;
   width: 0;

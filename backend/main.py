@@ -1,11 +1,7 @@
-# Arquivo: backend/main.py (VERSÃO V7.5 - CORREÇÃO DE CORS DE PRODUÇÃO)
+# Arquivo: backend/main.py (VERSÃO COMPLETA V9.0)
 """
-CHECK-UP (V7.5 - Correção de Deploy):
-1. O 'origins' (lista fixa) foi removido do 'CORSMiddleware'.
-2. Adicionamos 'allow_origin_regex' para permitir dinamicamente
-   qualquer subdomínio do Vercel (ex: '...vercel.app') e
-   qualquer 'localhost' (para desenvolvimento).
-3. Isso corrige o erro '400 Bad Request' nas requisições 'OPTIONS'.
+CHECK-UP (V9.0): Adiciona o novo endpoint 'DELETE /transacoes/{transacao_id}'.
+Ele é SÍNCRONO (como POST e PUT) e retorna o DashboardData atualizado.
 """
 
 # --- 1. Importações ---
@@ -18,7 +14,7 @@ from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-# 'tasks' foi removido na V7.4
+# 'tasks' foi removido
 from .database import SessionLocal, engine
 from .core.config import settings 
 
@@ -26,16 +22,11 @@ from .core.config import settings
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# --- 3. Configuração do CORS (A CORREÇÃO) ---
-
-# Esta regex permite 'http://localhost:3000', 'https://qualquer-coisa.vercel.app'
-# (É mais seguro e flexível do que uma lista fixa)
+# --- 3. Configuração do CORS ---
 origin_regex = r"https?://(localhost(:\d+)?|.*\.vercel\.app)"
-
 app.add_middleware(
     CORSMiddleware,
-    # allow_origins=origins, # <-- REMOVIDO
-    allow_origin_regex=origin_regex, # <-- ADICIONADO
+    allow_origin_regex=origin_regex,
     allow_credentials=True,
     allow_methods=["*"], 
     allow_headers=["*"],
@@ -50,7 +41,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
 def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -155,7 +145,6 @@ def ler_dados_dashboard(
         data_inicio=data_inicio, 
         data_fim=data_fim
     )
-
 @app.get("/relatorios/tendencia", response_model=schemas.DadosDeTendencia)
 def ler_dados_de_tendencia(
     data_inicio: date, 
@@ -171,7 +160,6 @@ def ler_dados_de_tendencia(
         data_fim=data_fim,
         filtro=filtro 
     ) 
-
 @app.get("/transacoes/periodo/", response_model=List[schemas.Transacao])
 def ler_transacoes_por_periodo(
     data_inicio: date, 
@@ -187,7 +175,7 @@ def ler_transacoes_por_periodo(
     )
     return transacoes
 
-# --- 8. ENDPOINTS DE TRANSAÇÃO (SÍNCRONO) ---
+# --- 8. ENDPOINTS DE TRANSAÇÃO (ATUALIZADO V9.0) ---
 @app.post("/transacoes/", 
     response_model=schemas.DashboardData
 )
@@ -203,7 +191,6 @@ def criar_nova_transacao(
         transacao=transacao, 
         usuario_id=usuario_atual.id
     )
-    
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -211,7 +198,6 @@ def criar_nova_transacao(
         data_fim=data_fim
     )
     return dashboard_data
-
 @app.put("/transacoes/{transacao_id}", 
     response_model=schemas.DashboardData
 )
@@ -231,7 +217,6 @@ def editar_transacao(
     )
     if db_transacao is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
-    
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -239,6 +224,38 @@ def editar_transacao(
         data_fim=data_fim
     )
     return dashboard_data
+
+# --- O NOVO ENDPOINT DE EXCLUSÃO (V9.0) ---
+# (Ele é SÍNCRONO, como o POST e o PUT)
+@app.delete("/transacoes/{transacao_id}", response_model=schemas.DashboardData)
+def deletar_transacao_e_recalcular(
+    transacao_id: int,
+    data_inicio: date, 
+    data_fim: date,
+    db: Session = Depends(get_db),
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
+    """
+    Deleta uma transação e retorna o dashboard atualizado.
+    """
+    # 1. Deleta a transação
+    sucesso = crud.deletar_transacao(
+        db=db,
+        transacao_id=transacao_id,
+        usuario_id=usuario_atual.id
+    )
+    if not sucesso:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
+        
+    # 2. Recalcula o dashboard (Síncrono)
+    dashboard_data = crud.get_dashboard_data(
+        db=db,
+        usuario_id=usuario_atual.id,
+        data_inicio=data_inicio,
+        data_fim=data_fim
+    )
+    return dashboard_data
+# ---------------------------------------------
 
 @app.get("/transacoes/", response_model=List[schemas.Transacao])
 def ler_transacoes(
@@ -250,14 +267,21 @@ def ler_transacoes(
     transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
     return transacoes
 
-# --- 9. ENDPOINTS DE CATEGORIA ---
+# --- 9. ENDPOINTS DE CATEGORIA (V8.0) ---
 @app.post("/categorias/", response_model=schemas.Categoria)
 def criar_nova_categoria(
     categoria: schemas.CategoriaCreate, 
     db: Session = Depends(get_db), 
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    return crud.criar_categoria(db=db, categoria=categoria)
+    try:
+        return crud.criar_categoria(db=db, categoria=categoria)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uma categoria com este nome já existe."
+        )
 
 @app.get("/categorias/", response_model=List[schemas.Categoria])
 def ler_categorias(
@@ -266,3 +290,44 @@ def ler_categorias(
 ):
     categorias = crud.listar_categorias(db=db)
     return categorias
+
+@app.put("/categorias/{categoria_id}", response_model=schemas.Categoria)
+def editar_categoria(
+    categoria_id: int,
+    categoria: schemas.CategoriaUpdate,
+    db: Session = Depends(get_db),
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
+    try:
+        db_categoria = crud.atualizar_categoria(
+            db=db,
+            categoria_id=categoria_id,
+            categoria_update=categoria
+        )
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uma categoria com este nome já existe."
+        )
+    if db_categoria is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
+    return db_categoria
+
+@app.delete("/categorias/{categoria_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_categoria_endpoint( # Nomeado 'deletar_categoria_endpoint' para evitar conflito com a importação
+    categoria_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
+    try:
+        sucesso = crud.deletar_categoria(db=db, categoria_id=categoria_id)
+        if not sucesso:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível excluir: Esta categoria já está sendo usada por transações."
+        )
+    return {"message": "Categoria deletada com sucesso."}
