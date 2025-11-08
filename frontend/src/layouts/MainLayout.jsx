@@ -1,15 +1,12 @@
 // Arquivo: frontend/src/layouts/MainLayout.jsx
-// (VERSÃO V-REVERTIDA - SÍNCRONA/GRATUITA)
+// (VERSÃO V9.1 - CORREÇÃO DEFINITIVA DO LOOP INFINITO)
 /*
-REVERSÃO (MISSÃO DE DEPLOY GRATUITO):
-Revertemos este arquivo para a arquitetura "V1.0" Síncrona.
-
-1. 'handleSaveSuccess' agora ACEITA 'novosDadosDoDashboard'
-   (vindos diretamente da resposta da API).
-2. Ele chama 'setData(novosDadosDoDashboard)' (atualização instantânea).
-3. Ele NÃO chama mais 'fetchDashboardData()' (removendo a 2ª chamada de API).
-4. O modal 'TransactionModal' agora recebe 'dataInicioStr' e 'dataFimStr'
-   para que ele possa enviá-los para o backend.
+CHECK-UP (V9.1): Este é o 'merge' correto.
+1. Contém a lógica de Edição/Exclusão (V6.0/V9.0)
+   (ex: 'handleEditClick', 'handleDeleteSuccess').
+2. Contém a lógica de 'isAuthLoading' (V7.6).
+3. Contém a lógica 'useEffect' CORRIGIDA (V3.9) que NÃO
+   chama 'setDataInicio' e, portanto, NÃO causa o loop.
 */
 
 import React, { useState, useEffect } from 'react';
@@ -35,7 +32,7 @@ function MainLayout() {
   const [data, setData] = useState(null); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { syncTrigger } = useAuth(); 
+  const { syncTrigger, isAuthLoading } = useAuth(); // (V7.6)
 
   // --- NOSSOS ESTADOS DE FILTRO ---
   const [filterType, setFilterType] = useState('daily');
@@ -49,43 +46,47 @@ function MainLayout() {
   const [editingTransaction, setEditingTransaction] = useState(null);
 
   /**
-   * Efeito 1: Calcula o 'dataFim' (V3.9)
+   * Efeito 1: Calcula o 'dataFim' (A VERSÃO CORRIGIDA V3.9)
+   * Roda quando 'filterType' ou 'dataInicio' mudam.
+   * NÃO causa loops, pois não chama 'setDataInicio'.
    */
   useEffect(() => {
+    // Se o filtro for personalizado, o 'dataFim' é controlado
+    // pelo usuário no FilterControls.
     if (filterType === 'personalizado') return;
+
     let dataFimCalculada;
+    // Usa a data de início (que o FilterControls definiu) como base
     const dataBase = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
 
     switch (filterType) {
       case 'weekly':
-        const diaDaSemana = dataBase.getDay();
-        const diff = dataBase.getDate() - diaDaSemana + (diaDaSemana === 0 ? -6 : 1);
-        const inicioSemana = new Date(dataBase.setDate(diff));
-        dataFimCalculada = new Date(inicioSemana);
+        // A data de início já foi definida para o início da semana
+        // pelo FilterControls, então apenas calculamos o fim.
+        dataFimCalculada = new Date(dataBase);
         dataFimCalculada.setDate(dataFimCalculada.getDate() + 6);
-        setDataInicio(inicioSemana); 
         break;
       case 'monthly':
-        const inicioMes = new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
+        // A data de início já é dia 1
         dataFimCalculada = new Date(dataBase.getFullYear(), dataBase.getMonth() + 1, 0);
-        setDataInicio(inicioMes);
         break;
       case 'yearly':
-        const inicioAno = new Date(dataBase.getFullYear(), 0, 1);
+        // A data de início já é 1º de Jan
         dataFimCalculada = new Date(dataBase.getFullYear(), 11, 31);
-        setDataInicio(inicioAno);
         break;
       case 'daily':
       default:
         dataFimCalculada = dataBase; 
         break;
     }
+    // Atualiza APENAS o 'dataFim'
     setDataFim(dataFimCalculada);
-  }, [filterType, dataInicio]);
+
+  }, [filterType, dataInicio]); // <-- Ouve 'dataInicio', mas não o define
 
 
   /**
-   * Efeito 2: Converte as datas para Strings
+   * Efeito 2: Converte as datas (Date objects) para Strings (AAAA-MM-DD)
    */
   useEffect(() => {
     setDataInicioStr(formatDateForAPI(dataInicio));
@@ -116,11 +117,13 @@ function MainLayout() {
   };
   
   /**
-   * Efeito 3: Busca os dados
+   * Efeito 3: Busca os dados (V7.6 - Corrigido)
    */
   useEffect(() => {
+    if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
+    
     fetchDashboardData();
-  }, [dataInicioStr, dataFimStr, syncTrigger]);
+  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading]);
   
   // --- FUNÇÕES DE CONTROLE DO MODAL ---
 
@@ -135,18 +138,22 @@ function MainLayout() {
   };
 
   /**
-   * REVERSÃO (A MUDANÇA ESTÁ AQUI)
-   * Chamado quando o modal é salvo.
-   * Agora aceita 'novosDadosDoDashboard' da API.
+   * Chamado quando o modal (Criar/Editar) é salvo.
+   * (Arquitetura Síncrona V-Revertida)
    */
   const handleSaveSuccess = (novosDadosDoDashboard) => {
     setIsModalOpen(false); 
     setEditingTransaction(null);
-    
-    // ATUALIZAÇÃO SÍNCRONA:
-    // Em vez de forçar um 'fetch', nós usamos os dados
-    // que o backend (lentamente) já calculou e nos enviou.
     setData(novosDadosDoDashboard); 
+  };
+  
+  /**
+   * NOVO HANDLER (V9.0)
+   * Chamado pelo Dashboard.jsx quando o 'api.delete'
+   * síncrono retorna os dados atualizados.
+   */
+  const handleDeleteSuccess = (novosDadosDoDashboard) => {
+    setData(novosDadosDoDashboard);
   };
 
   const handleCloseModal = () => {
@@ -154,6 +161,14 @@ function MainLayout() {
     setEditingTransaction(null);
   };
 
+  // (V7.6)
+  if (isAuthLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', fontFamily: 'Montserrat' }}>
+        Carregando aplicação...
+      </div>
+    );
+  }
 
   return (
     <div className="layout-container">
@@ -170,20 +185,20 @@ function MainLayout() {
           setDataFim,
           dataInicioStr,  
           dataFimStr,
-          handleEditClick
+          handleEditClick,
+          handleDeleteSuccess // <-- Prop de Delete (V9.0)
         }} />
       </main>
 
       <Navbar onAddTransaction={handleAddTransactionClick} />
 
-      {/* MUDANÇA: Passa as datas do filtro para o Modal */}
       {isModalOpen && (
         <TransactionModal 
           onClose={handleCloseModal}
           onSaveSuccess={handleSaveSuccess}
           transactionToEdit={editingTransaction}
-          dataInicioStr={dataInicioStr} // <-- NOVO PROP
-          dataFimStr={dataFimStr}     // <-- NOVO PROP
+          dataInicioStr={dataInicioStr}
+          dataFimStr={dataFimStr}
         />
       )}
     </div>

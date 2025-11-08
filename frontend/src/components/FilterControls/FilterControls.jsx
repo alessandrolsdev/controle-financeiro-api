@@ -1,13 +1,9 @@
 // Arquivo: frontend/src/components/FilterControls/FilterControls.jsx
-// (VERSÃO V3.9 - CORREÇÃO DO LOOP INFINITO)
+// (VERSÃO V9.1 - CORREÇÃO DEFINITIVA DO LOOP INFINITO)
 /*
-REATORAÇÃO (Missão V3.9 - A CORREÇÃO):
-1. A lógica de "resetar" a data de início foi MOVIDA
-   para DENTRO dos 'onClick' dos botões.
-2. O 'onClick' de "Mensal", por exemplo, agora chama
-   'handleFilterChange' que define o 'filterType' E
-   o 'dataInicio' (para o 1º dia do mês) ao mesmo tempo.
-3. Isso impede que o 'MainLayout' entre em um loop infinito.
+CHECK-UP (V9.1): Este arquivo contém a lógica 'handleFilterChange'
+que (corretamente) chama 'setFilterType' E 'setDataInicio'
+ao mesmo tempo. Esta é a correção para o bug 'Maximum update depth'.
 */
 
 import React from 'react';
@@ -16,6 +12,8 @@ import './FilterControls.css';
 // --- FUNÇÕES AUXILIARES (para os inputs de data) ---
 const handleDateChange = (event, setDate) => {
   const dateString = event.target.value;
+  // O input 'date' (mesmo local) retorna AAAA-MM-DD
+  // Precisamos tratar o fuso horário para não pular um dia
   const data = new Date(dateString);
   const dataLocal = new Date(data.valueOf() + data.getTimezoneOffset() * 60000);
   setDate(dataLocal);
@@ -44,13 +42,15 @@ function FilterControls({
   const maxDateForPicker = formatISODate(new Date());
 
   /**
-   * 1. A NOVA LÓGICA DE 'onClick'
-   * Esta função agora é o "cérebro".
+   * 1. A LÓGICA DE 'onClick' (V3.9)
+   * Esta função é o "cérebro" que impede o loop infinito.
    * Ela define o tipo de filtro E a data de início
    * correta para aquele filtro, tudo de uma vez.
    */
   const handleFilterChange = (newFilterType) => {
-    const dataBase = new Date(); // Usa HOJE como base para resetar
+    // Usa HOJE como base para 'Diário'
+    // Usa a data ATUAL do filtro para 'Personalizado'
+    const dataBase = (newFilterType === 'personalizado') ? new Date(dataInicio) : new Date();
     
     let novaDataInicio;
 
@@ -67,8 +67,7 @@ function FilterControls({
         novaDataInicio = new Date(dataBase.getFullYear(), 0, 1);
         break;
       case 'personalizado':
-        // No modo personalizado, não resetamos, usamos a data atual
-        novaDataInicio = dataInicio; 
+        novaDataInicio = dataBase; // Mantém a data de início atual
         break;
       case 'daily':
       default:
@@ -84,7 +83,7 @@ function FilterControls({
 
   return (
     <div className="filter-tabs-container">
-      {/* 2. Botões de Filtro (agora usam 'handleFilterChange') */}
+      {/* 2. Botões de Filtro (usam 'handleFilterChange') */}
       <div className="filter-tabs">
         <button 
           className={`tab-button ${filterType === 'daily' ? 'active' : ''}`}
@@ -118,7 +117,7 @@ function FilterControls({
         </button>
       </div>
       
-      {/* 3. O Calendário (agora 100% correto) */}
+      {/* 3. O Calendário (Renderização Condicional V3.8) */}
       <div className="date-picker-container">
         {filterType === 'personalizado' ? (
           // MODO PERSONALIZADO (Dois calendários)

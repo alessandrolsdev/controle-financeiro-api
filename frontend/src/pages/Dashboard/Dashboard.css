@@ -1,8 +1,7 @@
 /* Arquivo: frontend/src/pages/Dashboard/Dashboard.css */
-/* (VERSÃO V6.0 - COMPLETA COM ESTILOS DE EDIÇÃO) */
+/* (VERSÃO V9.0 - COMPLETA COM ESTILOS DE DELETAR) */
 
 /* --- 1. Layout Geral --- */
-/* ... (sem mudança) ... */
 .dashboard-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
@@ -10,7 +9,6 @@
 }
 
 /* --- 2. Cabeçalho da Página --- */
-/* ... (sem mudança) ... */
 .dashboard-header {
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   border-bottom: 1px solid var(--cor-borda);
@@ -29,7 +27,6 @@
 }
 
 /* --- 3. CONTAINER DOS FILTROS --- */
-/* ... (sem mudança) ... */
 .filter-tabs-container {
   padding: 1rem 1.5rem;
   display: flex;
@@ -67,7 +64,6 @@
 }
 
 /* --- 4. O CALENDÁRIO --- */
-/* ... (sem mudança) ... */
 .date-picker-container { }
 .date-picker-input {
   background-color: var(--cor-fundo-card);
@@ -84,7 +80,6 @@
 }
 
 /* --- 5. Conteúdo Principal (Cards) --- */
-/* ... (sem mudança) ... */
 .dashboard-content {
   padding: 1.5rem;
   padding-top: 0.5rem; 
@@ -93,6 +88,16 @@
   padding: 1.5rem;
   text-align: center;
   color: var(--cor-texto-secundario);
+}
+/* (Mensagem de erro - para o 'delete') */
+.error-message {
+  color: var(--cor-gasto);
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid var(--cor-gasto);
+  border-radius: 4px;
+  padding: 0.75rem;
+  text-align: center;
+  margin-bottom: 1rem;
 }
 .dashboard-stats {
   display: grid;
@@ -130,7 +135,6 @@
 .stat-card span.texto-primario { color: var(--cor-texto-primario); }
 
 /* --- 6. O GRID LADO A LADO PARA OS GRÁFICOS --- */
-/* ... (sem mudança) ... */
 .dashboard-charts-grid {
   display: grid;
   grid-template-columns: 1fr; 
@@ -159,7 +163,7 @@
   text-align: center;
 }
 
-/* --- 7. Lista de Transações (A MUDANÇA ESTÁ AQUI) --- */
+/* --- 7. Lista de Transações (ATUALIZADO V9.0) --- */
 .recent-transactions {
   margin-top: 2rem;
   grid-column: 1 / -1; 
@@ -227,14 +231,14 @@
   color: var(--cor-lucro);
 }
 
-/* --- 8. OS NOVOS ESTILOS (V6.0) --- */
+/* --- 8. OS NOVOS ESTILOS (V9.0) --- */
 .transaction-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem; /* Espaço entre o valor e o botão */
+  gap: 0.5rem; /* Espaço entre o valor e os botões */
 }
 
-.edit-button {
+.edit-button, .delete-button {
   background: none;
   border: none;
   color: var(--cor-texto-secundario);
@@ -250,4 +254,9 @@
 .edit-button:hover {
   background-color: var(--cor-borda);
   color: var(--cor-texto-primario);
+}
+
+.delete-button:hover {
+  background-color: var(--cor-gasto); /* Fica vermelho/alerta */
+  color: var(--cor-branco-foco);
 }

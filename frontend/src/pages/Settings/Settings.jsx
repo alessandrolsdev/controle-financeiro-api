@@ -1,15 +1,17 @@
-// Arquivo: frontend/src/pages/Settings/Settings.jsx (VERSÃO V5.0 - COMPLETA COM SELETOR DE COR)
+// Arquivo: frontend/src/pages/Settings/Settings.jsx (VERSÃO V8.1 - CORREÇÃO DO FEEDBACK DE DELETE)
 /*
-REATORAÇÃO (Missão V5.0):
-1. Adicionamos o estado 'corCategoria' e o input '<input type="color">'.
-2. 'handleCreateCategoria' envia a cor para a API.
-3. A lista de categorias exibe a cor da categoria (cat.cor).
+REATORAÇÃO (Missão V8.1 - Correção):
+O 'handleDeleteClick' (catch) foi atualizado.
+1. Em vez de 'setError()', que é silencioso, agora
+   usamos 'window.alert()' para forçar o usuário a ver
+   a mensagem de erro da API (ex: "Categoria em uso").
 */
 
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import './Settings.css';
 import { useTheme } from '../../context/ThemeContext';
+import { IoPencil, IoTrash } from 'react-icons/io5';
 
 function Settings() {
   const { theme, toggleTheme } = useTheme();
@@ -18,9 +20,11 @@ function Settings() {
 
   const [nomeCategoria, setNomeCategoria] = useState('');
   const [tipoCategoria, setTipoCategoria] = useState('Gasto');
-  // 1. NOVO ESTADO: Cor
-  const [corCategoria, setCorCategoria] = useState('#FF7A00'); // Padrão: Laranja Voo
+  const [corCategoria, setCorCategoria] = useState('#FF7A00');
   
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const isEditMode = Boolean(editingCategoryId);
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -29,10 +33,6 @@ function Settings() {
       setLoading(true);
       const response = await api.get('/categorias/');
       setCategorias(response.data);
-      if (response.data.length > 0) {
-        // Garantir que o select não comece vazio
-        // (Nota: Nenhuma mudança aqui no select)
-      }
       setLoading(false);
     } catch (err) {
       console.error("Erro ao buscar categorias:", err);
@@ -45,46 +45,106 @@ function Settings() {
     fetchCategorias();
   }, []);
 
-  const handleCreateCategoria = async (event) => {
+  const resetForm = () => {
+    setNomeCategoria('');
+    setTipoCategoria('Gasto');
+    setCorCategoria('#FF7A00');
+    setEditingCategoryId(null);
+  };
+  
+  const handleEditClick = (categoria) => {
+    setNomeCategoria(categoria.nome);
+    setTipoCategoria(categoria.tipo);
+    setCorCategoria(categoria.cor);
+    setEditingCategoryId(categoria.id);
+    setError('');
+    setSuccess('');
+    window.scrollTo(0, 0); 
+  };
+
+  /**
+   * Chamado ao clicar no ícone de lixo (Excluir).
+   * (A CORREÇÃO ESTÁ AQUI)
+   */
+  const handleDeleteClick = async (categoria) => {
+    setError('');
+    setSuccess('');
+
+    if (!window.confirm(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/categorias/${categoria.id}`);
+      setSuccess(`Categoria "${categoria.nome}" excluída com sucesso.`);
+      fetchCategorias(); // Atualiza a lista
+    } catch (err) {
+      console.error("Erro ao excluir categoria:", err);
+      if (err.response && err.response.status === 400 && err.response.data.detail) {
+        // A "TRAVA" DO BACKEND (V8.1)
+        // Em vez de 'setError', usamos 'alert'
+        window.alert(err.response.data.detail); // Ex: "Não é possível excluir: Esta categoria já está..."
+      } else {
+        // Erro genérico
+        window.alert("Não foi possível excluir a categoria.");
+      }
+    }
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setSuccess('');
+    
     if (!nomeCategoria) {
       setError("O nome da categoria é obrigatório.");
       return;
     }
+
+    const categoriaPayload = {
+      nome: nomeCategoria,
+      tipo: tipoCategoria,
+      cor: corCategoria
+    };
+
     try {
-      // 2. ENVIA A COR PARA A API
-      await api.post('/categorias/', {
-        nome: nomeCategoria,
-        tipo: tipoCategoria,
-        cor: corCategoria // <-- ENVIANDO A COR
-      });
-      setSuccess(`Categoria "${nomeCategoria}" criada com sucesso!`);
-      setNomeCategoria('');
-      // setCorCategoria('#FF7A00'); // Opcional: reseta a cor, mas vamos deixar o usuário escolher
-      fetchCategorias(); // Atualiza a lista
+      if (isEditMode) {
+        await api.put(`/categorias/${editingCategoryId}`, categoriaPayload);
+        setSuccess(`Categoria "${nomeCategoria}" atualizada com sucesso!`);
+      } else {
+        await api.post('/categorias/', categoriaPayload);
+        setSuccess(`Categoria "${nomeCategoria}" criada com sucesso!`);
+      }
+      resetForm();
+      fetchCategorias();
     } catch (err) {
-      console.error("Erro ao criar categoria:", err);
-      setError("Erro ao criar categoria. Tente novamente.");
+      console.error("Erro ao salvar categoria:", err);
+      if (err.response && err.response.status === 400) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Erro ao salvar categoria. Tente novamente.");
+      }
     }
   };
 
   return (
     <div className="settings-container">
-      {/* O novo cabeçalho, igual ao do Dashboard */}
       <header className="settings-header">
         <h2>Ajustes e Configurações</h2>
       </header>
 
       <main className="settings-content">
         <div className="settings-card">
-          <h2>Criar Nova Categoria</h2>
-          <form onSubmit={handleCreateCategoria}>
+          <h2>{isEditMode ? 'Editar Categoria' : 'Criar Nova Categoria'}</h2>
+          
+          <form onSubmit={handleSubmit}>
             {error && <p className="error-message">{error}</p>}
             {success && <p className="success-message">{success}</p>}
 
-            {/* Input Nome */}
             <div className="input-group">
               <label htmlFor="nome">Nome da Categoria</label>
               <input
@@ -96,7 +156,6 @@ function Settings() {
               />
             </div>
             
-            {/* Input Tipo */}
             <div className="input-group">
               <label htmlFor="tipo">Tipo</label>
               <select
@@ -109,12 +168,11 @@ function Settings() {
               </select>
             </div>
 
-            {/* 3. NOVO INPUT: Seletor de Cores */}
             <div className="input-group color-picker-group">
               <label htmlFor="cor">Cor (Aparecerá nos gráficos)</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <input
-                  type="color" // <-- O INPUT MÁGICO
+                  type="color"
                   id="cor"
                   value={corCategoria}
                   onChange={(e) => setCorCategoria(e.target.value)}
@@ -123,13 +181,23 @@ function Settings() {
               </div>
             </div>
 
-            <button type="submit" className="settings-button">
-              Criar Categoria
-            </button>
+            <div className="form-button-group">
+              <button type="submit" className="settings-button">
+                {isEditMode ? 'Salvar Alterações' : 'Criar Categoria'}
+              </button>
+              {isEditMode && (
+                <button 
+                  type="button" 
+                  className="cancel-button" 
+                  onClick={handleCancelEdit}
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
-        {/* Categorias Existentes */}
         <div className="settings-card">
           <h2>Categorias Existentes</h2>
           <div className="categoria-list">
@@ -142,11 +210,25 @@ function Settings() {
                 ) : (
                   categorias.map((cat) => (
                     <li key={cat.id}>
-                      <span>{cat.nome}</span>
-                      {/* 4. EXIBINDO A COR DO BADGE (usando o estilo inline) */}
-                      <span className="tipo-badge" style={{ backgroundColor: cat.cor }}>
-                        {cat.tipo}
-                      </span>
+                      <div className="categoria-info">
+                        <span 
+                          className="categoria-cor-preview" 
+                          style={{ backgroundColor: cat.cor }}
+                        ></span>
+                        <span>{cat.nome}</span>
+                        <span className={`tipo-badge-list tipo-${cat.tipo.toLowerCase()}`}>
+                          {cat.tipo}
+                        </span>
+                      </div>
+                      
+                      <div className="categoria-list-actions">
+                        <button className="edit-btn" onClick={() => handleEditClick(cat)}>
+                          <IoPencil size={18} />
+                        </button>
+                        <button className="delete-btn" onClick={() => handleDeleteClick(cat)}>
+                          <IoTrash size={18} />
+                        </button>
+                      </div>
                     </li>
                   ))
                 )}
@@ -155,8 +237,8 @@ function Settings() {
           </div>
         </div>
 
-        {/* Aparência */}
-        <div className="settings-card">
+        {/* ... (outros cards mantidos) ... */}
+         <div className="settings-card">
           <h2>Aparência</h2>
           <div className="settings-item">
             <span>Modo {theme === 'dark' ? 'Escuro' : 'Claro'}</span>
@@ -170,8 +252,6 @@ function Settings() {
             </label>
           </div>
         </div>
-
-        {/* Segurança e Backup */}
         <div className="settings-card">
           <h2>Segurança e Backup (V2.0)</h2>
           <div className="settings-item">
@@ -181,6 +261,7 @@ function Settings() {
             </button>
           </div>
         </div>
+
       </main>
     </div>
   );

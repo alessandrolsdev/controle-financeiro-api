@@ -1,6 +1,7 @@
-# Arquivo: backend/schemas.py (VERSÃO V7.2 - COMPLETA)
+# Arquivo: backend/schemas.py (VERSÃO COMPLETA V8.0 - COM 'CategoriaUpdate')
 """
-CHECK-UP (V7.2): Adiciona 'nome_usuario' ao 'UsuarioUpdate'.
+CHECK-UP (V8.0): Adiciona o novo schema 'CategoriaUpdate'
+para permitir a edição parcial (PATCH) de uma categoria.
 """
 
 from pydantic import BaseModel, EmailStr
@@ -8,7 +9,7 @@ from datetime import datetime, date
 import decimal
 from typing import Optional, List
 
-# --- 1. SCHEMAS (Dashboard) ---
+# --- 1. SCHEMAS PARA O DASHBOARD ---
 class CategoriaDetalhada(BaseModel):
     nome_categoria: str
     valor_total: decimal.Decimal
@@ -21,14 +22,14 @@ class DashboardData(BaseModel):
     gastos_por_categoria: List[CategoriaDetalhada] 
     receitas_por_categoria: List[CategoriaDetalhada]
 
-# --- 2. SCHEMAS (Auth) ---
+# --- 2. SCHEMAS PARA AUTENTICAÇÃO (Tokens) ---
 class Token(BaseModel):
     access_token: str
     token_type: str
 class TokenData(BaseModel):
     nome_usuario: Optional[str] = None
 
-# --- 3. SCHEMAS (Usuário) ---
+# --- 3. SCHEMAS PARA USUÁRIO ---
 class UsuarioCreate(BaseModel):
     nome_usuario: str
     senha: str
@@ -41,30 +42,35 @@ class Usuario(BaseModel):
     avatar_url: Optional[str] = None
     email: Optional[EmailStr] = None 
     model_config = {'from_attributes': True}
-
 class UsuarioUpdate(BaseModel):
-    """Schema de ENTRADA para atualizar o perfil."""
-    # O NOVO CAMPO (V7.2)
     nome_usuario: Optional[str] = None 
-    
     nome_completo: Optional[str] = None
     data_nascimento: Optional[date] = None
     avatar_url: Optional[str] = None
     email: Optional[EmailStr] = None
-
 class UsuarioChangePassword(BaseModel):
     senha_antiga: str
     senha_nova: str
 
-# --- (Restante dos schemas, Categoria, Transacao, etc.) ---
-# --- 4. SCHEMAS PARA CATEGORIA ---
+# --- 4. SCHEMAS PARA CATEGORIA (ATUALIZADO) ---
 class CategoriaCreate(BaseModel):
     nome: str
-    tipo: str
+    tipo: str # "Gasto" ou "Receita"
     cor: str = "#CCCCCC"
 class Categoria(CategoriaCreate):
     id: int
     model_config = {'from_attributes': True}
+
+# O NOVO SCHEMA (V8.0)
+class CategoriaUpdate(BaseModel):
+    """
+    Schema para atualização parcial. O usuário pode enviar
+    só o nome, só o tipo, ou só a cor.
+    """
+    nome: Optional[str] = None
+    tipo: Optional[str] = None
+    cor: Optional[str] = None
+
 # --- 5. SCHEMAS PARA TRANSAÇÃO ---
 class TransacaoCreate(BaseModel):
     descricao: str
@@ -78,6 +84,7 @@ class Transacao(TransacaoCreate):
     usuario_id: int
     categoria: Categoria 
     model_config = {'from_attributes': True}
+    
 # --- 6. SCHEMAS PARA RELATÓRIOS ---
 class PontoDeTendencia(BaseModel):
     data: date | str
