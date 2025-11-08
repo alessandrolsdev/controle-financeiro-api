@@ -1,6 +1,14 @@
-# Arquivo: backend/crud.py (VERSÃO COMPLETA V9.0)
+# Arquivo: backend/crud.py (VERSÃO V9.2 - CORREÇÃO DE DIALETO POSTGRES)
 """
-CHECK-UP (V9.0): Adiciona a nova função 'deletar_transacao'.
+CHECK-UP (V9.2 - Correção de Deploy):
+O bug 'strftime' (apenas SQLite) foi corrigido.
+
+1. 'get_dados_de_tendencia' agora checa o dialeto do DB
+   (db.bind.dialect.name).
+2. Se for 'postgresql', ele (corretamente) usa 'func.to_char'
+   para agrupar por hora.
+3. Se for 'sqlite' (dev), ele (corretamente) usa 'func.strftime'.
+4. Isso corrige o crash do filtro "Diário" em produção.
 """
 
 # --- 1. Importações ---
@@ -13,7 +21,7 @@ import decimal
 from . import models, schemas, security
 
 # --- 2. FUNÇÕES CRUD (USUÁRIO) ---
-# ... (get_usuario_por_nome, criar_usuario, atualizar_detalhes_usuario, mudar_senha_usuario) ...
+# (Sem mudanças)
 def get_usuario_por_nome(db: Session, nome_usuario: str) -> models.Usuario | None:
     return db.query(models.Usuario).filter(models.Usuario.nome_usuario == nome_usuario).first()
 def criar_usuario(db: Session, usuario: schemas.UsuarioCreate) -> models.Usuario:
@@ -49,7 +57,7 @@ def mudar_senha_usuario(
     return True
 
 # --- 3. FUNÇÕES CRUD (CATEGORIA) ---
-# ... (criar_categoria, listar_categorias, atualizar_categoria, deletar_categoria) ...
+# (Sem mudanças)
 def criar_categoria(db: Session, categoria: schemas.CategoriaCreate) -> models.Categoria:
     db_categoria = models.Categoria(**categoria.model_dump())
     db.add(db_categoria)
@@ -82,13 +90,13 @@ def deletar_categoria(db: Session, categoria_id: int) -> bool:
     return True
 
 # --- 4. FUNÇÕES CRUD (TRANSAÇÃO) ---
+# (Sem mudanças)
 def criar_transacao(db: Session, transacao: schemas.TransacaoCreate, usuario_id: int) -> models.Transacao:
     db_transacao = models.Transacao(**transacao.model_dump(), usuario_id=usuario_id)
     db.add(db_transacao)
     db.commit()
     db.refresh(db_transacao)
     return db_transacao
-
 def atualizar_transacao(
     db: Session, 
     transacao_id: int, 
@@ -112,36 +120,22 @@ def atualizar_transacao(
     db.commit()
     db.refresh(db_transacao)
     return db_transacao
-
-# --- A NOVA FUNÇÃO (V9.0) ---
 def deletar_transacao(
     db: Session, 
     transacao_id: int,
     usuario_id: int
 ) -> bool:
-    """
-    Deleta uma transação, verificando se ela pertence
-    ao usuário logado.
-    Retorna True se deletou, False se não encontrou.
-    """
     db_transacao = db.query(models.Transacao).filter(
         models.Transacao.id == transacao_id
     ).first()
-
     if db_transacao is None:
-        return False # 404
-        
-    # VERIFICAÇÃO DE SEGURANÇA (CRÍTICA!)
+        return False
     if db_transacao.usuario_id != usuario_id:
-        return False # 404 (ou 403, mas 404 esconde a existência)
-        
+        return False
     db.delete(db_transacao)
     db.commit()
     return True
-# ------------------------------
-
 def listar_transacoes(db: Session, usuario_id: int, skip: int = 0, limit: int = 100) -> list[models.Transacao]:
-    # ... (código mantido) ...
     return db.query(models.Transacao).options(
         joinedload(models.Transacao.categoria)
     ).filter(
@@ -149,14 +143,12 @@ def listar_transacoes(db: Session, usuario_id: int, skip: int = 0, limit: int = 
     ).order_by(
         models.Transacao.data.desc()
     ).offset(skip).limit(limit).all()
-
 def listar_transacoes_por_periodo(
     db: Session, 
     usuario_id: int, 
     data_inicio: date, 
     data_fim: date
 ) -> list[models.Transacao]:
-    # ... (código mantido) ...
     data_fim_query = data_fim + timedelta(days=1)
     return db.query(models.Transacao).options(
         joinedload(models.Transacao.categoria)
@@ -169,7 +161,7 @@ def listar_transacoes_por_periodo(
     ).all()
 
 # --- 5. FUNÇÃO DO DASHBOARD ---
-# ... (get_dashboard_data mantida) ...
+# (Sem mudanças)
 def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim: date) -> schemas.DashboardData:
     data_fim_query = data_fim + timedelta(days=1)
     total_receitas = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
@@ -237,8 +229,8 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         receitas_por_categoria=receitas_por_categoria
     )
     
-# --- 6. FUNÇÃO DE RELATÓRIOS ---
-# ... (get_dados_de_tendencia mantida) ...
+# --- 6. FUNÇÃO DE RELATÓRIOS (A CORREÇÃO ESTÁ AQUI) ---
+
 def get_dados_de_tendencia(
     db: Session, 
     usuario_id: int, 
@@ -248,14 +240,30 @@ def get_dados_de_tendencia(
 ) -> schemas.DadosDeTendencia:
     
     data_fim_query = data_fim + timedelta(days=1)
+
+    # --- INÍCIO DA CORREÇÃO (V9.2) ---
+    # Verifica qual banco de dados estamos usando
+    dialect_name = db.bind.dialect.name
+
     if filtro == 'daily':
-        agrupador_de_data = func.strftime('%Y-%m-%d %H:00:00', models.Transacao.data)
-        ordenador_de_data = func.strftime('%Y-%m-%d %H:00:00', models.Transacao.data)
+        if dialect_name == 'postgresql':
+            # Sintaxe do POSTGRESQL (Produção)
+            agrupador_de_data = func.to_char(models.Transacao.data, 'YYYY-MM-DD HH24:00:00')
+            ordenador_de_data = func.to_char(models.Transacao.data, 'YYYY-MM-DD HH24:00:00')
+        else:
+            # Sintaxe do SQLITE (Desenvolvimento)
+            agrupador_de_data = func.strftime('%Y-%m-%d %H:00:00', models.Transacao.data)
+            ordenador_de_data = func.strftime('%Y-%m-%d %H:00:00', models.Transacao.data)
     else:
+        # Agrupamento por DIA (func.date) já é universal
         agrupador_de_data = func.date(models.Transacao.data)
         ordenador_de_data = func.date(models.Transacao.data)
+    # --- FIM DA CORREÇÃO ---
+
+
+    # --- Subconsulta 1: Receitas agrupadas ---
     query_receitas = db.query(
-        agrupador_de_data.label("data"),
+        agrupador_de_data.label("data"), # <-- Usa o agrupador corrigido
         func.sum(models.Transacao.valor).label("valor")
     ).join(models.Categoria).filter(
         models.Transacao.usuario_id == usuario_id,
@@ -263,12 +271,14 @@ def get_dados_de_tendencia(
         models.Transacao.data >= data_inicio,
         models.Transacao.data < data_fim_query
     ).group_by(
-        agrupador_de_data
+        agrupador_de_data # <-- Usa o agrupador corrigido
     ).order_by(
-        ordenador_de_data
+        ordenador_de_data # <-- Usa o ordenador corrigido
     ).all()
+
+    # --- Subconsulta 2: Despesas agrupadas ---
     query_despesas = db.query(
-        agrupador_de_data.label("data"),
+        agrupador_de_data.label("data"), # <-- Usa o agrupador corrigido
         func.sum(models.Transacao.valor).label("valor")
     ).join(models.Categoria).filter(
         models.Transacao.usuario_id == usuario_id,
@@ -276,10 +286,12 @@ def get_dados_de_tendencia(
         models.Transacao.data >= data_inicio,
         models.Transacao.data < data_fim_query
     ).group_by(
-        agrupador_de_data
+        agrupador_de_data # <-- Usa o agrupador corrigido
     ).order_by(
-        ordenador_de_data
+        ordenador_de_data # <-- Usa o ordenador corrigido
     ).all()
+
     receitas = [schemas.PontoDeTendencia(data=r.data, valor=r.valor) for r in query_receitas]
     despesas = [schemas.PontoDeTendencia(data=d.data, valor=d.valor) for d in query_despesas]
+
     return schemas.DadosDeTendencia(receitas=receitas, despesas=despesas)
