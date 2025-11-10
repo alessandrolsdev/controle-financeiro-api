@@ -1,11 +1,16 @@
 /* Arquivo: frontend/src/pages/Settings/Settings.css */
-/* (VERSÃO V8.0 - COMPLETA COM ESTILOS DE EDIÇÃO) */
+/*
+ * Estilos para a Página de Ajustes e Configurações (V8.1).
+ *
+ * Este CSS estiliza o CRUD (Criar, Ler, Atualizar, Deletar)
+ * completo de Categorias, bem como o toggle de Tema.
+ */
 
 /* --- 1. Layout Principal --- */
 .settings-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
-  padding-bottom: 90px;
+  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
 }
 
 /* --- 2. Cabeçalho da Página --- */
@@ -16,6 +21,7 @@
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--cor-borda);
 }
+
 .settings-header h2 {
   margin: 0;
   font-weight: 600;
@@ -26,9 +32,11 @@
 /* --- 3. Conteúdo (Cards) --- */
 .settings-content {
   padding: 1.5rem;
-  max-width: 800px;
+  max-width: 800px; /* Limita a largura em desktops */
   margin: 0 auto;
 }
+
+/* Card "Glassmorphism" */
 .settings-card {
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
@@ -38,6 +46,7 @@
   margin-bottom: 2rem;
   transition: background-color 0.3s ease;
 }
+
 .settings-card h2 {
   margin-top: 0;
   border-bottom: 1px solid var(--cor-borda);
@@ -46,16 +55,18 @@
   color: var(--cor-texto-primario);
 }
 
-/* --- 4. Estilos do Formulário --- */
+/* --- 4. Estilos do Formulário (Padrão "Underline") --- */
 .input-group { 
   margin-bottom: 1.5rem; 
 }
+
 .input-group label { 
   display: block; 
   margin-bottom: 0.5rem; 
   color: var(--cor-texto-secundario);
   font-weight: 500; 
 }
+
 .input-group input, 
 .input-group select {
   width: 100%;
@@ -63,23 +74,26 @@
   border: none;
   border-bottom: 2px solid var(--cor-texto-secundario);
   background-color: transparent;
-  color: var(--cor-texto-primario); 
+  color: var(--cor-texto-primario); /* Cor do texto DENTRO da caixa */
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
   border-radius: 0;
   transition: border-color 0.3s ease;
 }
+
 .input-group input:focus, 
 .input-group select:focus {
   outline: none;
   border-color: var(--cor-laranja-voo);
 }
+
+/* Correção do Bug de Contraste (V4.8) */
 .input-group select option {
   background-color: #ffffff; 
-  color: #0B1A33 !important; 
+  color: #0B1A33 !important; /* Força o texto escuro */
 }
 
-/* --- Seletor de Cores (V5.0) --- */
+/* Estilo para o Seletor de Cores (V5.0) */
 .color-picker-group input[type="color"] {
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -106,13 +120,14 @@
     margin-top: 0.5rem;
 }
 
-/* --- 5. Botões de Formulário (ATUALIZADO V8.0) --- */
+/* --- 5. Botões de Formulário (V8.0) --- */
 .form-button-group {
   display: flex;
   gap: 1rem; /* Espaço entre "Salvar" e "Cancelar" */
   align-items: center;
 }
 
+/* Botão "Salvar" / "Criar" */
 .settings-button {
   width: auto;
   padding: 0.75rem 1.5rem;
@@ -131,7 +146,7 @@
   box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3);
 }
 
-/* NOVO BOTÃO DE CANCELAR (V8.0) */
+/* Botão "Cancelar" (só aparece no modo de edição) */
 .cancel-button {
   background: none;
   border: 1px solid var(--cor-texto-secundario);
@@ -149,7 +164,7 @@
   color: var(--cor-texto-primario);
 }
 
-/* --- 6. Lista de Categorias (ATUALIZADO V8.0) --- */
+/* --- 6. Lista de Categorias (V8.0) --- */
 .categoria-list ul {
   list-style: none;
   padding: 0;
@@ -165,14 +180,14 @@
   border-bottom: none;
 }
 
-/* Lado Esquerdo da Lista */
+/* Lado Esquerdo (Info) */
 .categoria-info {
   display: flex;
   align-items: center;
   gap: 0.75rem; /* Espaço entre a cor, nome e tipo */
 }
 
-/* O "quadradinho" de cor */
+/* O "quadradinho" de cor (V5.0) */
 .categoria-cor-preview {
   width: 16px;
   height: 16px;
@@ -196,7 +211,7 @@
   color: var(--cor-branco-foco);
 }
 
-/* Lado Direito da Lista (OS NOVOS BOTÕES) */
+/* Lado Direito (Botões de Ação) */
 .categoria-list-actions {
   display: flex;
   gap: 0.5rem;
@@ -219,11 +234,11 @@
   color: var(--cor-texto-primario);
 }
 .delete-btn:hover {
-  background-color: var(--cor-gasto); /* Fica vermelho/laranja */
+  background-color: var(--cor-gasto); /* Cor de Alerta */
   color: var(--cor-branco-foco);
 }
 
-/* --- 7. Estilos de Itens de Menu (Sem mudança) --- */
+/* --- 7. Estilos de Itens de Menu (Tema, Backup) --- */
 .settings-item {
   display: flex;
   justify-content: space-between;
@@ -238,6 +253,7 @@
   font-weight: 500;
   color: var(--cor-texto-primario);
 }
+
 .settings-button-disabled {
   width: auto;
   padding: 0.5rem 1rem;
@@ -252,7 +268,7 @@
   opacity: 0.5;
 }
 
-/* --- 8. O "Interruptor" (Toggle) de Tema (Sem mudança) --- */
+/* --- 8. O "Interruptor" (Toggle) de Tema (V4.5) --- */
 .theme-toggle input {
   opacity: 0;
   width: 0;

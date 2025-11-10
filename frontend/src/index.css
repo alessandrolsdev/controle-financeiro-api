@@ -1,79 +1,109 @@
 /* Arquivo: frontend/src/index.css */
-/* (VERSÃO V4.5 - DESIGN SYSTEM FINAL) */
+/*
+ * Design System Global (V4.5).
+ *
+ * Este arquivo é a "Fonte da Verdade" para todo o design.
+ * Ele define:
+ * 1. A fonte global (Montserrat).
+ * 2. As variáveis CSS para o Tema Escuro (padrão) e o Tema Claro.
+ * 3. O reset de CSS global.
+ *
+ * O 'ThemeContext.jsx' aplica/remove a classe '.light-mode'
+ * no <body> para alternar entre os temas definidos aqui.
+ */
 
 /* --- 1. IMPORTAÇÃO DA FONTE --- */
+/* (Google Fonts: Montserrat, pesos 400, 500, 600, 700) */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
 
 /* --- 2. DEFINIÇÃO DAS VARIÁVEIS DE COR (TEMA ESCURO - PADRÃO) --- */
+/* ':root' define as variáveis padrão para o Dark Mode */
 :root {
   /* Cor Base (Fundo e Cards) */
-  --cor-fundo-principal: #0B1A33; /* Azul Guardião */
-  --cor-fundo-secundario: #1C2B4A; /* Azul do Card (nosso antigo 'fundo-card') */
-  --cor-fundo-card: var(--cor-fundo-secundario);
-  --cor-borda: rgba(255, 255, 255, 0.1);
+  --cor-fundo-principal: #0B1A33;  /* Azul Guardião (do designer) */
+  --cor-fundo-card: #1C2B4A;       /* Azul do Card (Glassmorphism) */
+  --cor-borda: rgba(255, 255, 255, 0.1); /* Borda sutil (branca) */
 
-  /* Cores de Texto */
-  --cor-texto-principal: #FFFFFF;
-  --cor-texto-secundario: #CED4DA; /* Cinza Suporte */
+  /* Cores de Texto (Claras) */
+  --cor-texto-primario: #FFFFFF;    /* Branco Foco */
+  --cor-texto-secundario: #CED4DA;  /* Cinza Suporte */
+  --cor-branco-foco: #FFFFFF;       /* (Alias para o botão laranja) */
+  --cor-base-azul-guardiao: #0B1A33; /* (Alias para o texto do botão) */
 
-  /* Cores Semânticas (Escuro) */
+  /* Cores Semânticas (Vibrantes para o escuro) */
   --cor-lucro: #00E08F; /* Verde Esmeralda (Vibrante) */
   --cor-gasto: #FF7A00; /* Laranja Voo (Vibrante) */
 
-  /* Cores de Destaque */
+  /* Cores de Destaque (Gráficos e Ações) */
   --cor-laranja-voo: #FF7A00;
   --cor-verde-esmeralda: #00E08F;
   --cor-magenta-dinamico: #D400E6;
 }
 
-/* --- 3. REGRAS DO TEMA CLARO (SOBRESCRITA) --- */
+/* --- 3. REGRAS DO TEMA CLARO (SOBRESCRITA V4.5) --- */
+/* (Quando o <body> tem esta classe, as variáveis abaixo
+   têm prioridade sobre o :root) */
 .light-mode {
   /* 1. FUNDO PRINCIPAL (BODY): Cinza Gelo */
   --cor-fundo-principal: #F8F9FA;
   
   /* 2. FUNDO DOS CARDS: Branco Neve (Flutuante) */
   --cor-fundo-card: #FFFFFF; 
-  --cor-fundo-secundario: var(--cor-fundo-card); 
   
-  /* 3. BORDA: Cinza sutil */
+  /* 3. BORDA: Cinza escura e sutil */
   --cor-borda: rgba(0, 0, 0, 0.1); 
 
-  /* 4. CORES DE TEXTO (Invertidas) */
-  --cor-texto-principal: #0B1A33; /* Azul Guardião (do designer) */
-  --cor-texto-secundario: #6C757D; /* Cinza Névoa (do designer) */
+  /* 4. CORES DE TEXTO (Invertidas para Escuro) */
+  --cor-texto-primario: #0B1A33; /* Azul Guardião (Texto Principal) */
+  --cor-texto-secundario: #6C757D; /* Cinza Névoa (Texto Secundário) */
+  --cor-branco-foco: #FFFFFF;      /* (Mantido para o botão laranja) */
+  --cor-base-azul-guardiao: #0B1A33; /* (Mantido para o texto do botão) */
 
   /* 5. CORES SEMÂNTICAS (Ajustadas para Contraste no Branco) */
-  --cor-lucro: #198754; /* Verde Sucesso */
-  --cor-gasto: #DC3545; /* Vermelho Alerta */
+  --cor-lucro: #198754; /* Verde Sucesso (Legível) */
+  --cor-gasto: #DC3545; /* Vermelho Alerta (Legível) */
+  
+  /* (Cores de Destaque são mantidas as mesmas) */
 }
 
 
 /* --- 4. RESET GLOBAL E ESTILOS DO "BODY" --- */
+
+/* Decisão de Engenharia:
+   'box-sizing: border-box' é um reset crucial que
+   muda o "cálculo de caixa" do CSS para incluir
+   'padding' e 'border' na largura/altura total.
+   Isso torna a criação de layouts 1000x mais fácil. */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
+/* Estilos de base aplicados a toda a página */
 body {
-  margin: 0;
-  font-family: 'Montserrat', sans-serif;
-  /* Estas regras agora usam as variáveis dinâmicas */
-  background-color: var(--cor-fundo-principal); 
-  color: var(--cor-texto-principal); 
+  margin: 0; /* Remove a margem padrão do navegador */
   
+  /* APLICAÇÃO DO DESIGN SYSTEM */
+  font-family: 'Montserrat', sans-serif;
+  background-color: var(--cor-fundo-principal); /* <-- DINÂMICO (Dark/Light) */
+  color: var(--cor-texto-primario); /* <-- DINÂMICO (Dark/Light) */
+  
+  /* Melhora a renderização das fontes (Antialiasing) */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   
-  /* TRANSITION: Efeito suave ao mudar o tema */
+  /* Efeito suave ao mudar o tema (V4.4) */
   transition: background-color 0.3s, color 0.3s; 
 }
 
+/* Garante que o app ocupe 100% da altura da tela */
 html, body, #root {
   height: 100%;
 }
 
+/* (QoL) Remove o log "Download React DevTools" do console */
 iframe[src*="https://react.dev/link/react-devtools"] {
   display: none !important;
 }

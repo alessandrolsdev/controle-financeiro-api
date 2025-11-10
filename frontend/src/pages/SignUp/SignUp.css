@@ -1,30 +1,39 @@
 /* Arquivo: frontend/src/pages/SignUp/SignUp.css */
-/* (VERSÃO V4.0 - INPUTS ESCUROS) */
+/*
+ * Estilos para a Página de Cadastro (Sign Up) (V4.0).
+ *
+ * Este CSS é funcionalmente idêntico ao 'Login.css'
+ * para garantir uma experiência de usuário (UX) coesa
+ * durante a autenticação.
+ */
 
+/* --- 1. O Wrapper da Página --- */
 .signup-page-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
-  flex-grow: 1; 
+  flex-grow: 1; /* Ocupa o espaço vertical disponível */
   padding: 2rem;
 }
 
+/* --- 2. O Card de Cadastro --- */
 .signup-container {
   padding: 2.5rem 2rem;
   width: 100%;
-  max-width: 450px;
+  max-width: 450px; /* Limita a largura */
   text-align: center;
 }
 
+/* --- 3. Logo e Títulos --- */
 .signup-logo {
-  width: 100px;
+  width: 100px; /* (Um pouco menor que o do login) */
   height: auto;
   margin-bottom: 1.5rem;
 }
 
 .signup-title {
-  color: var(--cor-branco-foco);
+  color: var(--cor-texto-primario);
   font-family: 'Montserrat', sans-serif;
   font-weight: 700;
   font-size: 2rem;
@@ -32,7 +41,7 @@
 }
 
 .signup-subtitle {
-  color: var(--cor-cinza-suporte);
+  color: var(--cor-texto-secundario);
   font-family: 'Montserrat', sans-serif;
   font-weight: 400;
   font-size: 1rem;
@@ -40,24 +49,23 @@
   margin-bottom: 2.5rem;
 }
 
+/* --- 4. Formulário e Inputs (Estilo "Underline" V4.0) --- */
 .signup-form {
   text-align: left;
 }
 
-/* --- A MUDANÇA ESTÁ AQUI --- */
 .input-group {
   margin-bottom: 1.5rem;
 }
 
-/* (Substituímos o estilo 'caixa branca' pelo 'underline' do Modal) */
+/* (Estilo "underline", consistente com o Modal e Login) */
 .input-group input {
   width: 100%;
   padding: 0.75rem 0.25rem;
   border: none;
-  /* USA O ESTILO "UNDERLINE" */
-  border-bottom: 2px solid var(--cor-cinza-suporte);
-  background-color: transparent; /* Fundo transparente */
-  color: var(--cor-branco-foco); /* TEXTO BRANCO */
+  border-bottom: 2px solid var(--cor-texto-secundario);
+  background-color: transparent;
+  color: var(--cor-texto-primario);
   font-family: 'Montserrat', sans-serif;
   font-weight: 500;
   font-size: 1rem;
@@ -67,12 +75,11 @@
 
 .input-group input:focus {
   outline: none;
-  /* Adiciona um "brilho" Laranja Voo na borda */
-  border-color: var(--cor-laranja-voo); 
-  box-shadow: none; /* Remove o 'box-shadow' antigo */
+  border-color: var(--cor-laranja-voo);
+  box-shadow: none;
 }
 
-/* Botão de Ação (Laranja) (Sem mudança) */
+/* --- 5. Botão de Ação (Laranja) --- */
 .signup-button {
   width: 100%;
   padding: 1rem;
@@ -97,7 +104,7 @@
   cursor: not-allowed;
 }
 
-/* Link para "Já tem conta?" (Sem mudança) */
+/* --- 6. Link Extra ("Já tem conta?") --- */
 .signup-links {
   text-align: center;
   margin-top: 2rem;
@@ -114,7 +121,7 @@
   text-decoration: underline;
 }
 
-/* Mensagens de Feedback (Sem mudança) */
+/* --- 7. Mensagens de Feedback (Erro/Sucesso) --- */
 .error-message {
   color: #ff6b6b;
   background-color: rgba(255, 107, 107, 0.1);
@@ -125,7 +132,7 @@
   margin-bottom: 1.5rem;
 }
 .success-message {
-  color: var(--cor-verde-esmeralda);
+  color: var(--cor-verde-esmeralda); /* (Cor semântica do 'index.css') */
   background-color: rgba(0, 224, 143, 0.1);
   border: 1px solid var(--cor-verde-esmeralda);
   border-radius: 4px;

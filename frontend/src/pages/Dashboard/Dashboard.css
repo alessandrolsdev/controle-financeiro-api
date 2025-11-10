@@ -1,11 +1,17 @@
 /* Arquivo: frontend/src/pages/Dashboard/Dashboard.css */
-/* (VERSÃO V9.0 - COMPLETA COM ESTILOS DE DELETAR) */
+/*
+ * Estilos para a Página Principal do Dashboard (V9.0).
+ *
+ * Este CSS estiliza todos os elementos do "hub" principal,
+ * incluindo os cards de resumo, os gráficos e as
+ * listas de transações.
+ */
 
 /* --- 1. Layout Geral --- */
 .dashboard-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
-  padding-bottom: 90px; 
+  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
 }
 
 /* --- 2. Cabeçalho da Página --- */
@@ -13,6 +19,7 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   border-bottom: 1px solid var(--cor-borda);
 }
+
 .dashboard-header h2 {
   margin: 0;
   font-weight: 700;
@@ -27,69 +34,22 @@
 }
 
 /* --- 3. CONTAINER DOS FILTROS --- */
-.filter-tabs-container {
-  padding: 1rem 1.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-.filter-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-}
-.tab-button {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 0.6rem 1.2rem;
-  border: 1px solid var(--cor-borda);
-  background-color: transparent;
-  color: var(--cor-texto-secundario);
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-.tab-button:hover {
-  background-color: var(--cor-fundo-card);
-  color: var(--cor-branco-foco);
-}
-.tab-button.active {
-  background-color: var(--cor-laranja-voo);
-  color: var(--cor-branco-foco);
-  border-color: var(--cor-laranja-voo);
-}
+/* (Os estilos dos filtros .tab-button, .date-picker-input, etc.,
+   NÃO estão aqui. Eles estão corretamente isolados em
+   'src/components/FilterControls/FilterControls.css') */
 
-/* --- 4. O CALENDÁRIO --- */
-.date-picker-container { }
-.date-picker-input {
-  background-color: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  color: var(--cor-branco-foco);
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  padding: 0.5rem 0.8rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-.date-picker-input::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-
-/* --- 5. Conteúdo Principal (Cards) --- */
+/* --- 4. Conteúdo Principal (Cards) --- */
 .dashboard-content {
   padding: 1.5rem;
-  padding-top: 0.5rem; 
+  padding-top: 0.5rem; /* Menor padding, pois os filtros já dão espaço */
 }
+
+/* Mensagens de feedback (Loading, Erro) */
 .dashboard-loading, .loading-transactions {
   padding: 1.5rem;
   text-align: center;
   color: var(--cor-texto-secundario);
 }
-/* (Mensagem de erro - para o 'delete') */
 .error-message {
   color: var(--cor-gasto);
   background-color: rgba(220, 53, 69, 0.1);
@@ -99,11 +59,16 @@
   text-align: center;
   margin-bottom: 1rem;
 }
+
+/* --- 5. Cards de Resumo (R$, Gastos, Lucro) --- */
 .dashboard-stats {
   display: grid;
+  /* 2 colunas em telas de celular */
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
 }
+
+/* O estilo "Glassmorphism" (Fundo de Vidro Fosco) */
 .stat-card {
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
@@ -113,9 +78,12 @@
   -webkit-backdrop-filter: blur(10px);
   transition: background-color 0.3s ease;
 }
+
+/* O card de "Lucro Líquido" ocupa a largura total (as 2 colunas) */
 .stat-card:nth-child(3) {
   grid-column: 1 / -1; 
 }
+
 .stat-card h3 {
   margin-top: 0;
   margin-bottom: 0.5rem;
@@ -125,27 +93,34 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 .stat-card span {
   font-size: 1.8rem;
   font-weight: 700;
   display: block;
 }
+
+/* Cores semânticas (dinâmicas do index.css) */
 .stat-card span.gasto { color: var(--cor-gasto); }
 .stat-card span.lucro { color: var(--cor-lucro); }
 .stat-card span.texto-primario { color: var(--cor-texto-primario); }
 
-/* --- 6. O GRID LADO A LADO PARA OS GRÁFICOS --- */
+/* --- 6. O Grid dos Gráficos de Rosca --- */
 .dashboard-charts-grid {
   display: grid;
-  grid-template-columns: 1fr; 
+  grid-template-columns: 1fr; /* 1 coluna em celular */
   gap: 1.5rem; 
   margin-top: 1.5rem;
 }
+
+/* (V2.10) Em telas maiores (tablets/desktops), vira 2 colunas */
 @media (min-width: 768px) {
   .dashboard-charts-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* O card "Glassmorphism" para os gráficos */
 .chart-container {
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
@@ -155,6 +130,7 @@
   -webkit-backdrop-filter: blur(10px);
   transition: background-color 0.3s ease;
 }
+
 .chart-container h3 {
   margin-top: 0;
   margin-bottom: 1.5rem;
@@ -163,7 +139,8 @@
   text-align: center;
 }
 
-/* --- 7. Lista de Transações (ATUALIZADO V9.0) --- */
+/* --- 7. Listas de Transações (Período e Recentes) --- */
+/* (Este card "Glassmorphism" é usado por AMBAS as listas) */
 .recent-transactions {
   margin-top: 2rem;
   grid-column: 1 / -1; 
@@ -204,6 +181,7 @@
   border-bottom: none;
 }
 
+/* Lado esquerdo da lista (Descrição, Data) */
 .transaction-details {
   display: flex;
   flex-direction: column;
@@ -220,6 +198,13 @@
   font-size: 0.85rem;
 }
 
+/* Lado direito da lista (Valor, Botões) */
+.transaction-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Espaço entre o valor e os botões */
+}
+
 .transaction-amount {
   font-weight: 700;
   font-size: 1.1rem;
@@ -231,13 +216,7 @@
   color: var(--cor-lucro);
 }
 
-/* --- 8. OS NOVOS ESTILOS (V9.0) --- */
-.transaction-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem; /* Espaço entre o valor e os botões */
-}
-
+/* --- 8. Botões de Ação (Editar/Deletar) (V9.0) --- */
 .edit-button, .delete-button {
   background: none;
   border: none;
@@ -257,6 +236,6 @@
 }
 
 .delete-button:hover {
-  background-color: var(--cor-gasto); /* Fica vermelho/alerta */
+  background-color: var(--cor-gasto); /* Cor de Alerta */
   color: var(--cor-branco-foco);
 }

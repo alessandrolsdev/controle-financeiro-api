@@ -1,17 +1,27 @@
 // Arquivo: frontend/src/pages/SignUp/SignUp.jsx
-// Responsabilidade: "Página" (cômodo) de Cadastro de Novo Usuário.
-// É uma rota pública para que novos usuários possam se registrar.
+/*
+ * Página de Cadastro (Sign Up).
+ *
+ * Esta é uma rota pública (veja 'App.jsx') para que
+ * novos usuários possam se registrar.
+ *
+ * Responsabilidades:
+ * 1. Renderizar o formulário de cadastro (usuário, senha).
+ * 2. Chamar o endpoint PÚBLICO 'POST /usuarios/' (usando 'axios' direto).
+ * 3. Gerenciar o estado local do formulário (loading, error, success).
+ * 4. Navegar para o '/login' após o sucesso.
+ */
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios'; // Usamos axios direto, pois o 'api.js' só funciona logado
-import './SignUp.css'; // Usaremos um CSS próprio (copiado do Login)
-import logoNomad from '../../assets/logo.png'; // Nosso logo
+// Decisão de Engenharia:
+// Usamos 'axios' direto, pois esta é uma chamada PÚBLICA.
+// O nosso 'api.js' (interceptador) só funciona para
+// rotas autenticadas (que precisam de token).
+import axios from 'axios'; 
+import './SignUp.css';
+import logoNomad from '../../assets/logo.png';
 
-/**
- * Componente da página de Cadastro (Sign Up).
- * Permite que um novo usuário crie uma conta.
- */
 function SignUp() {
   // --- Estados do Formulário ---
   const [username, setUsername] = useState('');
@@ -20,7 +30,7 @@ function SignUp() {
   
   // --- Estados de Feedback (UI) ---
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(''); // Para a mensagem de sucesso
+  const [success, setSuccess] = useState(''); // Para a mensagem "Conta criada!"
   
   const navigate = useNavigate();
 
@@ -35,7 +45,7 @@ function SignUp() {
 
     try {
       // 1. Chama o endpoint PÚBLICO de criação de usuário
-      // Usamos a variável de ambiente VITE_API_BASE_URL
+      // (Lê a URL da API diretamente do '.env' do Vite)
       await axios.post(`${import.meta.env.VITE_API_BASE_URL}/usuarios/`, {
         nome_usuario: username,
         senha: password,
@@ -45,7 +55,8 @@ function SignUp() {
       setLoading(false);
       setSuccess('Conta criada com sucesso! Redirecionando para o login...');
 
-      // 3. Espera 2 segundos e redireciona o usuário para o Login
+      // 3. Espera 2 segundos (para o usuário ler a msg)
+      //    e redireciona para o Login.
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -79,6 +90,7 @@ function SignUp() {
           {success && <p className="success-message">{success}</p>}
 
           <div className="input-group">
+            {/* (V4.0) Input com estilo "underline" */}
             <input
               type="text"
               id="username"

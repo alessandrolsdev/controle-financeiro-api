@@ -1,18 +1,28 @@
-/* Arquivo: frontend/src/components/HorizontalBarChart/HorizontalBarChart.css (NOVO ARQUIVO) */
+/* Arquivo: frontend/src/components/HorizontalBarChart/HorizontalBarChart.css */
+"""
+Estilos para o Componente de Gráfico de Barras Horizontais (V3.4).
 
+Este arquivo estiliza os elementos HTML customizados (o tooltip)
+que renderizamos por cima do gráfico SVG do 'recharts'.
+"""
+
+/* --- 1. Contêiner Principal --- */
 .horizontal-bar-wrapper {
   width: 100%;
-  /* A altura será controlada pelo 'data.length' no componente */
+  /* A altura é controlada dinamicamente pelo componente .jsx
+     (baseado no 'data.length') */
 }
 
-/* --- ESTILO DA TOOLTIP (Copiado do DoughnutChart) --- */
+/* --- 2. O Tooltip Customizado (V4.0) --- */
+/* (Estiliza o pop-up que aparece ao passar o mouse) */
 .horizontal-bar-tooltip {
+  /* Usa o fundo "Glassmorphism" do nosso tema */
   background-color: var(--cor-fundo-card); 
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   padding: 10px 15px;
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  opacity: 1;
+  opacity: 1; /* Garante que não fique transparente */
 }
 .tooltip-label {
   color: var(--cor-texto-primario);
