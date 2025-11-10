@@ -1,12 +1,13 @@
 // Arquivo: frontend/src/pages/Reports/Reports.jsx
-// (VERSÃO V7.6 - CORREÇÃO DE RACE CONDITION)
+// (VERSÃO V9.6 - GARANTE A VISIBILIDADE DO BOTÃO EXPORTAR)
 /*
-REATORAÇÃO (Missão V7.6):
-1. Importa 'isAuthLoading' do 'useAuth()' (via 'useOutletContext').
-   (CORREÇÃO: 'useOutletContext' não tem 'isAuthLoading',
-    precisamos importar 'useAuth' diretamente.)
-2. O 'useEffect' principal agora OUVE 'isAuthLoading'
-   e SÓ RODA se for 'false'.
+REATORAÇÃO (Missão V9.6 - Correção):
+O bug 'botão de exportar sumiu' foi corrigido.
+1. A condição de renderização do botão 'Exportar Excel'
+   foi simplificada para garantir que ele apareça,
+   independentemente dos estados de 'loading' e 'error'
+   iniciais. Ele agora verifica se 'detailedTransactions'
+   tem dados.
 */
 
 import React, { useState, useEffect } from 'react';
@@ -15,11 +16,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import api from '../../services/api';
 import './Reports.css';
 
+import * as XLSX from 'xlsx'; 
 import FilterControls from '../../components/FilterControls/FilterControls';
 import HorizontalBarChart from '../../components/HorizontalBarChart/HorizontalBarChart';
 import { useTheme } from '../../context/ThemeContext'; 
-
-// 1. IMPORTA O 'useAuth'
 import { useAuth } from '../../context/AuthContext';
 
 
@@ -100,27 +100,26 @@ function Reports() {
   } = useOutletContext();
   
   const { theme } = useTheme(); 
-  
-  // 2. LÊ O ESTADO DE "AVISO" DO AUTH
   const { isAuthLoading } = useAuth();
 
-  // Estados locais (sem mudança)
+  // Estados locais para os 3 gráficos + lista
   const [lineChartData, setLineChartData] = useState([]);
   const [gastosBarData, setGastosBarData] = useState([]);
   const [receitasBarData, setReceitasBarData] = useState([]);
+  const [detailedTransactions, setDetailedTransactions] = useState([]); 
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // 3. 'useEffect' (A CORREÇÃO ESTÁ AQUI)
+  // 'useEffect' (Busca todos os 3 endpoints)
   useEffect(() => {
-    // SÓ BUSCA SE:
-    // a) As datas estiverem prontas E
-    // b) A AUTENTICAÇÃO (V7.1) ESTIVER CONCLUÍDA
+    // Espera o Pai (Auth e Filtros)
     if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
 
     const fetchAllReportData = async () => {
       setLoading(true);
       setError('');
+      
       try {
         const paramsTrend = {
           data_inicio: dataInicioStr,
@@ -132,9 +131,11 @@ function Reports() {
           data_fim: dataFimStr,
         };
         
-        const [responseTrend, responseDashboard] = await Promise.all([
+        // Busca as 3 fontes em paralelo
+        const [responseTrend, responseDashboard, responseTransactions] = await Promise.all([
           api.get('/relatorios/tendencia', { params: paramsTrend }),
-          api.get('/dashboard/', { params: paramsDashboard })
+          api.get('/dashboard/', { params: paramsDashboard }),
+          api.get('/transacoes/periodo/', { params: paramsDashboard }) 
         ]);
 
         // --- Processa Gráfico 1 (Linha) ---
@@ -176,29 +177,70 @@ function Reports() {
           .sort((a, b) => a.valor - b.valor);
         setReceitasBarData(receitasFormatadas);
 
+        // --- SALVA A LISTA DETALHADA ---
+        setDetailedTransactions(responseTransactions.data); 
+
         setLoading(false);
+        
       } catch (err) {
         console.error("Erro ao buscar dados do relatório:", err);
         setError("Não foi possível carregar os dados do relatório.");
         setLoading(false);
       }
     };
+
     fetchAllReportData();
-  }, [dataInicioStr, dataFimStr, filterType, isAuthLoading]); // <-- OUVE 'isAuthLoading'
+  }, [dataInicioStr, dataFimStr, filterType, isAuthLoading]);
   
-  // --- Função de Exportação (Sem mudança) ---
-  const handleExport = () => { /* ... (código mantido) ... */
-    // (Precisamos adicionar 'detailedTransactions' aqui...
-    //  mas vamos focar em consertar o bug primeiro.)
-    
-    // (OK, o 'handleExport' que eu lhe enviei (V4.3)
-    //  depende de 'detailedTransactions', que NÃO estamos
-    //  buscando nesta página. Vamos desabilitar o botão
-    //  de exportar por enquanto para evitar outro crash.)
-    console.warn("Função de exportar ainda não implementada nesta página.");
+  
+  // --- Função de Exportação (V4.3) ---
+  const handleExport = () => {
+    try {
+      if (detailedTransactions.length === 0) {
+        alert("Não há transações para exportar neste período.");
+        return;
+      }
+
+      const dadosFormatados = detailedTransactions.map(tx => ({
+        "Data e Hora": new Date(tx.data).toLocaleString('pt-BR', {
+          dateStyle: 'short', timeStyle: 'short'
+        }),
+        "Descricao": tx.descricao,
+        "Tipo": tx.categoria.tipo,
+        "Categoria": tx.categoria.nome,
+        "Valor (R$)": parseFloat(tx.valor) * (tx.categoria.tipo === 'Gasto' ? -1 : 1),
+        "Detalhes": tx.observacoes || ''
+      }));
+      
+      const gastos = dadosFormatados.filter(tx => tx.Tipo === 'Gasto');
+      const receitas = dadosFormatados.filter(tx => tx.Tipo === 'Receita');
+
+      const wsGeral = XLSX.utils.json_to_sheet(dadosFormatados);
+      const wsGastos = XLSX.utils.json_to_sheet(gastos);
+      const wsReceitas = XLSX.utils.json_to_sheet(receitas);
+      
+      const wscols = [ 
+        { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 40 }
+      ];
+      wsGeral["!cols"] = wscols;
+      wsGastos["!cols"] = wscols;
+      wsReceitas["!cols"] = wscols;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, wsGeral, "Extrato Geral");
+      XLSX.utils.book_append_sheet(wb, wsGastos, "Extrato de Gastos");
+      XLSX.utils.book_append_sheet(wb, wsReceitas, "Extrato de Receitas");
+
+      const filename = `Relatorio_Detalhado_NOMAD_${dataInicioStr}_ate_${dataFimStr}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+    } catch (exportError) {
+      console.error("Erro ao exportar para Excel:", exportError);
+      setError("Ocorreu um erro ao gerar o arquivo Excel.");
+    }
   };
   
-  // 4. Se a autenticação estiver carregando, mostra o 'loading'
+  // (Renderiza 'loading' se a autenticação estiver pendente)
   if (isAuthLoading) {
     return <p className="loading-transactions">Carregando...</p>
   }
@@ -207,13 +249,20 @@ function Reports() {
     <div className="reports-container">
       <header className="reports-header">
         <h2>Relatórios Visuais</h2>
-        {/* (Botão de exportar desabilitado até
-            buscarmos a 3ª API novamente) */}
-        {/*!loading && !error && (
+        {/* A CORREÇÃO: O botão aparece sempre que NÃO estiver carregando
+            e HOUVER transações detalhadas para exportar. */}
+        {!loading && detailedTransactions.length > 0 && (
           <button className="export-button" onClick={handleExport}>
             Exportar Excel
           </button>
-        )*/}
+        )}
+        {/* Adicionei uma condição para mostrar o botão mesmo se não houver transações,
+            mas com um comportamento diferente (opcional, mas bom para UX) */}
+        {!loading && detailedTransactions.length === 0 && (
+          <button className="export-button export-button-disabled" onClick={handleExport} disabled>
+            Exportar Excel (sem dados)
+          </button>
+        )}
       </header>
 
       {/* RENDERIZA OS FILTROS GLOBAIS */}
@@ -227,6 +276,7 @@ function Reports() {
       />
 
       <main className="reports-content">
+
         {/* Card 1: Gráfico de Tendência */}
         <div className="report-card">
           <h3>Saldo ao Longo do Tempo</h3>
