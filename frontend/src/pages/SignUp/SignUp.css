@@ -27,7 +27,7 @@
 
 /* --- 3. Logo e Títulos --- */
 .signup-logo {
-  width: 100px; /* (Um pouco menor que o do login) */
+  width: 100px;
   height: auto;
   margin-bottom: 1.5rem;
 }
@@ -132,7 +132,7 @@
   margin-bottom: 1.5rem;
 }
 .success-message {
-  color: var(--cor-verde-esmeralda); /* (Cor semântica do 'index.css') */
+  color: var(--cor-lucro); /* (Cor semântica do 'index.css') */
   background-color: rgba(0, 224, 143, 0.1);
   border: 1px solid var(--cor-verde-esmeralda);
   border-radius: 4px;

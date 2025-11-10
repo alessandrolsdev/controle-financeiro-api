@@ -1,18 +1,18 @@
 // Arquivo: frontend/src/components/FilterControls/FilterControls.jsx
-"""
-Componente Reutilizável de Controles de Filtro (V3.9).
-
-Este componente renderiza a UI completa dos filtros de data:
-1. Os botões de período (Diário, Semanal, Mensal, Anual).
-2. O botão "Personalizado".
-3. O(s) calendário(s) ('<input type="date">').
-
-Este é um "Componente Controlado" (Controlled Component).
-Ele não tem estado próprio. Ele recebe o estado atual
-(ex: 'filterType', 'dataInicio') e as funções de 'setter'
-(ex: 'setFilterType', 'setDataInicio') diretamente do "Pai"
-(o 'MainLayout.jsx', através do 'Outlet').
-"""
+/*
+ * Componente Reutilizável de Controles de Filtro (V3.9).
+ *
+ * Este componente renderiza a UI completa dos filtros de data:
+ * 1. Os botões de período (Diário, Semanal, Mensal, Anual).
+ * 2. O botão "Personalizado".
+ * 3. O(s) calendário(s) ('<input type="date">').
+ *
+ * Este é um "Componente Controlado" (Controlled Component).
+ * Ele não tem estado próprio. Ele recebe o estado atual
+ * (ex: 'filterType', 'dataInicio') e as funções de 'setter'
+ * (ex: 'setFilterType', 'setDataInicio') diretamente do "Pai"
+ * (o 'MainLayout.jsx', através do 'Outlet').
+ */
 
 import React from 'react';
 import './FilterControls.css';
@@ -39,6 +39,7 @@ const handleDateChange = (event, setDate) => {
  * que o '<input type="date">' exige como valor.
  */
 const formatISODate = (dateObject) => {
+  // Garante que 'dateObject' seja um objeto Date válido
   const date = new Date(dateObject); 
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -62,7 +63,7 @@ function FilterControls({
   const maxDateForPicker = formatISODate(new Date());
 
   /**
-   * Lógica de 'onClick' dos botões (V3.9).
+   * Lógica 'onClick' dos botões (V3.9).
    * Esta é a lógica "inteligente" que impede o loop infinito
    * (o bug 'Maximum update depth').
    *
@@ -71,7 +72,8 @@ function FilterControls({
    */
   const handleFilterChange = (newFilterType) => {
     // Usa HOJE como base para filtros relativos
-    const dataBase = new Date(); 
+    const dataBase = (newFilterType === 'personalizado') ? new Date(dataInicio) : new Date();
+    
     let novaDataInicio;
 
     switch (newFilterType) {
@@ -91,7 +93,7 @@ function FilterControls({
         break;
       case 'personalizado':
         // Não reseta a data, mantém a seleção atual
-        novaDataInicio = dataInicio; 
+        novaDataInicio = dataBase; 
         break;
       case 'daily':
       default:

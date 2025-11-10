@@ -14,10 +14,12 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// Decisão de Engenharia:
-// Usamos 'axios' direto, pois esta é uma chamada PÚBLICA.
-// O nosso 'api.js' (interceptador) só funciona para
-// rotas autenticadas (que precisam de token).
+/*
+ * Decisão de Engenharia:
+ * Usamos 'axios' direto, pois esta é uma chamada PÚBLICA.
+ * O nosso 'api.js' (interceptador) só funciona para
+ * rotas autenticadas (que precisam de token).
+ */
 import axios from 'axios'; 
 import './SignUp.css';
 import logoNomad from '../../assets/logo.png';
@@ -68,6 +70,7 @@ function SignUp() {
         // Pega o erro bonito da nossa API (ex: "Nome de usuário já registrado")
         setError(err.response.data.detail);
       } else {
+        // (Erro de rede, ex: API "dormindo" no Render)
         console.error('Erro ao criar conta:', err);
         setError('Ocorreu um erro inesperado. Tente novamente.');
       }

@@ -1,10 +1,10 @@
 /* Arquivo: frontend/src/components/HorizontalBarChart/HorizontalBarChart.css */
-"""
-Estilos para o Componente de Gráfico de Barras Horizontais (V3.4).
-
-Este arquivo estiliza os elementos HTML customizados (o tooltip)
-que renderizamos por cima do gráfico SVG do 'recharts'.
-"""
+/*
+ * Estilos para o Componente de Gráfico de Barras Horizontais (V3.4).
+ *
+ * Este arquivo estiliza os elementos HTML customizados (o tooltip)
+ * que renderizamos por cima do gráfico SVG do 'recharts'.
+ */
 
 /* --- 1. Contêiner Principal --- */
 .horizontal-bar-wrapper {

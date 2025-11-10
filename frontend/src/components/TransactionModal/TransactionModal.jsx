@@ -1,13 +1,13 @@
 // Arquivo: frontend/src/components/TransactionModal/TransactionModal.jsx
-"""
-Componente de Modal de Transação (O "Formulário Inteligente").
-
-Este é um dos componentes mais complexos do frontend.
-Ele gerencia a UI e a lógica para CRIAR, EDITAR e
-salvar transações OFFLINE.
-
-Ele é 100% "controlado" pelo 'MainLayout.jsx' (Pai).
-"""
+/*
+ * Componente de Modal de Transação (O "Formulário Inteligente").
+ *
+ * Este é um dos componentes mais complexos do frontend.
+ * Ele gerencia a UI e a lógica para CRIAR, EDITAR e
+ * salvar transações OFFLINE.
+ *
+ * Ele é 100% "controlado" pelo 'MainLayout.jsx' (Pai).
+ */
 
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api'; // Nosso "embaixador" axios
@@ -21,6 +21,7 @@ import './TransactionModal.css';
  * Se 'isoDate' for nulo (Modo de Criação), usa a data/hora atual.
  */
 const formatToInput = (isoDate) => {
+   // Usa a data passada ou a data de AGORA
    const d = isoDate ? new Date(isoDate) : new Date();
    
    // (Corrige o fuso horário para 'datetime-local')
@@ -182,6 +183,7 @@ function TransactionModal({
       } catch (err) {
         console.error("Erro ao salvar transação (online):", err);
         setError("Erro ao salvar. Verifique os campos e tente novamente.");
+        setSuccess(''); // Limpa o "Salvando..."
       }
     } else {
       // --- PLANO B (OFFLINE - SÓ FUNCIONA PARA CRIAÇÃO) ---
@@ -210,11 +212,12 @@ function TransactionModal({
         // 4. Apenas fecha o modal
         setTimeout(() => {
            onClose(); 
-        }, 1500);
+        }, 1500); // (1.5s para o usuário ler a msg)
         
       } catch (err) {
         console.error("Erro ao salvar transação (offline):", err);
         setError("Não foi possível salvar offline. Tente novamente.");
+        setSuccess('');
       }
     }
   };
@@ -289,6 +292,7 @@ function TransactionModal({
           </div>
 
           {/* Botão Dinâmico (V6.0) */}
+          {/* (Desabilitado se estiver carregando OU se houver msg de sucesso) */}
           <button type="submit" className="submit-button" disabled={loading || success}>
             {isEditMode ? 'Salvar Alterações' : 'Salvar Transação'}
           </button>

@@ -1,15 +1,15 @@
 // Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.jsx
-"""
-Componente Reutilizável de Gráfico de Rosca (Doughnut).
-
-Este componente renderiza um gráfico de rosca (PieChart com innerRadius)
-usando a biblioteca 'recharts'.
-
-Decisão de Arquitetura (V5.0 - Cores Dinâmicas):
-Este gráfico é "data-driven". Ele não tem uma paleta de cores
-fixa. Ele usa o campo 'cor' que é fornecido nos dados
-('chartData'), que o backend buscou do banco de dados.
-"""
+/*
+ * Componente Reutilizável de Gráfico de Rosca (Doughnut).
+ *
+ * Este componente renderiza um gráfico de rosca (PieChart com innerRadius)
+ * usando a biblioteca 'recharts'.
+ *
+ * Decisão de Arquitetura (V5.0 - Cores Dinâmicas):
+ * Este gráfico é "data-driven". Ele não tem uma paleta de cores
+ * fixa. Ele usa o campo 'cor' que é fornecido nos dados
+ * ('chartData'), que o backend buscou do banco de dados.
+ */
 
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
@@ -26,7 +26,8 @@ import './DoughnutChart.css'; // (CSS para o texto central, legenda e tooltip)
  */
 function DoughnutChart({ chartData, totalValue, centerLabel }) {
 
-  // --- Funções Auxiliares ---
+  // A paleta hard-coded ('colorsPalette') foi removida
+  // pois os dados agora vêm com a cor embutida.
 
   const formatCurrency = (value) => {
     return (parseFloat(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -123,7 +124,7 @@ function DoughnutChart({ chartData, totalValue, centerLabel }) {
             <div key={item.nome} className="legend-item">
               <span
                 className="legend-color"
-                style={{ backgroundColor: item.cor }} // <-- Cor dinâmica do DB
+                style={{ backgroundColor: item.cor }} /* <-- Cor dinâmica do DB */
               ></span>
               <span className="legend-label" style={{ color: item.cor }}> {/* <-- Cor dinâmica do DB */}
                 {item.nome}

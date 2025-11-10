@@ -1,22 +1,22 @@
 // Arquivo: frontend/src/pages/Dashboard/Dashboard.jsx
-"""
-Página Principal do Dashboard (O "Hub" de Visualização).
-
-Este é o componente principal da aplicação (a rota 'index' /).
-Ele é um "Filho" do 'MainLayout' e recebe a maior parte de
-seus dados e estado (filtros, dados de resumo)
-através do 'useOutletContext()'.
-
-Responsabilidades:
-1. Renderizar os Filtros Globais (<FilterControls />).
-2. Renderizar os Cards de Resumo (Receita, Gasto, Lucro).
-3. Renderizar os Gráficos de Rosca (<DoughnutChart />).
-4. Buscar e Renderizar as listas de transações:
-   - "Transações no Período" (filtrada)
-   - "Últimas 5 Transações" (não filtrada)
-5. Implementar a lógica de Edição (V6.0) e Exclusão (V9.0)
-   para os itens da lista.
-"""
+/*
+ * Página Principal do Dashboard (O "Hub" de Visualização).
+ *
+ * Este é o componente principal da aplicação (a rota 'index' /).
+ * Ele é um "Filho" do 'MainLayout' e recebe a maior parte de
+ * seus dados e estado (filtros, dados de resumo)
+ * através do 'useOutletContext()'.
+ *
+ * Responsabilidades:
+ * 1. Renderizar os Filtros Globais (<FilterControls />).
+ * 2. Renderizar os Cards de Resumo (Receita, Gasto, Lucro).
+ * 3. Renderizar os Gráficos de Rosca (<DoughnutChart />).
+ * 4. Buscar e Renderizar as listas de transações:
+ * - "Transações no Período" (filtrada)
+ * - "Últimas 5 Transações" (não filtrada)
+ * 5. Implementar a lógica de Edição (V6.0) e Exclusão (V9.0)
+ * para os itens da lista.
+ */
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -145,6 +145,7 @@ function Dashboard() {
   // (V5.3 Corrigido: Passa o campo 'cor' para o gráfico)
   const getReceitasChartData = () => {
       if (data && data.receitas_por_categoria && data.receitas_por_categoria.length > 0) {
+        // (V5.0) Usa os dados reais do backend
         return data.receitas_por_categoria
           .filter(item => parseFloat(item.valor_total) > 0)
           .map(item => ({
@@ -219,7 +220,7 @@ function Dashboard() {
   /**
    * Função auxiliar para renderizar UMA lista de transações (V2.11)
    * (Usada 2x: "Período" e "Últimas 5")
-   * * @param {boolean} showActions - Se deve renderizar os botões de Editar/Deletar
+   * @param {boolean} showActions - Se deve renderizar os botões de Editar/Deletar
    */
   const renderTransactionList = (title, transactions, loadingState, showActions) => {
     let content;
@@ -346,7 +347,7 @@ function Dashboard() {
         </>
       );
     }
-    return null;,
+    return null;
   };
 
   return (

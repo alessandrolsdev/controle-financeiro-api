@@ -1,20 +1,20 @@
 // Arquivo: frontend/src/components/HorizontalBarChart/HorizontalBarChart.jsx
-"""
-Componente Reutilizável de Gráfico de Barras Horizontais (V5.0).
-
-Este componente renderiza um gráfico de barras horizontais
-usando a biblioteca 'recharts'. É usado na página 'Reports.jsx'
-para mostrar Gastos e Receitas por categoria.
-
-Decisão de Arquitetura (V5.0 - Cores Dinâmicas):
-Este gráfico usa a cor exata ('cor') definida pelo usuário
-para cada categoria, que é passada nos dados ('chartData').
-
-Decisão de Arquitetura (V4.6 - Tema):
-Este gráfico é "theme-aware" (consciente do tema). Ele recebe
-o 'theme' (light/dark) como prop para definir a cor
-do texto dos eixos (SVG), que o CSS não pode alcançar.
-"""
+/*
+ * Componente Reutilizável de Gráfico de Barras Horizontais (V5.0).
+ *
+ * Este componente renderiza um gráfico de barras horizontais
+ * usando a biblioteca 'recharts'. É usado na página 'Reports.jsx'
+ * para mostrar Gastos e Receitas por categoria.
+ *
+ * Decisão de Arquitetura (V5.0 - Cores Dinâmicas):
+ * Este gráfico usa a cor exata ('cor') definida pelo usuário
+ * para cada categoria, que é passada nos dados ('chartData').
+ *
+ * Decisão de Arquitetura (V4.6 - Tema):
+ * Este gráfico é "theme-aware" (consciente do tema). Ele recebe
+ * o 'theme' (light/dark) como prop para definir a cor
+ * do texto dos eixos (SVG), que o CSS não pode alcançar.
+ */
 
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -30,7 +30,8 @@ import './HorizontalBarChart.css'; // (CSS para o tooltip customizado)
  */
 function HorizontalBarChart({ data, theme }) {
 
-  // A paleta hard-coded NÃO É MAIS NECESSÁRIA!
+  // A paleta hard-coded ('colorsPalette') foi removida
+  // pois os dados agora vêm com a cor embutida.
   
   // Define a cor do texto dos eixos (SVG) com base no tema (V4.6)
   // (Valores do 'index.css')
@@ -48,8 +49,8 @@ function HorizontalBarChart({ data, theme }) {
       return `R$ ${Math.round(tickItem / 1000)}k`;
     }
     if (tickItem > 0) {
-        // Formata valores pequenos como "R$ 271,02" (removido '.toLocaleString' para simplicidade)
-        return `R$ ${tickItem}`; 
+        // Formata valores pequenos como "R$ 271,02"
+        return `R$ ${tickItem.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}`;
     }
     return `R$ 0`;
   };

@@ -10,7 +10,7 @@
 .settings-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
-  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
+  padding-bottom: 90px;
 }
 
 /* --- 2. Cabeçalho da Página --- */
@@ -36,7 +36,6 @@
   margin: 0 auto;
 }
 
-/* Card "Glassmorphism" */
 .settings-card {
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
@@ -74,7 +73,7 @@
   border: none;
   border-bottom: 2px solid var(--cor-texto-secundario);
   background-color: transparent;
-  color: var(--cor-texto-primario); /* Cor do texto DENTRO da caixa */
+  color: var(--cor-texto-primario); 
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
   border-radius: 0;
@@ -120,7 +119,7 @@
     margin-top: 0.5rem;
 }
 
-/* --- 5. Botões de Formulário (V8.0) --- */
+/* --- 5. Botões de Formulário (ATUALIZADO V8.0) --- */
 .form-button-group {
   display: flex;
   gap: 1rem; /* Espaço entre "Salvar" e "Cancelar" */
@@ -164,7 +163,7 @@
   color: var(--cor-texto-primario);
 }
 
-/* --- 6. Lista de Categorias (V8.0) --- */
+/* --- 6. Lista de Categorias (ATUALIZADO V8.0) --- */
 .categoria-list ul {
   list-style: none;
   padding: 0;
@@ -202,6 +201,7 @@
   font-size: 0.8rem;
   font-weight: bold;
 }
+/* (V4.5) Cores semânticas dinâmicas */
 .tipo-badge-list.tipo-gasto {
   background-color: var(--cor-gasto);
   color: var(--cor-branco-foco);
@@ -211,7 +211,7 @@
   color: var(--cor-branco-foco);
 }
 
-/* Lado Direito (Botões de Ação) */
+/* Lado Direito (Botões de Ação V8.0) */
 .categoria-list-actions {
   display: flex;
   gap: 0.5rem;

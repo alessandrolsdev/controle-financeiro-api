@@ -1,18 +1,18 @@
 // Arquivo: frontend/src/components/Navbar/Navbar.jsx
-"""
-Componente da Barra de Navegação Inferior (Navbar).
-
-Este componente renderiza a barra de navegação principal (fixa
-no rodapé) da aplicação, com o design "mobile-first".
-
-Responsabilidades:
-1. Renderizar os links de navegação (<NavLink>) para as
-   páginas principais (Início, Relatórios, Ajustes, Perfil).
-2. Indicar visualmente qual link está 'ativo' (usando 'getNavLinkClass').
-3. Renderizar o Botão de Ação Flutuante (FAB - o '+').
-4. Delegar o 'onClick' do FAB para o 'MainLayout' (Pai)
-   através da prop 'onAddTransaction'.
-"""
+/*
+ * Componente da Barra de Navegação Inferior (Navbar).
+ *
+ * Este componente renderiza a barra de navegação principal (fixa
+ * no rodapé) da aplicação, com o design "mobile-first".
+ *
+ * Responsabilidades:
+ * 1. Renderizar os links de navegação (<NavLink>) para as
+ * páginas principais (Início, Relatórios, Ajustes, Perfil).
+ * 2. Indicar visualmente qual link está 'ativo' (usando 'getNavLinkClass').
+ * 3. Renderizar o Botão de Ação Flutuante (FAB - o '+').
+ * 4. Delegar o 'onClick' do FAB para o 'MainLayout' (Pai)
+ * através da prop 'onAddTransaction'.
+ */
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';

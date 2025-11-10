@@ -123,6 +123,7 @@ function Settings() {
       if (err.response && err.response.status === 400 && err.response.data.detail) {
         window.alert(err.response.data.detail);
       } else {
+        // Erro genérico
         window.alert("Não foi possível excluir a categoria.");
       }
     }

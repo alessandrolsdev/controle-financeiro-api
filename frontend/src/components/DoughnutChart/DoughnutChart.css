@@ -1,10 +1,10 @@
 /* Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.css */
-"""
-Estilos para o Componente de Gráfico de Rosca (Doughnut).
-
-Este arquivo estiliza os elementos HTML customizados que
-renderizamos por cima (ou ao lado) do gráfico SVG do 'recharts'.
-"""
+/*
+ * Estilos para o Componente de Gráfico de Rosca (Doughnut).
+ *
+ * Este arquivo estiliza os elementos HTML customizados que
+ * renderizamos por cima (ou ao lado) do gráfico SVG do 'recharts'.
+ */
 
 /* --- 1. Contêiner Principal --- */
 .doughnut-chart-container {

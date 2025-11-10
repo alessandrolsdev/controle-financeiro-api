@@ -179,7 +179,7 @@ function Reports() {
           data_fim: dataFimStr,
         };
         
-        // V9.5: Busca as 3 fontes de dados em paralelo
+        // V9.6: Busca as 3 fontes de dados em paralelo
         const [responseTrend, responseDashboard, responseTransactions] = await Promise.all([
           api.get('/relatorios/tendencia', { params: paramsTrend }), // Gráfico 1
           api.get('/dashboard/', { params: paramsDashboard }),       // Gráfico 2 e 3
