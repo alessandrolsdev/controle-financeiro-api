@@ -1,43 +1,59 @@
 /* Arquivo: frontend/src/components/DoughnutChart/DoughnutChart.css */
+"""
+Estilos para o Componente de Gráfico de Rosca (Doughnut).
 
+Este arquivo estiliza os elementos HTML customizados que
+renderizamos por cima (ou ao lado) do gráfico SVG do 'recharts'.
+"""
+
+/* --- 1. Contêiner Principal --- */
 .doughnut-chart-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem; 
+  gap: 1.5rem; /* Espaço entre o gráfico e a legenda */
 }
 
+/* --- 2. O Gráfico (Wrapper) --- */
 .doughnut-chart-wrapper {
-  position: relative;
+  /* Define a "área" do gráfico */
+  position: relative; /* Permite o posicionamento absoluto do texto central */
   width: 100%;
   max-width: 250px; 
   height: 250px;
   margin: 0 auto;
 }
 
+/* --- 3. O Texto Central (R$ 0,00) --- */
+/* (Renderizado por cima do SVG via 'position: absolute') */
 .doughnut-center-text {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%); /* O truque de centralização */
   text-align: center;
-  pointer-events: none;
+  /* Impede que o texto bloqueie o 'hover' do mouse no gráfico */
+  pointer-events: none; 
 }
 
 .doughnut-center-text .total-amount {
   display: block;
   font-size: 1.5rem;
   font-weight: 700;
+  /* Usa a cor de texto dinâmica (branco/preto) do tema */
   color: var(--cor-texto-primario);
 }
 
 .doughnut-center-text .label {
   display: block;
   font-size: 0.85rem;
+  /* Usa a cor de texto secundária (cinza) do tema */
   color: var(--cor-texto-secundario);
   margin-top: 5px;
 }
 
+/* --- 4. O Estado Vazio (V2.7) --- */
+/* (Também centralizado, aparece quando não há dados) */
 .no-chart-data {
   position: absolute;
   top: 50%;
@@ -51,9 +67,10 @@
   line-height: 1.4;
 }
 
+/* --- 5. A Legenda Customizada (V5.0) --- */
 .chart-legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* Permite quebrar a linha em telas pequenas */
   justify-content: center;
   gap: 1rem; 
   width: 100%;
@@ -66,26 +83,31 @@
   font-weight: 500;
 }
 
+/* O "quadradinho" colorido da legenda */
 .legend-color {
   width: 12px;
   height: 12px;
   border-radius: 4px;
   margin-right: 8px;
   display: inline-block;
+  /* (A cor de fundo é injetada via 'style' pelo .jsx) */
 }
 
 .legend-label {
   font-weight: 600; 
+  /* (A cor é injetada via 'style' pelo .jsx) */
 }
 
-/* --- ESTILO DA NOVA TOOLTIP (RECHARTS) --- */
+/* --- 6. O Tooltip Customizado (V4.0) --- */
+/* (Estiliza o pop-up que aparece ao passar o mouse) */
 .custom-tooltip {
-  background-color: var(--cor-fundo-card); /* 🚨 NOVIDADE: Use uma cor mais sólida, como a do card */
+  /* Usa o fundo "Glassmorphism" do nosso tema */
+  background-color: var(--cor-fundo-card); 
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   padding: 10px 15px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Um pouco mais de sombra para se destacar */
-  opacity: 1; /* 🚨 NOVIDADE: Garante que não há transparência indesejada */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  opacity: 1;
 }
 .tooltip-label {
   color: var(--cor-texto-primario);

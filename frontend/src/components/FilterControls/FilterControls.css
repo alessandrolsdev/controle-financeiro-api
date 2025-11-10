@@ -1,19 +1,35 @@
 /* Arquivo: frontend/src/components/FilterControls/FilterControls.css */
-/* (VERSÃO COMPLETA V3.8 - COM ESTILO DE RANGE) */
+"""
+Estilos para o Componente Reutilizável de Filtro (V3.9).
 
+Este CSS estiliza os botões de período (Diário, Semanal...)
+e os inputs de calendário (date picker).
+"""
+
+/* --- 1. O Contêiner Principal --- */
+/* (Este wrapper usa Flexbox para alinhar os botões à
+   esquerda e o calendário à direita em telas maiores) */
 .filter-tabs-container {
   padding: 1rem 1.5rem;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* Permite que o calendário "caia" em telas pequenas */
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 1rem; /* Espaço entre a linha de botões e o calendário */
 }
 
+/* --- 2. Os Botões de Filtro (Pílulas) --- */
 .filter-tabs {
   display: flex;
   gap: 0.5rem;
-  overflow-x: auto;
+  overflow-x: auto; /* Permite rolar horizontalmente em telas pequenas */
+  
+  /* Melhora a rolagem em dispositivos móveis */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Oculta a barra de rolagem (Firefox) */
+}
+.filter-tabs::-webkit-scrollbar {
+  display: none; /* Oculta a barra de rolagem (Chrome/Safari) */
 }
 
 .tab-button {
@@ -27,27 +43,31 @@
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
-  white-space: nowrap;
+  white-space: nowrap; /* Impede que "Personalizado" quebre a linha */
 }
 
 .tab-button:hover {
   background-color: var(--cor-fundo-card);
-  color: var(--cor-branco-foco);
+  color: var(--cor-texto-primario);
 }
+
+/* O estado 'ativo' usa a cor de destaque da marca */
 .tab-button.active {
   background-color: var(--cor-laranja-voo);
   color: var(--cor-branco-foco);
   border-color: var(--cor-laranja-voo);
 }
 
+/* --- 3. O Seletor de Data (Calendário) --- */
 .date-picker-container {
-  /* (O flex-wrap no pai já cuida do alinhamento) */
+  /* (O 'flex-wrap' no 'filter-tabs-container'
+     já cuida do alinhamento/quebra) */
 }
 
 .date-picker-input {
   background-color: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
-  color: var(--cor-branco-foco);
+  color: var(--cor-texto-primario);
   font-family: 'Montserrat', sans-serif;
   font-weight: 600;
   padding: 0.5rem 0.8rem;
@@ -55,11 +75,16 @@
   font-size: 0.9rem;
 }
 
+/* Força o ícone do calendário a ser branco (no Dark Mode)
+   ou escuro (no Light Mode) */
 .date-picker-input::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+  /* 'invert(1)' torna o ícone branco */
+  /* 'var(--cor-texto-primario)' é dinâmico (branco/preto) */
+  filter: var(--cor-texto-primario) == "#FFFFFF" ? invert(1) : invert(0);
 }
 
-/* --- ESTILO PARA O FILTRO PERSONALIZADO --- */
+/* --- 4. Estilo para o Filtro "Personalizado" (V3.8) --- */
+/* (O wrapper para os dois calendários) */
 .date-range-wrapper {
   display: flex;
   align-items: center;

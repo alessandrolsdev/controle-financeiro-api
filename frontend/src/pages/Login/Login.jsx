@@ -1,51 +1,74 @@
 // Arquivo: frontend/src/pages/Login/Login.jsx
-// (VERSÃO V2.0 - DESIGN "AZUL GUARDIÃO" / "NOMAD")
+/*
+ * Página de Login.
+ *
+ * Esta é uma rota pública (veja 'App.jsx') renderizada se
+ * o usuário NÃO estiver autenticado.
+ *
+ * Responsabilidades:
+ * 1. Renderizar o formulário de login (usuário, senha).
+ * 2. Chamar a função 'login()' do 'AuthContext' (useAuth).
+ * 3. Gerenciar o estado local do formulário (loading, error).
+ * 4. Navegar para o Dashboard ('/') em caso de sucesso.
+ */
 
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext'; // O "cérebro"
 import { useNavigate, Link } from 'react-router-dom';
-import './Login.css'; // Importa os nossos novos estilos
+import './Login.css'; // Estilos locais
 
-// 1. IMPORTA O LOGO
-// O React/Vite encontrará o logo na pasta 'assets'
-import logoNomad from '../../assets/logo.png'; // Certifique-se que o nome do arquivo é 'logo.png'
+// Importa o logo
+import logoNomad from '../../assets/logo.png'; 
 
-/**
- * Componente da Página de Login, agora com o design "NOMAD".
- */
 function Login() {
+  // --- Estados do Formulário ---
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
+  // --- Estados de UI (Feedback) ---
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false); // Estado de "carregando"
+  const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  // --- Hooks ---
+  // Pega a função 'login' do "cérebro" global
+  const { login } = useAuth(); 
+  // Pega a função 'navigate' do roteador
+  const navigate = useNavigate(); 
 
+  /**
+   * Lida com o envio (submit) do formulário de login.
+   */
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event.preventDefault(); // Impede o recarregamento da página
     setError('');
-    setLoading(true); // Ativa o "carregando"
+    setLoading(true); // Ativa o "carregando" (desabilita o botão)
 
     try {
+      // 1. Chama a função 'login' do 'AuthContext'
+      // (O 'AuthContext' é quem lida com 'axios', 'setToken',
+      //  'localStorage' e a busca do 'GET /usuarios/me')
       const success = await login(username, password);
 
       if (success) {
-        navigate('/'); // Redireciona para o Dashboard
+        // 2. SUCESSO: Navega para o Dashboard
+        // (O 'App.jsx' vai detectar o novo 'token' e
+        //  renderizar o 'MainLayout')
+        navigate('/'); 
       } else {
+        // 3. FALHA (Ex: 401 Unauthorized)
         setError('Nome de usuário ou senha incorretos.');
-        setLoading(false); // Para o "carregando" se der erro
+        setLoading(false);
       }
     } catch (err) {
+      // 4. FALHA (Ex: "ERR_NETWORK" - API "dormindo")
       console.error('Erro no handleSubmit do Login:', err);
       setError('Ocorreu um erro inesperado. Tente novamente.');
       setLoading(false);
     }
   };
 
-  // --- O NOVO JSX (baseado no seu mockup) ---
   return (
-    // O 'login-page-wrapper' ajuda a centralizar verticalmente
+    // 'login-page-wrapper' centraliza o card na tela
     <div className="login-page-wrapper">
       <div className="login-container">
 
@@ -57,17 +80,17 @@ function Login() {
 
         <form className="login-form" onSubmit={handleSubmit}>
 
-          {/* Mostra o erro aqui */}
+          {/* Mensagem de Erro (se 'error' não for vazio) */}
           {error && <p className="error-message">{error}</p>}
 
           <div className="input-group">
-            {/* Usamos o placeholder como label, como no mockup */}
+            {/* (V4.0) Input com estilo "underline" */}
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="E-mail"
+              placeholder="Nome de usuário" // (Mudado de 'E-mail' para 'Nome de Usuário')
               required
             />
           </div>

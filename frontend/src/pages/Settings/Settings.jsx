@@ -1,33 +1,49 @@
-// Arquivo: frontend/src/pages/Settings/Settings.jsx (VERSÃO V8.1 - CORREÇÃO DO FEEDBACK DE DELETE)
+// Arquivo: frontend/src/pages/Settings/Settings.jsx
 /*
-REATORAÇÃO (Missão V8.1 - Correção):
-O 'handleDeleteClick' (catch) foi atualizado.
-1. Em vez de 'setError()', que é silencioso, agora
-   usamos 'window.alert()' para forçar o usuário a ver
-   a mensagem de erro da API (ex: "Categoria em uso").
-*/
+ * Página de Ajustes e Configurações.
+ *
+ * Esta página é um "Filho" do 'MainLayout'.
+ * É o "Centro de Gerenciamento de Categorias" (CRUD completo)
+ * e também controla as configurações do app (como o Tema).
+ *
+ * Responsabilidades:
+ * 1. Gerenciar um formulário "modo-duplo" para Criar e Editar categorias.
+ * 2. Listar, Atualizar (PUT) e Deletar (DELETE) categorias (V8.0 / V9.0).
+ * 3. Gerenciar o 'toggle' (interruptor) de Tema (Light/Dark).
+ */
 
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import './Settings.css';
 import { useTheme } from '../../context/ThemeContext';
+// (V8.0) Importa os ícones de Ação
 import { IoPencil, IoTrash } from 'react-icons/io5';
 
 function Settings() {
-  const { theme, toggleTheme } = useTheme();
+  // --- Estados Globais ---
+  const { theme, toggleTheme } = useTheme(); // Pega o estado do Tema
+  
+  // --- Estados Locais ---
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // --- Estados do Formulário ---
   const [nomeCategoria, setNomeCategoria] = useState('');
   const [tipoCategoria, setTipoCategoria] = useState('Gasto');
-  const [corCategoria, setCorCategoria] = useState('#FF7A00');
+  const [corCategoria, setCorCategoria] = useState('#FF7A00'); // (V5.0) Cor
   
-  const [editingCategoryId, setEditingCategoryId] = useState(null);
-  const isEditMode = Boolean(editingCategoryId);
+  // (V8.0) Estado que controla o "modo" do formulário
+  const [editingCategoryId, setEditingCategoryId] = useState(null); // null = Criar, ID = Editar
+  const isEditMode = Boolean(editingCategoryId); // True se estivermos editando
 
+  // --- Estados de UI (Feedback) ---
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  /**
+   * Busca (GET /categorias) a lista de categorias do backend.
+   * Chamado na montagem do componente e após qualquer CUD.
+   */
   const fetchCategorias = async () => {
     try {
       setLoading(true);
@@ -36,15 +52,24 @@ function Settings() {
       setLoading(false);
     } catch (err) {
       console.error("Erro ao buscar categorias:", err);
+      // (Define o erro no formulário principal se a lista falhar)
       setError("Não foi possível carregar as categorias.");
       setLoading(false);
     }
   };
 
+  /**
+   * Efeito [onLoad]: Busca as categorias na primeira
+   * renderização do componente.
+   */
   useEffect(() => {
     fetchCategorias();
-  }, []);
+  }, []); // [] = Roda apenas uma vez
 
+  /**
+   * Reseta o formulário para o estado de "Criação".
+   * Limpa os campos e sai do modo de edição.
+   */
   const resetForm = () => {
     setNomeCategoria('');
     setTipoCategoria('Gasto');
@@ -52,24 +77,36 @@ function Settings() {
     setEditingCategoryId(null);
   };
   
+  // --- Funções de CRUD (V8.0) ---
+
+  /**
+   * Chamado ao clicar no ícone de lápis (Editar).
+   * Preenche o formulário com os dados da categoria selecionada
+   * e entra no "Modo de Edição".
+   */
   const handleEditClick = (categoria) => {
+    // Define os estados do formulário
     setNomeCategoria(categoria.nome);
     setTipoCategoria(categoria.tipo);
     setCorCategoria(categoria.cor);
+    // Define o ID que estamos editando
     setEditingCategoryId(categoria.id);
+    // Limpa mensagens de feedback antigas
     setError('');
     setSuccess('');
+    // (UX) Rola a página para o topo (para o formulário)
     window.scrollTo(0, 0); 
   };
 
   /**
    * Chamado ao clicar no ícone de lixo (Excluir).
-   * (A CORREÇÃO ESTÁ AQUI)
+   * Chama 'DELETE /categorias/{id}'.
    */
   const handleDeleteClick = async (categoria) => {
     setError('');
     setSuccess('');
 
+    // Confirmação de segurança nativa do navegador
     if (!window.confirm(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?`)) {
       return;
     }
@@ -80,21 +117,30 @@ function Settings() {
       fetchCategorias(); // Atualiza a lista
     } catch (err) {
       console.error("Erro ao excluir categoria:", err);
+      // (V8.1) Correção do Bug de Feedback
+      // Se o backend retornar 400 (ex: "categoria em uso"),
+      // exibe a mensagem de erro da API em um 'alert' (janela).
       if (err.response && err.response.status === 400 && err.response.data.detail) {
-        // A "TRAVA" DO BACKEND (V8.1)
-        // Em vez de 'setError', usamos 'alert'
-        window.alert(err.response.data.detail); // Ex: "Não é possível excluir: Esta categoria já está..."
+        window.alert(err.response.data.detail);
       } else {
-        // Erro genérico
         window.alert("Não foi possível excluir a categoria.");
       }
     }
   };
 
+  /**
+   * Chamado ao clicar no botão "Cancelar" (no modo de edição).
+   */
   const handleCancelEdit = () => {
     resetForm();
+    setError('');
+    setSuccess('');
   };
 
+  /**
+   * Função principal de 'submit' do formulário.
+   * Lida com POST (Criar) ou PUT (Editar) dependendo do 'isEditMode'.
+   */
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -105,6 +151,7 @@ function Settings() {
       return;
     }
 
+    // O "pacote" de dados para a API
     const categoriaPayload = {
       nome: nomeCategoria,
       tipo: tipoCategoria,
@@ -113,16 +160,23 @@ function Settings() {
 
     try {
       if (isEditMode) {
+        // --- MODO DE EDIÇÃO (PUT /categorias/{id}) ---
+        // (O schema 'CategoriaUpdate' no backend lida com
+        //  o envio parcial, mas aqui enviamos o objeto completo)
         await api.put(`/categorias/${editingCategoryId}`, categoriaPayload);
         setSuccess(`Categoria "${nomeCategoria}" atualizada com sucesso!`);
       } else {
+        // --- MODO DE CRIAÇÃO (POST /categorias/) ---
         await api.post('/categorias/', categoriaPayload);
         setSuccess(`Categoria "${nomeCategoria}" criada com sucesso!`);
       }
-      resetForm();
-      fetchCategorias();
+      
+      resetForm();      // Limpa o formulário e sai do modo de edição
+      fetchCategorias(); // Atualiza a lista
+
     } catch (err) {
       console.error("Erro ao salvar categoria:", err);
+      // (Captura erros como "Nome duplicado" do backend)
       if (err.response && err.response.status === 400) {
         setError(err.response.data.detail);
       } else {
@@ -138,13 +192,18 @@ function Settings() {
       </header>
 
       <main className="settings-content">
+        
+        {/* Card 1: Formulário de Categoria (Dinâmico) */}
         <div className="settings-card">
+          {/* Título Dinâmico (V8.0) */}
           <h2>{isEditMode ? 'Editar Categoria' : 'Criar Nova Categoria'}</h2>
           
           <form onSubmit={handleSubmit}>
+            {/* Feedback de Erro/Sucesso */}
             {error && <p className="error-message">{error}</p>}
             {success && <p className="success-message">{success}</p>}
 
+            {/* Input Nome */}
             <div className="input-group">
               <label htmlFor="nome">Nome da Categoria</label>
               <input
@@ -156,6 +215,7 @@ function Settings() {
               />
             </div>
             
+            {/* Input Tipo */}
             <div className="input-group">
               <label htmlFor="tipo">Tipo</label>
               <select
@@ -168,6 +228,7 @@ function Settings() {
               </select>
             </div>
 
+            {/* Input Cor (V5.0) */}
             <div className="input-group color-picker-group">
               <label htmlFor="cor">Cor (Aparecerá nos gráficos)</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -177,14 +238,18 @@ function Settings() {
                   value={corCategoria}
                   onChange={(e) => setCorCategoria(e.target.value)}
                 />
+                {/* Exibe o código hex da cor selecionada */}
                 <span className="color-code-display" style={{ color: corCategoria }}>{corCategoria}</span>
               </div>
             </div>
 
+            {/* Botões Dinâmicos (V8.0) */}
             <div className="form-button-group">
               <button type="submit" className="settings-button">
                 {isEditMode ? 'Salvar Alterações' : 'Criar Categoria'}
               </button>
+              
+              {/* Só aparece se estivermos editando */}
               {isEditMode && (
                 <button 
                   type="button" 
@@ -198,6 +263,7 @@ function Settings() {
           </form>
         </div>
 
+        {/* Card 2: Lista de Categorias (V8.0) */}
         <div className="settings-card">
           <h2>Categorias Existentes</h2>
           <div className="categoria-list">
@@ -210,6 +276,7 @@ function Settings() {
                 ) : (
                   categorias.map((cat) => (
                     <li key={cat.id}>
+                      {/* Lado Esquerdo: Cor, Nome, Tipo */}
                       <div className="categoria-info">
                         <span 
                           className="categoria-cor-preview" 
@@ -221,11 +288,12 @@ function Settings() {
                         </span>
                       </div>
                       
+                      {/* Lado Direito: Botões de Ação */}
                       <div className="categoria-list-actions">
-                        <button className="edit-btn" onClick={() => handleEditClick(cat)}>
+                        <button className="edit-btn" title="Editar" onClick={() => handleEditClick(cat)}>
                           <IoPencil size={18} />
                         </button>
-                        <button className="delete-btn" onClick={() => handleDeleteClick(cat)}>
+                        <button className="delete-btn" title="Excluir" onClick={() => handleDeleteClick(cat)}>
                           <IoTrash size={18} />
                         </button>
                       </div>
@@ -237,8 +305,8 @@ function Settings() {
           </div>
         </div>
 
-        {/* ... (outros cards mantidos) ... */}
-         <div className="settings-card">
+        {/* Card 3: Aparência (V4.4) */}
+        <div className="settings-card">
           <h2>Aparência</h2>
           <div className="settings-item">
             <span>Modo {theme === 'dark' ? 'Escuro' : 'Claro'}</span>
@@ -252,6 +320,8 @@ function Settings() {
             </label>
           </div>
         </div>
+
+        {/* Card 4: Backup (Placeholder) */}
         <div className="settings-card">
           <h2>Segurança e Backup (V2.0)</h2>
           <div className="settings-item">
@@ -261,7 +331,6 @@ function Settings() {
             </button>
           </div>
         </div>
-
       </main>
     </div>
   );

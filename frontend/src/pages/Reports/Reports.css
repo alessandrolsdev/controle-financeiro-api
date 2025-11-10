@@ -1,17 +1,22 @@
 /* Arquivo: frontend/src/pages/Reports/Reports.css */
-/* (VERSÃO V4.2 - COM BOTÃO DE EXPORTAR) */
+/*
+ * Estilos para a Página de Relatórios Visuais (V4.2).
+ *
+ * Este CSS estiliza os cards "Glassmorphism" que contêm
+ * os gráficos (Linha, Barras) e o botão de exportação.
+ */
 
 /* --- 1. Layout Principal --- */
 .reports-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
-  padding-bottom: 90px;
+  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
 }
 
-/* --- 2. Cabeçalho da Página (ATUALIZADO) --- */
+/* --- 2. Cabeçalho da Página --- */
 .reports-header {
   display: flex;
-  justify-content: space-between; /* <-- Isso alinha o botão à direita */
+  justify-content: space-between; /* Alinha o título (esquerda) e o botão (direita) */
   align-items: center;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--cor-borda);
@@ -24,11 +29,12 @@
   color: var(--cor-texto-primario);
 }
 
-/* --- 3. NOVO BOTÃO DE EXPORTAR (V4.2) --- */
+/* --- 3. Botão de Exportar (V4.2) --- */
 .export-button {
-  /* Cor verde-esmeralda, com texto escuro para contraste */
+  /* Cor verde-esmeralda (do 'index.css') */
   background-color: var(--cor-verde-esmeralda);
-  color: var(--cor-base-azul-guardiao);
+  /* Texto escuro para contraste (definido no 'index.css' .light-mode) */
+  color: #0B1A33;
   border: none;
   border-radius: 8px;
   padding: 0.5rem 1rem;
@@ -40,8 +46,21 @@
 }
 .export-button:hover {
   opacity: 0.8;
-  box-shadow: 0 4px 10px rgba(0, 224, 143, 0.3);
+  box-shadow: 0 4px 10px rgba(0, 224, 143, 0.3); /* Brilho sutil */
 }
+
+/* (V9.6) Estilo para o botão quando desabilitado */
+.export-button-disabled {
+  background-color: var(--cor-texto-secundario);
+  color: var(--cor-fundo-card);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.export-button-disabled:hover {
+  opacity: 0.5;
+  box-shadow: none;
+}
+
 
 /* --- 4. Conteúdo (Cards) --- */
 .reports-content {
@@ -50,7 +69,7 @@
   margin: 0 auto;
 }
 
-/* --- 5. Card do Gráfico --- */
+/* --- 5. Card do Gráfico (Glassmorphism) --- */
 .report-card {
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
@@ -59,7 +78,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
   transition: background-color 0.3s ease;
-  overflow-x: auto; 
+  overflow-x: auto; /* Garante que o gráfico não quebre em telas pequenas */
 }
 
 .report-card h3 {
@@ -70,12 +89,14 @@
 }
 
 /* --- 6. ESTILOS DE FEEDBACK --- */
+/* (Usado para "Carregando gráfico..." e "Sem dados para exibir") */
 .loading-transactions {
   padding: 1.5rem;
   text-align: center;
   color: var(--cor-texto-secundario);
 }
 
+/* (Usado para "Não foi possível carregar os dados...") */
 .error-message {
   color: var(--cor-gasto);
   background-color: rgba(220, 53, 69, 0.1);

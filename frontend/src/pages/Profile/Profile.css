@@ -1,14 +1,20 @@
 /* Arquivo: frontend/src/pages/Profile/Profile.css */
-/* (VERSÃO V7.0 - COMPLETA COM FORMULÁRIOS ATIVOS) */
+/*
+ * Estilos para a Página de Perfil e Gerenciamento de Conta (V7.2).
+ *
+ * Este CSS estiliza os cards "Glassmorphism" e os formulários
+ * de atualização de perfil e mudança de senha.
+ */
 
 /* --- 1. Layout Principal --- */
 .profile-container {
   font-family: 'Montserrat', sans-serif;
   color: var(--cor-texto-primario);
-  padding-bottom: 90px; /* Espaço para a Navbar inferior */
+  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
 }
 
 /* --- 2. Cabeçalho da Página --- */
+/* (Padrão de todas as páginas internas) */
 .profile-header {
   display: flex;
   justify-content: space-between;
@@ -27,12 +33,13 @@
 /* --- 3. Conteúdo (Cards) --- */
 .profile-content {
   padding: 1.5rem;
-  max-width: 800px;
-  margin: 0 auto;
+  max-width: 800px; /* Limita a largura em desktops */
+  margin: 0 auto; /* Centraliza */
 }
 
+/* O card "Glassmorphism" (usado por todos os 4 cards) */
 .profile-card {
-  background: var(--cor-fundo-card); /* Glassmorphism */
+  background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda);
   padding: 1.5rem 2rem;
   border-radius: 12px;
@@ -49,7 +56,7 @@
   color: var(--cor-texto-primario);
 }
 
-/* --- 4. Card de Avatar (ATUALIZADO) --- */
+/* --- 4. Card de Avatar (V7.0) --- */
 .avatar-card {
   display: flex;
   flex-direction: column;
@@ -57,7 +64,7 @@
   padding-top: 2rem;
 }
 
-/* Placeholder (se não houver avatar_url) */
+/* O "círculo" pontilhado (se não houver foto) */
 .avatar-placeholder {
   width: 100px;
   height: 100px;
@@ -72,7 +79,7 @@
   margin-bottom: 1rem;
 }
 
-/* A Imagem Real (quando 'avatar_url' existe) */
+/* A imagem real (se 'avatar_url' existir) */
 .avatar-image {
   width: 100px;
   height: 100px;
@@ -89,8 +96,8 @@
   margin: 0;
 }
 
-/* --- 5. Inputs (Estilo Underline) --- */
-/* (Reutiliza o estilo do 'Settings.css') */
+/* --- 5. Inputs (Estilo "Underline") --- */
+/* (Estilos reutilizados do 'Settings.css') */
 .input-group { 
   margin-bottom: 1.5rem; 
 }
@@ -112,7 +119,6 @@
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
   border-radius: 0;
-  transition: border-color 0.3s ease;
 }
 
 .input-group input:focus {
@@ -125,15 +131,15 @@
   cursor: not-allowed;
 }
 
-/* --- 6. Botões de Salvar e Logout --- */
+/* --- 6. Botões (Salvar e Logout) --- */
 
-/* Botão de Salvar (Laranja, como no Login) */
+/* Botão de Salvar (Laranja) */
 .profile-button-save {
   width: 100%;
   padding: 0.85rem;
   border: none;
   border-radius: 8px;
-  background-color: var(--cor-laranja-voo); 
+  background-color: var(--cor-laranja-voo); /* Cor de "Ação" */
   color: var(--cor-branco-foco);
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
@@ -156,7 +162,7 @@
   padding: 0.85rem;
   border: none;
   border-radius: 8px;
-  background-color: var(--cor-gasto); 
+  background-color: var(--cor-gasto); /* Cor Semântica "Perigo" */
   color: var(--cor-branco-foco);
   font-family: 'Montserrat', sans-serif;
   font-size: 1rem;
@@ -170,7 +176,8 @@
   opacity: 0.8;
 }
 
-/* --- 7. NOVOS Estilos de Feedback --- */
+/* --- 7. Mensagens de Feedback (Erro/Sucesso) --- */
+/* (Reutilizadas do 'Dashboard.css' e 'Settings.css') */
 .error-message {
   color: var(--cor-gasto);
   background-color: rgba(220, 53, 69, 0.1);

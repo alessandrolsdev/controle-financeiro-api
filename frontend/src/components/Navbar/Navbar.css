@@ -1,21 +1,31 @@
 /* Arquivo: frontend/src/components/Navbar/Navbar.css */
+"""
+Estilos para o Componente da Barra de Navegação (Navbar).
 
+Este CSS implementa o design "mobile-first" da barra de navegação
+inferior, incluindo o Botão de Ação Flutuante (FAB).
+"""
+
+/* --- 1. O Contêiner Principal (A Barra) --- */
 .navbar-container {
-  /* 1. Posicionamento: Fica "grudado" no rodapé da tela */
+  /* 1.1. Posicionamento:
+     Fica "grudado" no rodapé da tela (mobile-first). */
   position: fixed; 
   bottom: 0;
   left: 0;
   right: 0;
   height: 70px; /* Altura da barra */
 
-  /* 2. Estilo: Usa as cores do nosso "Brand Guide" */
-  background-color: var(--cor-fundo-card); /* Usa o Azul 'quase preto' dos cards */
-  border-top: 1px solid var(--cor-borda); /* Linha divisória sutil */
+  /* 1.2. Estilo (Glassmorphism):
+     Usa as variáveis do 'index.css' para tema dinâmico. */
+  background-color: var(--cor-fundo-card);
+  border-top: 1px solid var(--cor-borda);
   box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
   z-index: 100; /* Garante que fique acima de todo o conteúdo */
   border-radius: 20px 20px 0 0; /* Bordas arredondadas no topo */
 }
 
+/* --- 2. O Wrapper dos Links Internos --- */
 .navbar-links {
   display: flex;
   justify-content: space-around; /* Espaça os itens igualmente */
@@ -25,31 +35,33 @@
   margin: 0 auto; /* Centraliza a barra no meio da tela */
 }
 
+/* --- 3. Cada Item de Navegação (Link) --- */
 .nav-item {
-  /* 1. Layout: Um ícone em cima do texto */
+  /* 3.1. Layout:
+     Um ícone em cima do texto (flex-direction: column). */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   
-  /* 2. Estilo: */
+  /* 3.2. Estilo (Padrão/Inativo): */
   text-decoration: none;
-  color: var(--cor-texto-secundario); /* Cor padrão (Cinza Suporte) */
+  color: var(--cor-texto-secundario); /* Cor "inativa" (Cinza Suporte) */
   font-family: 'Montserrat', sans-serif;
   font-size: 0.7rem;
-  font-weight: 500; /* Medium */
+  font-weight: 500;
   
-  /* 3. Espaçamento: */
-  flex-basis: 20%; /* Divide o espaço em 5 */
+  /* 3.3. Espaçamento: */
+  flex-basis: 20%; /* Divide o espaço em 5 (5 ícones) */
   height: 100%;
   transition: color 0.3s ease;
 }
 
-/* --- O ESTADO "ATIVO" --- */
-/* O 'react-router-dom' (NavLink) adiciona a classe '.active' 
-   automaticamente ao link da página que estamos visitando. */
+/* --- 4. O ESTADO "ATIVO" --- */
+/* (O 'react-router-dom' (NavLink) adiciona a classe '.active'
+   automaticamente ao link da página que estamos visitando) */
 .nav-item.active {
-  /* A cor de destaque da marca, mas não o laranja (que é para ação) */
+  /* Cor de destaque "localização" */
   color: var(--cor-verde-esmeralda); 
 }
 
@@ -57,28 +69,29 @@
   margin-top: 4px; /* Espaço entre o ícone e o texto */
 }
 
-/* --- O Botão de Ação Flutuante (FAB) --- */
+/* --- 5. O Botão de Ação Flutuante (FAB) --- */
 .nav-fab-container {
-  flex-basis: 20%;
+  flex-basis: 20%; /* Ocupa o mesmo espaço de um link */
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .nav-fab {
-  /* 1. Cor e Forma: */
-  background-color: var(--cor-laranja-voo); /* Laranja Voo */
+  /* 5.1. Cor e Forma: */
+  background-color: var(--cor-laranja-voo); /* Cor de "ação" */
   color: var(--cor-branco-foco);
   border: none;
   width: 60px;
   height: 60px;
   border-radius: 50%; /* Círculo perfeito */
   
-  /* 2. Efeito de "flutuar" (sobe 20px) */
+  /* 5.2. Efeito de "flutuar":
+     Move o botão 20px para CIMA da barra de navegação. */
   transform: translateY(-20px);
   box-shadow: 0 4px 15px rgba(255, 122, 0, 0.4);
   
-  /* 3. Layout Interno: */
+  /* 5.3. Layout Interno (Centraliza o '+') */
   display: flex;
   justify-content: center;
   align-items: center;

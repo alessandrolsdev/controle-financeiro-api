@@ -1,15 +1,32 @@
-/* * Arquivo: frontend/src/App.css
- * Responsabilidade: Estilos de layout principais para o componente App.jsx.
- * Este arquivo define o "container" de toda a nossa aplicação.
+/* Arquivo: frontend/src/App.css */
+/*
+ * Estilos para o Componente de Roteamento Principal (App.jsx).
+ *
+ * Este arquivo define o "chassi" de layout para toda a aplicação.
+ * Ele garante que o aplicativo sempre ocupe 100% da altura
+ * da tela e se comporte como um contêiner flexível.
  */
 
+/* (Esta classe é aplicada no 'div' principal dentro do 'App.jsx',
+   embora não tenhamos adicionado 'className="App"' no JSX,
+   ela pode ter sido usada em versões anteriores ou ser um padrão) */
+
+/* Se a classe .App não estiver sendo usada no App.jsx,
+   estes estilos podem ser movidos para '#root' em 'index.css' */
 .App {
-  /* Garante que o container principal do nosso app
-     ocupe pelo menos 100% da altura da tela. */
+  /* Garante que o contêiner principal do nosso app
+     ocupe pelo menos 100% da altura da tela (viewport height).
+     
+     Isso impede que páginas com pouco conteúdo (como 'Settings'
+     ou 'Login') façam o fundo terminar no meio da tela.
+   */
   min-height: 100vh; 
   
-  /* Garante que o conteúdo (como o Dashboard) flua
-     verticalmente. */
+  /* Define o App como um contêiner 'flex' em coluna.
+     Isso é crucial para o 'MainLayout.jsx', pois
+     permite que o <main> (conteúdo) cresça (flex-grow)
+     e empurre a <Navbar> (rodapé) para o final da tela.
+   */
   display: flex;
   flex-direction: column;
 }

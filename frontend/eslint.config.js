@@ -1,59 +1,81 @@
 // Arquivo: frontend/eslint.config.js
-// Responsabilidade: Configurar o "Inspetor de Qualidade" (ESLint)
-// Este arquivo define as regras que o nosso código deve seguir.
+/*
+ * Arquivo de Configuração do ESLint (O "Inspetor de Qualidade").
+ *
+ * Este arquivo define as regras de "linting" (análise de código)
+ * para garantir a qualidade e prevenir bugs comuns no
+ * JavaScript e no React.
+ *
+ * Ele usa o novo formato "Flat Config" do ESLint.
+ */
 
-import js from '@eslint/js' // Regras básicas do JavaScript
-import globals from 'globals' // Define variáveis globais (ex: 'window', 'document')
-import reactHooks from 'eslint-plugin-react-hooks' // Plugin que fiscaliza as "Regras dos Hooks" do React
-import reactRefresh from 'eslint-plugin-react-refresh' // Plugin que garante o "Fast Refresh" do Vite
-import { defineConfig, globalIgnores } from 'eslint/config' // Funções do próprio ESLint
+import js from '@eslint/js'; // Regras básicas do JavaScript
+import globals from 'globals'; // Define variáveis globais (ex: 'window', 'document')
+import reactHooks from 'eslint-plugin-react-hooks'; // Plugin que fiscaliza as "Regras dos Hooks"
+import reactRefresh from 'eslint-plugin-react-refresh'; // Plugin que garante o "Fast Refresh" do Vite
 
-export default defineConfig([
-  // Ignora globalmente a pasta 'dist' (a pasta de produção compilada)
-  globalIgnores(['dist']),
+// (Funções do próprio ESLint, caso sejam necessárias)
+// import { defineConfig, globalIgnores } from 'eslint/config';
+
+export default [ // O formato "Flat Config" é um array de configurações
   
+  // Ignora globalmente a pasta 'dist' (a pasta de produção compilada)
+  {
+    ignores: ['dist/']
+  },
+  
+  // --- Configuração Principal (para arquivos .js e .jsx) ---
   {
     // 1. QUAIS ARQUIVOS VERIFICAR:
     // Aplica as regras abaixo em todos os arquivos .js e .jsx
     files: ['**/*.{js,jsx}'],
     
-    // 2. QUAIS CONJUNTOS DE REGRAS USAR:
-    extends: [
-      js.configs.recommended, // Regras padrão do ESLint (ex: "não use 'var'")
-      
-      // Regras CRUCIAIS do React.
-      // Impede bugs como:
-      // - Chamar 'useState' dentro de um 'if'.
-      // - Esquecer de listar uma dependência no 'useEffect'.
-      reactHooks.configs['recommended-latest'], 
-      
-      // Garante que nosso código esteja formatado para o Fast Refresh do Vite.
-      reactRefresh.configs.vite,
-    ],
-    
-    // 3. CONFIGURAÇÃO DO "IDIOMA" (JavaScript):
+    // 2. CONFIGURAÇÃO DO "IDIOMA" (JavaScript):
     languageOptions: {
       ecmaVersion: 2020, // Entende JavaScript moderno
-      globals: globals.browser, // Reconhece variáveis de navegador (ex: 'window', 'localStorage')
+      sourceType: 'module', // Entende 'import' e 'export'
+      globals: {
+        ...globals.browser, // Reconhece 'window', 'document', 'localStorage', etc.
+      },
       
-      // Configura o "Parser" (o tradutor)
+      // Configura o "Parser" (o tradutor) para entender JSX
       parserOptions: {
-        ecmaVersion: 'latest', // Entende as features mais novas (ex: 'await')
-        ecmaFeatures: { jsx: true }, // ENTENDE a sintaxe JSX do React
-        sourceType: 'module', // ENTENDE 'import' e 'export'
+        ecmaFeatures: { jsx: true }, // ENTENDE a sintaxe <JSX /> do React
       },
     },
     
-    // 4. REGRAS CUSTOMIZADAS (Onde nós ajustamos o "inspetor"):
+    // 3. QUAIS CONJUNTOS DE REGRAS USAR:
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
+    
     rules: {
+      // Carrega as regras recomendadas do ESLint (ex: "não use 'var'")
+      ...js.configs.recommended.rules,
+      
+      // Carrega as regras CRUCIAIS do React (A "Regra de Ouro")
+      // Impede bugs como:
+      // - Chamar 'useState' dentro de um 'if'.
+      // - Esquecer de listar uma dependência no 'useEffect'.
+      ...reactHooks.configs.recommended.rules,
+      
+      // 4. REGRAS CUSTOMIZADAS (Nossos ajustes finos):
+      
+      // Garante que nosso código esteja formatado para o Fast Refresh do Vite.
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
+      
       // Regra padrão do ESLint: 'no-unused-vars' (Avise sobre variáveis não usadas)
       // Nossa customização: Dê erro, MAS ignore variáveis que
-      // começam com letra MAIÚSCULA ou _ (comum em React para 'props' não usadas).
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // começam com _ (ex: _props, _event).
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       
-      // Desativa a regra 'react-refresh/only-export-components'
-      // (É uma regra comum de desativar em projetos Vite)
-      'react-refresh/only-export-components': 'off',
+      // Regra do React: Avise se 'props' não forem validadas
+      // (Desligamos por enquanto, pois não estamos usando 'PropTypes')
+      'react/prop-types': 'off',
     },
   },
-])
+];
