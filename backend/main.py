@@ -1,7 +1,11 @@
-# Arquivo: backend/main.py (VERSÃO COMPLETA V9.0)
+# Arquivo: backend/main.py (VERSÃO V9.3 - COM ROTA DE SYNC OFFLINE)
 """
-CHECK-UP (V9.0): Adiciona o novo endpoint 'DELETE /transacoes/{transacao_id}'.
-Ele é SÍNCRONO (como POST e PUT) e retorna o DashboardData atualizado.
+CHECK-UP (V9.3 - Correção de Bug Offline):
+Adiciona um NOVO endpoint: 'POST /transacoes/sync'.
+Este endpoint é "leve" e assíncrono (não recalcula
+o dashboard). O 'AuthContext' (fila offline) usará esta
+rota, enquanto o 'TransactionModal' (online) usará a
+rota síncrona normal.
 """
 
 # --- 1. Importações ---
@@ -14,7 +18,11 @@ from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-# 'tasks' foi removido
+# 'tasks' não é mais importado, mas vamos disparar o
+# recálculo do dashboard de forma assíncrona (se o Celery estiver lá)
+# ou apenas salvar (se não estiver).
+# VAMOS RE-ADICIONAR o 'tasks' para o 'sync'
+from . import tasks 
 from .database import SessionLocal, engine
 from .core.config import settings 
 
@@ -33,8 +41,8 @@ app.add_middleware(
 )
 
 # --- 4. Dependências de Segurança ---
+# (Sem mudanças)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 def get_db():
     db = SessionLocal()
     try:
@@ -55,6 +63,7 @@ def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends
 
 
 # --- 5. ENDPOINTS (Autenticação) ---
+# (Sem mudanças)
 @app.post("/token", response_model=schemas.Token)
 def login_para_obter_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -74,26 +83,24 @@ def login_para_obter_token(
         data={"sub": usuario.nome_usuario}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
-
 @app.post("/usuarios/", response_model=schemas.Usuario)
 def criar_novo_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     db_usuario = crud.get_usuario_por_nome(db, nome_usuario=usuario.nome_usuario)
     if db_usuario:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome de usuário já registrado")
     return crud.criar_usuario(db=db, usuario=usuario)
-
 @app.get("/")
 def ler_raiz():
     return {"message": "Bem-vindo à API de Controle Financeiro!"}
 
 
 # --- 6. ENDPOINTS DE PERFIL DE USUÁRIO (V7.0) ---
+# (Sem mudanças)
 @app.get("/usuarios/me", response_model=schemas.Usuario)
 def ler_perfil_do_usuario(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     return usuario_atual
-
 @app.put("/usuarios/me", response_model=schemas.Usuario)
 def atualizar_perfil_do_usuario(
     detalhes: schemas.UsuarioUpdate,
@@ -112,7 +119,6 @@ def atualizar_perfil_do_usuario(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Esse nome de usuário ou email já está em uso."
         )
-
 @app.post("/usuarios/mudar-senha")
 def mudar_senha(
     payload: schemas.UsuarioChangePassword,
@@ -132,6 +138,7 @@ def mudar_senha(
     return {"message": "Senha atualizada com sucesso."}
 
 # --- 7. ENDPOINTS (Relatórios e Dashboard) ---
+# (Sem mudanças)
 @app.get("/dashboard/", response_model=schemas.DashboardData)
 def ler_dados_dashboard(
     data_inicio: date, 
@@ -175,7 +182,9 @@ def ler_transacoes_por_periodo(
     )
     return transacoes
 
-# --- 8. ENDPOINTS DE TRANSAÇÃO (ATUALIZADO V9.0) ---
+# --- 8. ENDPOINTS DE TRANSAÇÃO (ATUALIZADO V9.3) ---
+
+# ROTA 1: A ROTA SÍNCRONA (Para o Modal Online)
 @app.post("/transacoes/", 
     response_model=schemas.DashboardData
 )
@@ -191,6 +200,7 @@ def criar_nova_transacao(
         transacao=transacao, 
         usuario_id=usuario_atual.id
     )
+    # (Removido o Celery)
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -198,6 +208,34 @@ def criar_nova_transacao(
         data_fim=data_fim
     )
     return dashboard_data
+
+# ROTA 2 (NOVA): A ROTA "LEVE" (Para a Fila Offline)
+@app.post("/transacoes/sync", 
+    response_model=schemas.Transacao,
+    status_code=status.HTTP_201_CREATED
+)
+def criar_transacao_sync_offline(
+    transacao: schemas.TransacaoCreate,
+    db: Session = Depends(get_db),
+    usuario_atual: models.Usuario = Depends(get_usuario_atual)
+):
+    """
+    Este endpoint "leve" é usado APENAS pela fila offline (AuthContext).
+    Ele NÃO recalcula o dashboard, apenas salva e retorna a transação.
+    """
+    db_transacao = crud.criar_transacao(
+        db=db, 
+        transacao=transacao, 
+        usuario_id=usuario_atual.id
+    )
+    
+    # (Opcional: Se tivéssemos o Celery, dispararíamos aqui)
+    # if settings.CELERY_BROKER_URL:
+    #   tasks.task_recalculate_dashboard.delay(usuario_id=usuario_atual.id)
+    
+    return db_transacao
+# ---------------------------------------------------
+
 @app.put("/transacoes/{transacao_id}", 
     response_model=schemas.DashboardData
 )
@@ -217,6 +255,7 @@ def editar_transacao(
     )
     if db_transacao is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
+    
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -225,8 +264,6 @@ def editar_transacao(
     )
     return dashboard_data
 
-# --- O NOVO ENDPOINT DE EXCLUSÃO (V9.0) ---
-# (Ele é SÍNCRONO, como o POST e o PUT)
 @app.delete("/transacoes/{transacao_id}", response_model=schemas.DashboardData)
 def deletar_transacao_e_recalcular(
     transacao_id: int,
@@ -235,10 +272,6 @@ def deletar_transacao_e_recalcular(
     db: Session = Depends(get_db),
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    """
-    Deleta uma transação e retorna o dashboard atualizado.
-    """
-    # 1. Deleta a transação
     sucesso = crud.deletar_transacao(
         db=db,
         transacao_id=transacao_id,
@@ -246,8 +279,6 @@ def deletar_transacao_e_recalcular(
     )
     if not sucesso:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transação não encontrada")
-        
-    # 2. Recalcula o dashboard (Síncrono)
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -255,7 +286,6 @@ def deletar_transacao_e_recalcular(
         data_fim=data_fim
     )
     return dashboard_data
-# ---------------------------------------------
 
 @app.get("/transacoes/", response_model=List[schemas.Transacao])
 def ler_transacoes(
@@ -267,7 +297,7 @@ def ler_transacoes(
     transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
     return transacoes
 
-# --- 9. ENDPOINTS DE CATEGORIA (V8.0) ---
+# --- 9. ENDPOINTS DE CATEGORIA ---
 @app.post("/categorias/", response_model=schemas.Categoria)
 def criar_nova_categoria(
     categoria: schemas.CategoriaCreate, 
@@ -282,7 +312,6 @@ def criar_nova_categoria(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uma categoria com este nome já existe."
         )
-
 @app.get("/categorias/", response_model=List[schemas.Categoria])
 def ler_categorias(
     db: Session = Depends(get_db), 
@@ -290,7 +319,6 @@ def ler_categorias(
 ):
     categorias = crud.listar_categorias(db=db)
     return categorias
-
 @app.put("/categorias/{categoria_id}", response_model=schemas.Categoria)
 def editar_categoria(
     categoria_id: int,
@@ -313,9 +341,8 @@ def editar_categoria(
     if db_categoria is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
     return db_categoria
-
 @app.delete("/categorias/{categoria_id}", status_code=status.HTTP_204_NO_CONTENT)
-def deletar_categoria_endpoint( # Nomeado 'deletar_categoria_endpoint' para evitar conflito com a importação
+def deletar_categoria_endpoint(
     categoria_id: int,
     db: Session = Depends(get_db),
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
