@@ -28,6 +28,7 @@ import './Profile.css'; // Estilos locais
  */
 const formatISODate = (dateObject) => {
   if (!dateObject) return '';
+  // Garante que 'dateObject' seja um objeto Date válido
   const date = new Date(dateObject); 
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -47,6 +48,7 @@ const handleDateChange = (event, setDate) => {
     return;
   }
   const data = new Date(dateString);
+  // (V2.9) Trata o fuso horário para não pular um dia
   const dataLocal = new Date(data.valueOf() + data.getTimezoneOffset() * 60000);
   setDate(dataLocal);
 };

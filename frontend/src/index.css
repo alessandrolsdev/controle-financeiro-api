@@ -22,7 +22,8 @@
 :root {
   /* Cor Base (Fundo e Cards) */
   --cor-fundo-principal: #0B1A33;  /* Azul Guardião (do designer) */
-  --cor-fundo-card: #1C2B4A;       /* Azul do Card (Glassmorphism) */
+  --cor-fundo-secundario: #1C2B4A; /* Azul do Card (nosso antigo 'fundo-card') */
+  --cor-fundo-card: var(--cor-fundo-secundario);
   --cor-borda: rgba(255, 255, 255, 0.1); /* Borda sutil (branca) */
 
   /* Cores de Texto (Claras) */
@@ -50,6 +51,7 @@
   
   /* 2. FUNDO DOS CARDS: Branco Neve (Flutuante) */
   --cor-fundo-card: #FFFFFF; 
+  --cor-fundo-secundario: var(--cor-fundo-card); 
   
   /* 3. BORDA: Cinza escura e sutil */
   --cor-borda: rgba(0, 0, 0, 0.1); 

@@ -1,10 +1,10 @@
 /* Arquivo: frontend/src/components/Navbar/Navbar.css */
-"""
-Estilos para o Componente da Barra de Navegação (Navbar).
-
-Este CSS implementa o design "mobile-first" da barra de navegação
-inferior, incluindo o Botão de Ação Flutuante (FAB).
-"""
+/*
+ * Estilos para o Componente da Barra de Navegação (Navbar).
+ *
+ * Este CSS implementa o design "mobile-first" da barra de navegação
+ * inferior, incluindo o Botão de Ação Flutuante (FAB).
+ */
 
 /* --- 1. O Contêiner Principal (A Barra) --- */
 .navbar-container {

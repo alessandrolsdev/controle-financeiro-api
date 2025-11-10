@@ -1,19 +1,19 @@
 // Arquivo: frontend/src/context/AuthContext.jsx
-"""
-Provedor de Contexto de Autenticação (O "Cérebro Global").
-
-Este é o componente de gerenciamento de estado mais crítico da aplicação.
-Ele gerencia a sessão do usuário, a identidade e a sincronização offline.
-
-Responsabilidades:
-1. Armazenar o 'token' e o objeto 'user' completo.
-2. Fornecer as funções 'login()' e 'logout()'.
-3. Buscar o perfil completo do usuário ('GET /usuarios/me') após o login.
-4. Fornecer o estado 'isAuthLoading' para prevenir "race conditions"
-   (corridas de dados) nos componentes filhos.
-5. Gerenciar a "fila" de transações offline ('syncOfflineQueue')
-   e disparar o 'syncTrigger' quando a sincronização é concluída.
-"""
+/*
+ * Provedor de Contexto de Autenticação (O "Cérebro Global").
+ *
+ * Este é o componente de gerenciamento de estado mais crítico da aplicação.
+ * Ele gerencia a sessão do usuário, a identidade e a sincronização offline.
+ *
+ * Responsabilidades:
+ * 1. Armazenar o 'token' e o objeto 'user' completo.
+ * 2. Fornecer as funções 'login()' e 'logout()'.
+ * 3. Buscar o perfil completo do usuário ('GET /usuarios/me') após o login.
+ * 4. Fornecer o estado 'isAuthLoading' para prevenir "race conditions"
+ * (corridas de dados) nos componentes filhos.
+ * 5. Gerenciar a "fila" de transações offline ('syncOfflineQueue')
+ * e disparar o 'syncTrigger' quando a sincronização é concluída.
+ */
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios'; // Usado APENAS para o '/token' (antes do interceptador)
@@ -117,6 +117,13 @@ export const AuthProvider = ({ children }) => {
     if (queue.length === 0) { return; } // Nada a fazer
     
     console.log(`SINCRONIZANDO: ${queue.length} transações pendentes...`);
+    
+    // (Garante que a API tem o token, caso o 'fetchUserProfile'
+    //  ainda não tenha terminado)
+    if (api.defaults.headers['Authorization'] === null) {
+        console.warn("Sync offline pausado: token ainda não está pronto.");
+        return; 
+    }
     
     try {
       for (const transacao of queue) {

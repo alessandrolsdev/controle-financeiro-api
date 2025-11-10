@@ -27,7 +27,7 @@ function Login() {
   
   // --- Estados de UI (Feedback) ---
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Estado de "carregando"
 
   // --- Hooks ---
   // Pega a função 'login' do "cérebro" global
@@ -57,10 +57,10 @@ function Login() {
       } else {
         // 3. FALHA (Ex: 401 Unauthorized)
         setError('Nome de usuário ou senha incorretos.');
-        setLoading(false);
+        setLoading(false); // Para o "carregando" se der erro
       }
     } catch (err) {
-      // 4. FALHA (Ex: "ERR_NETWORK" - API "dormindo")
+      // 4. FALHA (Ex: "ERR_NETWORK" - API "dormindo" ou offline)
       console.error('Erro no handleSubmit do Login:', err);
       setError('Ocorreu um erro inesperado. Tente novamente.');
       setLoading(false);
@@ -80,7 +80,7 @@ function Login() {
 
         <form className="login-form" onSubmit={handleSubmit}>
 
-          {/* Mensagem de Erro (se 'error' não for vazio) */}
+          {/* Mostra o erro aqui */}
           {error && <p className="error-message">{error}</p>}
 
           <div className="input-group">
@@ -90,8 +90,9 @@ function Login() {
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Nome de usuário" // (Mudado de 'E-mail' para 'Nome de Usuário')
+              placeholder="Nome de usuário" // (Refatorado de 'E-mail')
               required
+              autoCapitalize="none"
             />
           </div>
 
@@ -111,8 +112,9 @@ function Login() {
           </button>
 
           <div className="login-links">
-            <Link to="/forgot-password" className="login-link">Esqueci minha senha</Link>
             <Link to="/signup" className="login-link">Criar nova conta</Link>
+            {/* (Placeholder para a V8.0 de recuperação de senha) */}
+            {/* <Link to="/forgot-password" className="login-link">Esqueci minha senha</Link> */}
           </div>
         </form>
       </div>

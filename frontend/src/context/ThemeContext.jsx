@@ -1,18 +1,18 @@
 // Arquivo: frontend/src/context/ThemeContext.jsx
-"""
-Provedor de Contexto de Tema (O "Interruptor" Light/Dark).
-
-Este componente gerencia o estado do tema (Claro ou Escuro)
-para toda a aplicação.
-
-Responsabilidades:
-1. Ler a preferência de tema salva do 'localStorage' na inicialização.
-2. Armazenar o estado atual ('light' ou 'dark').
-3. Fornecer a função 'toggleTheme()' para o 'Settings.jsx' (o interruptor).
-4. Aplicar/remover a classe '.light-mode' ou '.dark-mode'
-   diretamente no 'document.body' do HTML, o que ativa as
-   variáveis CSS corretas do 'index.css'.
-"""
+/*
+ * Provedor de Contexto de Tema (O "Interruptor" Light/Dark).
+ *
+ * Este componente gerencia o estado do tema (Claro ou Escuro)
+ * para toda a aplicação.
+ *
+ * Responsabilidades:
+ * 1. Ler a preferência de tema salva do 'localStorage' na inicialização.
+ * 2. Armazenar o estado atual ('light' ou 'dark').
+ * 3. Fornecer a função 'toggleTheme()' para o 'Settings.jsx' (o interruptor).
+ * 4. Aplicar/remover a classe '.light-mode' ou '.dark-mode'
+ * diretamente no 'document.body' do HTML, o que ativa as
+ * variáveis CSS corretas do 'index.css'.
+ */
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 

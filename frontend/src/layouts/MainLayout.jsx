@@ -1,27 +1,27 @@
 // Arquivo: frontend/src/layouts/MainLayout.jsx
-"""
-Layout Principal (O "Pai Orquestrador").
-
-Este é o componente "Pai" de todas as páginas protegidas.
-Ele é renderizado pela Rota Pai ('/') no 'App.jsx'.
-Sua função é renderizar a 'Navbar' e o 'TransactionModal',
-e atuar como o "cérebro" para os filtros de dados e
-o estado do modal.
-
-Arquitetura de Fluxo de Dados (Pai -> Filho):
-1. 'MainLayout' (Pai) busca os dados do 'GET /dashboard/'.
-2. 'MainLayout' (Pai) gerencia os filtros de data (ex: 'Mensal').
-3. 'MainLayout' (Pai) passa os dados e os filtros para o
-   'Outlet' (Filho) via 'useOutletContext'.
-4. 'Dashboard.jsx' e 'Reports.jsx' (Filhos) recebem e
-   renderizam esses dados.
-
-Arquitetura Síncrona (Deploy Gratuito):
-Este layout usa a lógica SÍNCRONA. Quando o modal é salvo
-(handleSaveSuccess), ele espera a resposta da API (que contém
-os dados do dashboard recalculados) e atualiza o estado 'data'
-instantaneamente, sem uma segunda chamada 'fetch'.
-"""
+/*
+ * Layout Principal (O "Pai Orquestrador").
+ *
+ * Este é o componente "Pai" de todas as páginas protegidas.
+ * Ele é renderizado pela Rota Pai ('/') no 'App.jsx'.
+ * Sua função é renderizar a 'Navbar' e o 'TransactionModal',
+ * e atuar como o "cérebro" para os filtros de dados e
+ * o estado do modal.
+ *
+ * Arquitetura de Fluxo de Dados (Pai -> Filho):
+ * 1. 'MainLayout' (Pai) busca os dados do 'GET /dashboard/'.
+ * 2. 'MainLayout' (Pai) gerencia os filtros de data (ex: 'Mensal').
+ * 3. 'MainLayout' (Pai) passa os dados e os filtros para o
+ * 'Outlet' (Filho) via 'useOutletContext'.
+ * 4. 'Dashboard.jsx' e 'Reports.jsx' (Filhos) recebem e
+ * renderizam esses dados.
+ *
+ * Arquitetura Síncrona (Deploy Gratuito):
+ * Este layout usa a lógica SÍNCRONA. Quando o modal é salvo
+ * (handleSaveSuccess), ele espera a resposta da API (que contém
+ * os dados do dashboard recalculados) e atualiza o estado 'data'
+ * instantaneamente, sem uma segunda chamada 'fetch'.
+ */
 
 import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -65,31 +65,34 @@ function MainLayout() {
   const [editingTransaction, setEditingTransaction] = useState(null); // (null = Criar, Objeto = Editar)
 
   /**
-   * Efeito 1: Calcula o 'dataFim' (Corrigido V3.9)
+   * Efeito 1: Calcula o 'dataFim' (Corrigido V9.1)
    *
    * Ouve o 'filterType' e 'dataInicio' (controlados pelo FilterControls).
    * Se o filtro NÃO for 'personalizado', ele calcula e define o 'dataFim'.
    * Esta lógica impede o loop infinito de 'Maximum update depth'.
    */
   useEffect(() => {
-    if (filterType === 'personalizado') {
-      // No modo personalizado, o 'dataFim' é controlado
-      // pelo segundo calendário (em FilterControls), então não fazemos nada.
-      return;
-    }
+    // Se o filtro for personalizado, o 'dataFim' é controlado
+    // pelo usuário no FilterControls.
+    if (filterType === 'personalizado') return;
 
     let dataFimCalculada;
+    // Usa a data de início (que o FilterControls definiu) como base
     const dataBase = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
 
     switch (filterType) {
       case 'weekly':
+        // A data de início já foi definida para o início da semana
+        // pelo FilterControls, então apenas calculamos o fim.
         dataFimCalculada = new Date(dataBase);
         dataFimCalculada.setDate(dataFimCalculada.getDate() + 6);
         break;
       case 'monthly':
+        // A data de início já é dia 1
         dataFimCalculada = new Date(dataBase.getFullYear(), dataBase.getMonth() + 1, 0);
         break;
       case 'yearly':
+        // A data de início já é 1º de Jan
         dataFimCalculada = new Date(dataBase.getFullYear(), 11, 31);
         break;
       case 'daily':
@@ -97,10 +100,10 @@ function MainLayout() {
         dataFimCalculada = dataBase; 
         break;
     }
-    // Define o estado de 'dataFim'
+    // Atualiza APENAS o 'dataFim'
     setDataFim(dataFimCalculada);
 
-  }, [filterType, dataInicio]);
+  }, [filterType, dataInicio]); // <-- Ouve 'dataInicio', mas não o define
 
 
   /**
@@ -151,7 +154,7 @@ function MainLayout() {
     if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
     
     fetchDashboardData();
-  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading]);
+  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading]); // <-- Ouve todos os gatilhos
   
   // --- FUNÇÕES DE CONTROLE DO MODAL ---
 

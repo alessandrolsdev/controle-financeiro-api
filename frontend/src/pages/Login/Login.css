@@ -114,7 +114,8 @@
 /* --- 6. Links Extras --- */
 .login-links {
   display: flex;
-  justify-content: space-between;
+  /* (Alinhado à direita para o link "Criar nova conta") */
+  justify-content: flex-end; 
   margin-top: 2rem;
 }
 

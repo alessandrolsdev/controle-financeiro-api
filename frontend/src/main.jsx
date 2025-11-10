@@ -1,15 +1,15 @@
 // Arquivo: frontend/src/main.jsx
-"""
-Ponto de Entrada (Entrypoint) Principal da Aplicação React.
-
-Este arquivo é o "alicerce" do frontend. Sua responsabilidade é:
-1. Importar o React e o ReactDOM.
-2. Encontrar a 'div' com 'id="root"' no 'index.html'.
-3. Renderizar (montar) o componente principal '<App />' dentro dela.
-4. "Envelopar" (wrap) toda a aplicação com os 'Providers'
-   de estado global (AuthContext, ThemeContext), disponibilizando-os
-   para todos os componentes filhos.
-"""
+/*
+ * Ponto de Entrada (Entrypoint) Principal da Aplicação React.
+ *
+ * Este arquivo é o "alicerce" do frontend. Sua responsabilidade é:
+ * 1. Importar o React e o ReactDOM.
+ * 2. Encontrar a 'div' com 'id="root"' no 'index.html'.
+ * 3. Renderizar (montar) o componente principal '<App />' dentro dela.
+ * 4. "Envelopar" (wrap) toda a aplicação com os 'Providers'
+ * de estado global (AuthContext, ThemeContext), disponibilizando-os
+ * para todos os componentes filhos.
+ */
 
 // Importações padrão do React
 import React from 'react';

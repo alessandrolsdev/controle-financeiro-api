@@ -1,16 +1,16 @@
 // Arquivo: frontend/src/services/api.js
-"""
-O "Embaixador" da API (Cliente Axios Centralizado).
-
-Este módulo cria uma instância 'singleton' do Axios (o 'api')
-que é pré-configurada com a URL base do nosso backend.
-
-Ele usa "interceptadores" para automatizar a lógica de
-autenticação e tratamento de erros de sessão.
-
-Todos os componentes que precisam de dados (Dashboard, Reports, etc.)
-DEVEM importar 'api' daqui, em vez de usar o 'axios' puro.
-"""
+/*
+ * O "Embaixador" da API (Cliente Axios Centralizado).
+ *
+ * Este módulo cria uma instância 'singleton' do Axios (o 'api')
+ * que é pré-configurada com a URL base do nosso backend.
+ *
+ * Ele usa "interceptadores" para automatizar a lógica de
+ * autenticação e tratamento de erros de sessão.
+ *
+ * Todos os componentes que precisam de dados (Dashboard, Reports, etc.)
+ * DEVEM importar 'api' daqui, em vez de usar o 'axios' puro.
+ */
 
 import axios from 'axios';
 
@@ -22,9 +22,10 @@ const api = axios.create({
 });
 
 // --- 2. INTERCEPTADOR DE REQUISIÇÃO (O "Crachá Automático") ---
-//
-// Este interceptador é executado ANTES de cada requisição (GET, POST, PUT, DELETE)
-// que usa esta instância 'api'.
+/*
+ * Este interceptador é executado ANTES de cada requisição (GET, POST, PUT, DELETE)
+ * que usa esta instância 'api'.
+ */
 api.interceptors.request.use(
   (config) => {
     // Pega o token salvo no localStorage
@@ -45,18 +46,22 @@ api.interceptors.request.use(
 );
 
 // --- 3. INTERCEPTADOR DE RESPOSTA (O "Segurança" do Frontend) ---
-//
-// Este interceptador "olha" CADA resposta que volta da API.
+/*
+ * Este interceptador "olha" CADA resposta que volta da API.
+ */
 api.interceptors.response.use(
   
-  // (Caso 1: A resposta é 2xx - SUCESSO)
-  // Se a resposta for boa (ex: 200 OK), apenas a repasse
-  // para o componente que a chamou (ex: 'Dashboard.jsx').
+  /* (Caso 1: A resposta é 2xx - SUCESSO)
+   * Se a resposta for boa (ex: 200 OK), apenas a repasse
+   * para o componente que a chamou (ex: 'Dashboard.jsx').
+   */
   (response) => {
     return response;
   },
   
-  // (Caso 2: A resposta é 4xx ou 5xx - ERRO)
+  /* (Caso 2: A resposta é 4xx ou 5xx - ERRO)
+   * Se a API retornar um erro...
+   */
   async (error) => {
     // Verificamos se o erro é o "401 - Não Autorizado"
     // (ou seja, nosso token está vencido, inválido, ou o usuário foi deletado)
@@ -66,20 +71,22 @@ api.interceptors.response.use(
       // 1. Limpa o "crachá" vencido do localStorage
       localStorage.removeItem('token');
       
-      // 2. "Chuta" o usuário de volta para a tela de login
-      //
-      // Decisão de Engenharia (Hard Refresh):
-      // Usamos 'window.location.href' (um "hard refresh")
-      // em vez do 'navigate' (do React Router). Isso FORÇA a
-      // aplicação a recarregar do zero, limpando qualquer
-      // estado antigo (como o 'user' no AuthContext)
-      // e garantindo um logout 100% limpo.
+      /* 2. "Chuta" o usuário de volta para a tela de login
+       *
+       * Decisão de Engenharia (Hard Refresh):
+       * Usamos 'window.location.href' (um "hard refresh")
+       * em vez do 'navigate' (do React Router). Isso FORÇA a
+       * aplicação a recarregar do zero, limpando qualquer
+       * estado antigo (como o 'user' no AuthContext)
+       * e garantindo um logout 100% limpo.
+       */
       window.location.href = '/login'; 
     }
     
-    // Para qualquer outro erro (404, 500, 422, etc.), apenas rejeite a promessa
-    // para que o '.catch()' do componente (ex: no 'Reports.jsx')
-    // possa tratar o erro (ex: mostrando "Não foi possível carregar os dados").
+    /* Para qualquer outro erro (404, 500, 422, etc.), apenas rejeite a promessa
+     * para que o '.catch()' do componente (ex: no 'Reports.jsx')
+     * possa tratar o erro (ex: mostrando "Não foi possível carregar os dados").
+     */
     return Promise.reject(error);
   }
 );

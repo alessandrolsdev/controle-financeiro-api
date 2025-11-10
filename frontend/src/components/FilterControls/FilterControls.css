@@ -1,10 +1,10 @@
 /* Arquivo: frontend/src/components/FilterControls/FilterControls.css */
-"""
-Estilos para o Componente Reutilizável de Filtro (V3.9).
-
-Este CSS estiliza os botões de período (Diário, Semanal...)
-e os inputs de calendário (date picker).
-"""
+/*
+ * Estilos para o Componente Reutilizável de Filtro (V3.9).
+ *
+ * Este CSS estiliza os botões de período (Diário, Semanal...)
+ * e os inputs de calendário (date picker).
+ */
 
 /* --- 1. O Contêiner Principal --- */
 /* (Este wrapper usa Flexbox para alinhar os botões à
@@ -78,8 +78,11 @@ e os inputs de calendário (date picker).
 /* Força o ícone do calendário a ser branco (no Dark Mode)
    ou escuro (no Light Mode) */
 .date-picker-input::-webkit-calendar-picker-indicator {
-  /* 'invert(1)' torna o ícone branco */
-  /* 'var(--cor-texto-primario)' é dinâmico (branco/preto) */
+  /* Decisão de Design (V4.5):
+     Verifica a cor do texto primário. Se for branco (Dark Mode),
+     inverte o ícone (para branco). Se for preto (Light Mode),
+     não inverte (invert(0)).
+  */
   filter: var(--cor-texto-primario) == "#FFFFFF" ? invert(1) : invert(0);
 }
 
@@ -91,6 +94,7 @@ e os inputs de calendário (date picker).
   gap: 0.5rem;
 }
 .date-range-wrapper span {
+  /* Estiliza o "até" */
   color: var(--cor-cinza-suporte);
   font-size: 0.9rem;
 }
