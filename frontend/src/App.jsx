@@ -1,33 +1,25 @@
 // Arquivo: frontend/src/App.jsx
 /*
- * Componente Principal de Roteamento (O "Guarda de Trânsito").
+ * Componente Principal de Roteamento.
  *
- * Este componente é o "controlador" de navegação da aplicação.
- * Ele usa o 'react-router-dom' para definir todas as rotas
- * e implementa a lógica de Rota Pública vs. Rota Protegida.
+ * Gerencia a navegação da aplicação utilizando 'react-router-dom'.
+ * Implementa controle de acesso para Rotas Públicas e Protegidas.
  *
- * Arquitetura de Roteamento:
- * 1. Rotas Públicas (/login, /signup):
- * - Acessíveis apenas se o usuário NÃO estiver logado.
- * - Se um usuário logado tentar acessá-las, ele é redirecionado
- * para o Dashboard ('/').
- * 2. Rotas Protegidas (/, /reports, /settings, /profile):
- * - Acessíveis apenas se o usuário ESTIVER logado (tiver um token).
- * - Se um usuário deslogado tentar acessá-las, ele é redirecionado
- * para o '/login'.
- * - Elas são "aninhadas" dentro do <MainLayout />, que
- * fornece a Navbar e os dados globais (filtros).
+ * Estrutura:
+ * 1. Rotas Públicas (/login, /signup): Acessíveis apenas para usuários não autenticados.
+ * 2. Rotas Protegidas (/, /reports, etc): Exigem autenticação válida.
+ *    Renderizadas dentro do MainLayout.
  */
 
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// Importa o "cérebro" de autenticação
-import { useAuth } from './context/AuthContext'; 
+// Contexto de autenticação
+import { useAuth } from './context/AuthContext';
 
 // --- O "Layout" (a "concha") para páginas protegidas ---
 import MainLayout from './layouts/MainLayout';
 
-// --- Nossas Páginas (os "cômodos") ---
+// Páginas da aplicação
 import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Settings from './pages/Settings/Settings';
@@ -36,14 +28,12 @@ import Profile from './pages/Profile/Profile';
 import Reports from './pages/Reports/Reports';
 
 function App() {
-  // Pega o 'token' e o estado 'isAuthLoading' do "cérebro" (AuthContext)
+  // Obtém estado de autenticação
   const { token, isAuthLoading } = useAuth();
 
   /*
-   * Decisão de Arquitetura (V7.6 - Correção de Race Condition):
-   * NÃO renderiza nada até que o AuthContext tenha
-   * verificado o token. Isso impede que um usuário logado
-   * veja a tela de login por 1 segundo (o "flash").
+   * Aguarda a verificação inicial da autenticação antes de renderizar
+   * para evitar redirecionamentos incorretos ou "flicker" de tela.
    */
   if (isAuthLoading) {
     return (
@@ -58,49 +48,46 @@ function App() {
     <BrowserRouter>
       {/* 'Routes' funciona como um 'switch' para as rotas */}
       <Routes>
-        
-        {/* --- Rotas Públicas (Telas Cheias, sem Navbar) --- */}
-        
+
+        {/* --- Rotas Públicas --- */}
+
         {/* Rota 1: Login */}
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
-            // Se NÃO tiver token, mostre o Login.
-            // Se TIVER token, redireciona para o Dashboard.
+            // Redireciona para dashboard se já estiver autenticado
             !token ? <Login /> : <Navigate to="/" replace />
-          } 
+          }
         />
-        
+
         {/* Rota 2: Criar Nova Conta (SignUp) */}
-        <Route 
-          path="/signup" 
+        <Route
+          path="/signup"
           element={
             // Mesma lógica do Login
             !token ? <SignUp /> : <Navigate to="/" replace />
-          } 
+          }
         />
-        
+
         {/* (Aqui poderíamos adicionar /forgot-password no futuro) */}
 
 
-        {/* --- Rotas Protegidas (Dentro da "Concha" do MainLayout) --- */}
-        
-        {/* Esta é a "Rota Pai" protegida. 
-          Ela usa o <MainLayout /> como seu 'element'.
-          Todas as rotas filhas (abaixo) serão renderizadas
-          dentro do <Outlet /> do MainLayout.
+        {/* --- Rotas Protegidas --- */}
+
+        {/* 
+          Rota pai para áreas autenticadas.
+          Renderiza MainLayout que contém a estrutura comum (Navbar, etc).
         */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
-            // Se TIVER token, renderiza o Layout (que contém as páginas).
-            // Se NÃO tiver, redireciona para o /login.
+            // Exige token para acesso, caso contrário redireciona para login
             token ? <MainLayout /> : <Navigate to="/login" replace />
           }
         >
           {/* 'index' define o componente padrão para a rota pai ("/") */}
-          <Route index element={<Dashboard />} /> 
-          
+          <Route index element={<Dashboard />} />
+
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
