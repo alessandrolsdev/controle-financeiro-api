@@ -1,15 +1,14 @@
 # Arquivo: backend/crud.py
 """
-Módulo CRUD (Create, Read, Update, Delete) - A Camada de Serviço (Service Layer).
+Módulo CRUD (Create, Read, Update, Delete) - Camada de Serviço.
 
-Este módulo centraliza toda a lógica de negócios e interação direta
-com o banco de dados (SQLAlchemy). Ele é chamado pelo 'main.py' (Controlador)
-para manter a separação de responsabilidades (SoC).
+Este módulo centraliza a lógica de negócios e interação com o banco de dados,
+mantendo a separação de responsabilidades em relação aos controladores.
 
 Responsabilidades:
-- Hashing e verificação de senhas.
-- Lógica de banco de dados (Queries) para Usuários, Categorias e Transações.
-- Funções analíticas (OLAP) para geração de relatórios (Dashboard, Tendências).
+- Gerenciamento de usuários e autenticação.
+- Operações de banco de dados para Transações e Categorias.
+- Geração de dados analíticos para relatórios e dashboards.
 """
 
 # --- 1. Importações ---
@@ -47,7 +46,7 @@ def criar_usuario(db: Session, usuario: schemas.UsuarioCreate) -> models.Usuario
     Returns:
         models.Usuario: O objeto do usuário recém-criado.
     """
-    # Delega a geração de hash para o módulo 'security'
+    # Gera o hash da senha antes de persistir
     hash_da_senha = security.get_hash_da_senha(usuario.senha)
     
     db_usuario = models.Usuario(nome_usuario=usuario.nome_usuario, senha_hash=hash_da_senha)
@@ -63,9 +62,8 @@ def atualizar_detalhes_usuario(
     detalhes: schemas.UsuarioUpdate
 ) -> models.Usuario:
     """
-    Atualiza (PATCH) os campos de perfil de um objeto de usuário existente.
-    'exclude_unset=True' garante que apenas os campos enviados
-    (ex: só 'email') sejam atualizados, preservando os existentes.
+    Atualiza parcialmente os dados de um usuário.
+    Utiliza 'exclude_unset=True' para atualizar apenas os campos fornecidos.
 
     Args:
         db (Session): A sessão do SQLAlchemy.
@@ -75,7 +73,7 @@ def atualizar_detalhes_usuario(
     Returns:
         models.Usuario: O objeto do usuário atualizado.
     """
-    # 'exclude_unset=True' é a chave para a lógica de PATCH (atualização parcial).
+    # Atualização parcial baseada nos campos fornecidos
     update_data = detalhes.model_dump(exclude_unset=True)
     
     for key, value in update_data.items():
@@ -102,7 +100,7 @@ def mudar_senha_usuario(
     Returns:
         bool: True se a senha foi alterada, False se a senha antiga estava incorreta.
     """
-    # 1. Verifica a senha antiga (CRÍTICO)
+    # 1. Validação da senha atual
     if not security.verificar_senha(payload.senha_antiga, usuario.senha_hash):
         return False # Senha antiga não confere
     
@@ -120,8 +118,8 @@ def mudar_senha_usuario(
 
 def criar_categoria(db: Session, categoria: schemas.CategoriaCreate) -> models.Categoria:
     """
-    Cria uma nova categoria (nome, tipo, cor).
-    (Levanta IntegrityError se o nome for duplicado).
+    Cria uma nova categoria.
+    Lança IntegrityError em caso de duplicidade de nome.
     
     Args:
         db (Session): A sessão do SQLAlchemy.
@@ -138,8 +136,7 @@ def criar_categoria(db: Session, categoria: schemas.CategoriaCreate) -> models.C
 
 def listar_categorias(db: Session) -> list[models.Categoria]:
     """
-    Retorna uma lista de todas as categorias do banco de dados.
-    (Usado para preencher os dropdowns no frontend).
+    Retorna todas as categorias cadastradas.
 
     Args:
         db (Session): A sessão do SQLAlchemy.
@@ -155,7 +152,7 @@ def atualizar_categoria(
     categoria_update: schemas.CategoriaUpdate
 ) -> models.Categoria | None:
     """
-    Atualiza (PATCH) uma categoria existente (nome, tipo ou cor).
+    Atualiza parcialmente uma categoria existente.
     Apenas atualiza os campos que foram enviados.
 
     Args:
@@ -192,8 +189,7 @@ def deletar_categoria(db: Session, categoria_id: int) -> bool:
         bool: True se deletou, False se não encontrou.
         
     Raises:
-        IntegrityError: (Capturado pelo main.py) Se a categoria
-                        estiver em uso por uma transação (ForeignKey constraint).
+        IntegrityError: Se a categoria estiver vinculada a registros existentes.
     """
     db_categoria = db.query(models.Categoria).filter(models.Categoria.id == categoria_id).first()
     if not db_categoria:
@@ -248,11 +244,11 @@ def atualizar_transacao(
     if db_transacao is None:
         return None # 404
     
-    # VERIFICAÇÃO DE SEGURANÇA (CRÍTICA!):
+    # Verificação de propriedade do recurso
     if db_transacao.usuario_id != usuario_id:
         return None # 404/403
         
-    # Atualiza os campos (lógica de PUT, não PATCH)
+    # Atualiza os campos da transação
     update_data = transacao.model_dump()
     db_transacao.descricao = update_data['descricao']
     db_transacao.valor = update_data['valor']
@@ -298,13 +294,9 @@ def deletar_transacao(
 def listar_transacoes(db: Session, usuario_id: int, skip: int = 0, limit: int = 100) -> list[models.Transacao]:
     """
     Retorna uma lista de transações com paginação, filtrada por usuário.
-    (Usado para o card "Últimas 5 Transações").
     
-    Decisão de Engenharia (N+1):
-    Usamos 'options(joinedload(models.Transacao.categoria))' (Eager Loading)
-    para forçar o SQLAlchemy a fazer um JOIN. Isso garante que o
-    frontend receba 'transacao.categoria.nome' e 'transacao.categoria.cor'
-    em uma única query, resolvendo o problema N+1.
+    Utiliza 'joinedload' para carregar dados da categoria em uma única consulta,
+    otimizando a performance.
     """
     return db.query(models.Transacao).options(
         joinedload(models.Transacao.categoria)
@@ -322,14 +314,10 @@ def listar_transacoes_por_periodo(
 ) -> list[models.Transacao]:
     """
     Retorna TODAS as transações de um usuário dentro de um período.
-    (Usado pelo card "Transações no Período" e pela exportação Excel).
     
-    Decisão de Engenharia (N+1):
-    Também usa 'joinedload' para garantir que o frontend
-    receba os dados completos da categoria.
+    Utiliza 'joinedload' para otimização de consulta.
     """
-    # Adiciona +1 dia ao 'data_fim' para incluir
-    # todas as horas do último dia (ex: 06/11 23:59)
+    # Ajusta data_fim para incluir todo o último dia do intervalo
     data_fim_query = data_fim + timedelta(days=1)
     
     return db.query(models.Transacao).options(
@@ -350,8 +338,7 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
     Busca e calcula os dados de resumo financeiro (OLAP)
     para o Dashboard e a página de Relatórios.
     
-    Esta é a função "lenta" que é chamada de forma síncrona
-    no nosso deploy gratuito (V-Revert).
+    Calcula métricas consolidadas para o dashboard.
     """
     data_fim_query = data_fim + timedelta(days=1)
 
@@ -447,10 +434,8 @@ def get_dados_de_tendencia(
     Busca e calcula os dados de Receitas e Despesas agrupados
     POR HORA (se filtro='daily') ou POR DIA (outros filtros).
     
-    Decisão de Engenharia (Dialeto SQL):
-    Esta função é "bilíngue". Ela checa o dialeto do banco de dados
-    para usar a sintaxe de formatação de data correta,
-    garantindo que funcione tanto em SQLite (dev) quanto em PostgreSQL (prod).
+    Adapta a sintaxe SQL baseada no dialeto do banco de dados (PostgreSQL ou SQLite)
+    para garantir compatibilidade na formatação de datas.
     """
     data_fim_query = data_fim + timedelta(days=1)
     

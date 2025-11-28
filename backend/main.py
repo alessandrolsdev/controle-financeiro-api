@@ -1,14 +1,11 @@
 # Arquivo: backend/main.py
 """
-Ponto de Entrada (Entrypoint) Principal da API FastAPI.
+Ponto de Entrada Principal da API FastAPI.
 
-Este módulo é o "Controlador" (C do MVC) da nossa aplicação.
-Ele define todas as rotas (endpoints) da API, gerencia a
-segurança (autenticação com 'get_usuario_atual') e a
-lógica de CORS.
+Este módulo atua como o Controlador da aplicação, definindo todas as rotas (endpoints),
+gerenciando a segurança (autenticação) e as configurações de CORS.
 
-Ele delega toda a lógica de negócios (queries de banco de dados)
-para o módulo 'crud.py'.
+A lógica de negócios e acesso ao banco de dados é delegada para o módulo 'crud.py'.
 """
 
 # --- 1. Importações ---
@@ -21,15 +18,14 @@ from typing import List
 from datetime import timedelta, date
 
 from . import crud, models, schemas, security
-# Importação de tarefas desabilitada (V-Revert Síncrono)
+# Importação de tarefas desabilitada (Arquitetura Síncrona)
 # from . import tasks 
 from .database import SessionLocal, engine
 from .core.config import settings 
 
 # --- 2. Configuração Inicial ---
 
-# Garante que o SQLAlchemy crie as tabelas no DB (se não existirem)
-# ao iniciar a API.
+# Inicializa as tabelas do banco de dados se não existirem.
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -39,9 +35,8 @@ app = FastAPI(
 
 # --- 3. Configuração do CORS (Segurança de Navegador) ---
 
-# Define quais origens (sites) podem acessar esta API.
-# Usamos uma Regex (Expressão Regular) para permitir
-# 'localhost' (desenvolvimento) e qualquer subdomínio '.vercel.app' (produção).
+# Configuração de origens permitidas para CORS.
+# Permite localhost (desenvolvimento) e subdomínios .vercel.app (produção).
 origin_regex = r"https?://(localhost(:\d+)?|.*\.vercel\.app)"
 
 app.add_middleware(
@@ -54,17 +49,13 @@ app.add_middleware(
 
 # --- 4. Dependências de Segurança e DB ---
 
-# Define o esquema de autenticação:
-# "Procure um 'Bearer Token' no Header 'Authorization'"
+# Esquema de autenticação OAuth2 com Bearer Token.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_db():
     """
-    Dependência (Dependency) do FastAPI.
-    Gerencia a sessão do banco de dados para cada requisição.
-    
-    Usa 'yield' para garantir que 'db.close()' seja chamado
-    mesmo que ocorra um erro (prevenindo vazamento de conexões).
+    Dependência do FastAPI para gerenciamento de sessão do banco de dados.
+    Garante o fechamento da conexão após cada requisição.
     """
     db = SessionLocal()
     try:
@@ -74,15 +65,10 @@ def get_db():
 
 def get_usuario_atual(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
-    Dependência de Segurança ("O Guarda").
+    Dependência de autenticação.
     
-    Esta função é injetada em todos os endpoints protegidos.
-    1. Exige um token.
-    2. Valida o token (via 'security.py').
-    3. Busca o usuário no banco.
-    4. Retorna o objeto 'models.Usuario' completo.
-    
-    Se qualquer etapa falhar, lança um HTTP 401, bloqueando o acesso.
+    Valida o token JWT, busca o usuário correspondente no banco de dados
+    e retorna o objeto usuário. Lança exceção HTTP 401 se inválido.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -104,8 +90,8 @@ def login_para_obter_token(
     db: Session = Depends(get_db)
 ):
     """
-    Verifica o 'username' e 'password' (via form data)
-    e retorna um Token JWT se as credenciais forem válidas.
+    Autentica o usuário verificando nome de usuário e senha.
+    Retorna um Token JWT de acesso se as credenciais forem válidas.
     """
     usuario = crud.get_usuario_por_nome(db, nome_usuario=form_data.username)
     if not usuario or not security.verificar_senha(form_data.password, usuario.senha_hash):
@@ -126,14 +112,14 @@ def login_para_obter_token(
 @app.post("/usuarios/", response_model=schemas.Usuario, status_code=status.HTTP_201_CREATED, summary="Criar Novo Usuário (Signup)")
 def criar_novo_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     """
-    Cria uma nova conta de usuário.
-    Verifica se o 'nome_usuario' já está em uso.
+    Registra um novo usuário no sistema.
+    Verifica duplicidade de nome de usuário antes da criação.
     """
     db_usuario = crud.get_usuario_por_nome(db, nome_usuario=usuario.nome_usuario)
     if db_usuario:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome de usuário já registrado")
     
-    # Delega a criação (e o hashing da senha) para o 'crud.py'
+    # Criação do usuário e hash da senha são tratados no service layer
     return crud.criar_usuario(db=db, usuario=usuario)
 
 @app.get("/", summary="Endpoint Raiz (Health Check)")
@@ -149,8 +135,7 @@ def ler_perfil_do_usuario(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     """
-    Retorna os dados do perfil completo do usuário
-    atualmente autenticado (baseado no token).
+    Retorna os dados do perfil do usuário autenticado.
     """
     return usuario_atual
 
@@ -161,8 +146,7 @@ def atualizar_perfil_do_usuario(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     """
-    Atualiza os detalhes do perfil do usuário logado
-    (Nome, Email, Data de Nasc., Avatar URL, Nome de Usuário).
+    Atualiza as informações do perfil do usuário autenticado.
     """
     try:
         return crud.atualizar_detalhes_usuario(
@@ -171,8 +155,7 @@ def atualizar_perfil_do_usuario(
             detalhes=detalhes
         )
     except IntegrityError:
-        # (Captura o erro 'unique=True' do DB se o
-        #  'nome_usuario' ou 'email' já estiverem em uso).
+        # Trata violação de unicidade (nome de usuário ou email já existentes)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -265,9 +248,7 @@ def criar_nova_transacao(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     """
-    Cria uma nova transação e (sincronamente) recalcula e
-    retorna os dados do dashboard atualizados.
-    (Usado pelo modal online para deploy gratuito).
+    Cria uma nova transação e retorna os dados atualizados do dashboard.
     """
     db_transacao = crud.criar_transacao(
         db=db, 
@@ -275,7 +256,7 @@ def criar_nova_transacao(
         usuario_id=usuario_atual.id
     )
     
-    # Recálculo síncrono (lento)
+    # Recálculo dos dados do dashboard
     dashboard_data = crud.get_dashboard_data(
         db=db,
         usuario_id=usuario_atual.id,
@@ -299,8 +280,7 @@ def editar_transacao(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     """
-    Atualiza uma transação e (sincronamente) recalcula e
-    retorna os dados do dashboard atualizados.
+    Atualiza uma transação existente e retorna os dados atualizados do dashboard.
     """
     db_transacao = crud.atualizar_transacao(
         db=db,
@@ -328,8 +308,7 @@ def deletar_transacao_e_recalcular(
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
     """
-    Deleta uma transação e (sincronamente) recalcula e
-    retorna os dados do dashboard atualizados.
+    Remove uma transação e retorna os dados atualizados do dashboard.
     """
     sucesso = crud.deletar_transacao(
         db=db,
@@ -354,7 +333,7 @@ def ler_transacoes(
     db: Session = Depends(get_db), 
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    """Retorna as 'limit' transações mais recentes (usado para "Últimas Transações")."""
+    """Retorna uma lista paginada das transações mais recentes."""
     transacoes = crud.listar_transacoes(db, usuario_id=usuario_atual.id, skip=skip, limit=limit)
     return transacoes
 
@@ -379,7 +358,7 @@ def ler_categorias(
     db: Session = Depends(get_db), 
     usuario_atual: models.Usuario = Depends(get_usuario_atual)
 ):
-    """Lista todas as categorias (usado nos dropdowns)."""
+    """Lista todas as categorias disponíveis."""
     categorias = crud.listar_categorias(db=db)
     return categorias
 @app.put("/categorias/{categoria_id}", response_model=schemas.Categoria, summary="Editar Categoria (PATCH)")
@@ -418,7 +397,7 @@ def deletar_categoria_endpoint(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
     except IntegrityError:
         db.rollback()
-        # A "Trava" de Segurança: A Categoria está em uso!
+        # Impede exclusão se a categoria estiver vinculada a transações
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não é possível excluir: Esta categoria já está sendo usada por transações."
