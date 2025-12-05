@@ -1,48 +1,44 @@
 // Arquivo: frontend/src/pages/Settings/Settings.jsx
-/*
- * Página de Ajustes e Configurações.
- *
- * Esta página é um "Filho" do 'MainLayout'.
- * É o "Centro de Gerenciamento de Categorias" (CRUD completo)
- * e também controla as configurações do app (como o Tema).
- *
- * Responsabilidades:
- * 1. Gerenciar um formulário "modo-duplo" para Criar e Editar categorias.
- * 2. Listar, Atualizar (PUT) e Deletar (DELETE) categorias (V8.0 / V9.0).
- * 3. Gerenciar o 'toggle' (interruptor) de Tema (Light/Dark).
+/**
+ * @file Página de Configurações.
+ * @description Gerenciamento de categorias (CRUD) e configurações de aparência (tema).
  */
 
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import './Settings.css';
 import { useTheme } from '../../context/ThemeContext';
-// (V8.0) Importa os ícones de Ação
 import { IoPencil, IoTrash } from 'react-icons/io5';
 
+/**
+ * Componente de Configurações.
+ *
+ * Permite ao usuário:
+ * - Criar, editar e excluir categorias de transações.
+ * - Alternar o tema da aplicação (Claro/Escuro).
+ *
+ * @returns {JSX.Element} A página de configurações renderizada.
+ */
 function Settings() {
-  // --- Estados Globais ---
-  const { theme, toggleTheme } = useTheme(); // Pega o estado do Tema
+  const { theme, toggleTheme } = useTheme();
   
-  // --- Estados Locais ---
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // --- Estados do Formulário ---
   const [nomeCategoria, setNomeCategoria] = useState('');
   const [tipoCategoria, setTipoCategoria] = useState('Gasto');
-  const [corCategoria, setCorCategoria] = useState('#FF7A00'); // (V5.0) Cor
+  const [corCategoria, setCorCategoria] = useState('#FF7A00');
   
-  // (V8.0) Estado que controla o "modo" do formulário
-  const [editingCategoryId, setEditingCategoryId] = useState(null); // null = Criar, ID = Editar
-  const isEditMode = Boolean(editingCategoryId); // True se estivermos editando
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const isEditMode = Boolean(editingCategoryId);
 
-  // --- Estados de UI (Feedback) ---
+  // --- Estados de UI ---
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   /**
-   * Busca (GET /categorias) a lista de categorias do backend.
-   * Chamado na montagem do componente e após qualquer CUD.
+   * Busca a lista de categorias do backend.
    */
   const fetchCategorias = async () => {
     try {
@@ -52,23 +48,20 @@ function Settings() {
       setLoading(false);
     } catch (err) {
       console.error("Erro ao buscar categorias:", err);
-      // (Define o erro no formulário principal se a lista falhar)
       setError("Não foi possível carregar as categorias.");
       setLoading(false);
     }
   };
 
   /**
-   * Efeito [onLoad]: Busca as categorias na primeira
-   * renderização do componente.
+   * Efeito colateral para carregar categorias na montagem do componente.
    */
   useEffect(() => {
     fetchCategorias();
-  }, []); // [] = Roda apenas uma vez
+  }, []);
 
   /**
-   * Reseta o formulário para o estado de "Criação".
-   * Limpa os campos e sai do modo de edição.
+   * Reseta o formulário para o estado inicial (modo de criação).
    */
   const resetForm = () => {
     setNomeCategoria('');
@@ -77,36 +70,29 @@ function Settings() {
     setEditingCategoryId(null);
   };
   
-  // --- Funções de CRUD (V8.0) ---
-
   /**
-   * Chamado ao clicar no ícone de lápis (Editar).
-   * Preenche o formulário com os dados da categoria selecionada
-   * e entra no "Modo de Edição".
+   * Prepara o formulário para edição de uma categoria existente.
+   * @param {object} categoria - A categoria a ser editada.
    */
   const handleEditClick = (categoria) => {
-    // Define os estados do formulário
     setNomeCategoria(categoria.nome);
     setTipoCategoria(categoria.tipo);
     setCorCategoria(categoria.cor);
-    // Define o ID que estamos editando
     setEditingCategoryId(categoria.id);
-    // Limpa mensagens de feedback antigas
     setError('');
     setSuccess('');
-    // (UX) Rola a página para o topo (para o formulário)
     window.scrollTo(0, 0); 
   };
 
   /**
-   * Chamado ao clicar no ícone de lixo (Excluir).
-   * Chama 'DELETE /categorias/{id}'.
+   * Remove uma categoria.
+   * Solicita confirmação antes de excluir.
+   * @param {object} categoria - A categoria a ser excluída.
    */
   const handleDeleteClick = async (categoria) => {
     setError('');
     setSuccess('');
 
-    // Confirmação de segurança nativa do navegador
     if (!window.confirm(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?`)) {
       return;
     }
@@ -114,23 +100,19 @@ function Settings() {
     try {
       await api.delete(`/categorias/${categoria.id}`);
       setSuccess(`Categoria "${categoria.nome}" excluída com sucesso.`);
-      fetchCategorias(); // Atualiza a lista
+      fetchCategorias();
     } catch (err) {
       console.error("Erro ao excluir categoria:", err);
-      // (V8.1) Correção do Bug de Feedback
-      // Se o backend retornar 400 (ex: "categoria em uso"),
-      // exibe a mensagem de erro da API em um 'alert' (janela).
       if (err.response && err.response.status === 400 && err.response.data.detail) {
         window.alert(err.response.data.detail);
       } else {
-        // Erro genérico
         window.alert("Não foi possível excluir a categoria.");
       }
     }
   };
 
   /**
-   * Chamado ao clicar no botão "Cancelar" (no modo de edição).
+   * Cancela a edição e limpa o formulário.
    */
   const handleCancelEdit = () => {
     resetForm();
@@ -139,8 +121,8 @@ function Settings() {
   };
 
   /**
-   * Função principal de 'submit' do formulário.
-   * Lida com POST (Criar) ou PUT (Editar) dependendo do 'isEditMode'.
+   * Manipula o envio do formulário de categoria (Criação ou Edição).
+   * @param {Event} event - O evento de submit.
    */
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -152,7 +134,6 @@ function Settings() {
       return;
     }
 
-    // O "pacote" de dados para a API
     const categoriaPayload = {
       nome: nomeCategoria,
       tipo: tipoCategoria,
@@ -161,23 +142,18 @@ function Settings() {
 
     try {
       if (isEditMode) {
-        // --- MODO DE EDIÇÃO (PUT /categorias/{id}) ---
-        // (O schema 'CategoriaUpdate' no backend lida com
-        //  o envio parcial, mas aqui enviamos o objeto completo)
         await api.put(`/categorias/${editingCategoryId}`, categoriaPayload);
         setSuccess(`Categoria "${nomeCategoria}" atualizada com sucesso!`);
       } else {
-        // --- MODO DE CRIAÇÃO (POST /categorias/) ---
         await api.post('/categorias/', categoriaPayload);
         setSuccess(`Categoria "${nomeCategoria}" criada com sucesso!`);
       }
       
-      resetForm();      // Limpa o formulário e sai do modo de edição
-      fetchCategorias(); // Atualiza a lista
+      resetForm();
+      fetchCategorias();
 
     } catch (err) {
       console.error("Erro ao salvar categoria:", err);
-      // (Captura erros como "Nome duplicado" do backend)
       if (err.response && err.response.status === 400) {
         setError(err.response.data.detail);
       } else {
@@ -194,17 +170,13 @@ function Settings() {
 
       <main className="settings-content">
         
-        {/* Card 1: Formulário de Categoria (Dinâmico) */}
         <div className="settings-card">
-          {/* Título Dinâmico (V8.0) */}
           <h2>{isEditMode ? 'Editar Categoria' : 'Criar Nova Categoria'}</h2>
           
           <form onSubmit={handleSubmit}>
-            {/* Feedback de Erro/Sucesso */}
             {error && <p className="error-message">{error}</p>}
             {success && <p className="success-message">{success}</p>}
 
-            {/* Input Nome */}
             <div className="input-group">
               <label htmlFor="nome">Nome da Categoria</label>
               <input
@@ -216,7 +188,6 @@ function Settings() {
               />
             </div>
             
-            {/* Input Tipo */}
             <div className="input-group">
               <label htmlFor="tipo">Tipo</label>
               <select
@@ -229,7 +200,6 @@ function Settings() {
               </select>
             </div>
 
-            {/* Input Cor (V5.0) */}
             <div className="input-group color-picker-group">
               <label htmlFor="cor">Cor (Aparecerá nos gráficos)</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -239,18 +209,15 @@ function Settings() {
                   value={corCategoria}
                   onChange={(e) => setCorCategoria(e.target.value)}
                 />
-                {/* Exibe o código hex da cor selecionada */}
                 <span className="color-code-display" style={{ color: corCategoria }}>{corCategoria}</span>
               </div>
             </div>
 
-            {/* Botões Dinâmicos (V8.0) */}
             <div className="form-button-group">
               <button type="submit" className="settings-button">
                 {isEditMode ? 'Salvar Alterações' : 'Criar Categoria'}
               </button>
               
-              {/* Só aparece se estivermos editando */}
               {isEditMode && (
                 <button 
                   type="button" 
@@ -264,7 +231,6 @@ function Settings() {
           </form>
         </div>
 
-        {/* Card 2: Lista de Categorias (V8.0) */}
         <div className="settings-card">
           <h2>Categorias Existentes</h2>
           <div className="categoria-list">
@@ -277,7 +243,6 @@ function Settings() {
                 ) : (
                   categorias.map((cat) => (
                     <li key={cat.id}>
-                      {/* Lado Esquerdo: Cor, Nome, Tipo */}
                       <div className="categoria-info">
                         <span 
                           className="categoria-cor-preview" 
@@ -289,7 +254,6 @@ function Settings() {
                         </span>
                       </div>
                       
-                      {/* Lado Direito: Botões de Ação */}
                       <div className="categoria-list-actions">
                         <button className="edit-btn" title="Editar" onClick={() => handleEditClick(cat)}>
                           <IoPencil size={18} />
@@ -306,7 +270,6 @@ function Settings() {
           </div>
         </div>
 
-        {/* Card 3: Aparência (V4.4) */}
         <div className="settings-card">
           <h2>Aparência</h2>
           <div className="settings-item">
@@ -322,7 +285,6 @@ function Settings() {
           </div>
         </div>
 
-        {/* Card 4: Backup (Placeholder) */}
         <div className="settings-card">
           <h2>Segurança e Backup (V2.0)</h2>
           <div className="settings-item">

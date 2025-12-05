@@ -1,26 +1,7 @@
 // Arquivo: frontend/src/layouts/MainLayout.jsx
-/*
- * Layout Principal (O "Pai Orquestrador").
- *
- * Este é o componente "Pai" de todas as páginas protegidas.
- * Ele é renderizado pela Rota Pai ('/') no 'App.jsx'.
- * Sua função é renderizar a 'Navbar' e o 'TransactionModal',
- * e atuar como o "cérebro" para os filtros de dados e
- * o estado do modal.
- *
- * Arquitetura de Fluxo de Dados (Pai -> Filho):
- * 1. 'MainLayout' (Pai) busca os dados do 'GET /dashboard/'.
- * 2. 'MainLayout' (Pai) gerencia os filtros de data (ex: 'Mensal').
- * 3. 'MainLayout' (Pai) passa os dados e os filtros para o
- * 'Outlet' (Filho) via 'useOutletContext'.
- * 4. 'Dashboard.jsx' e 'Reports.jsx' (Filhos) recebem e
- * renderizam esses dados.
- *
- * Arquitetura Síncrona (Deploy Gratuito):
- * Este layout usa a lógica SÍNCRONA. Quando o modal é salvo
- * (handleSaveSuccess), ele espera a resposta da API (que contém
- * os dados do dashboard recalculados) e atualiza o estado 'data'
- * instantaneamente, sem uma segunda chamada 'fetch'.
+/**
+ * @file Layout Principal (Componente Pai).
+ * @description Gerencia a estrutura das páginas protegidas, controla filtros globais, estado do modal de transações e busca de dados do dashboard.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -31,8 +12,9 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 /**
- * Função auxiliar para formatar um objeto Date() para a
- * string 'AAAA-MM-DD' que a API espera.
+ * Formata um objeto Date para uma string 'YYYY-MM-DD'.
+ * @param {Date} date - O objeto de data.
+ * @returns {string} A data formatada.
  */
 const formatDateForAPI = (date) => {
   const dateObj = new Date(date);
@@ -42,57 +24,59 @@ const formatDateForAPI = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * Componente de Layout Principal.
+ *
+ * Envolve todas as rotas protegidas da aplicação.
+ * Responsável por:
+ * - Buscar dados do dashboard.
+ * - Gerenciar filtros de data.
+ * - Controlar a exibição do modal de transações.
+ * - Renderizar a barra de navegação (Navbar).
+ * - Passar contexto global para rotas filhas via Outlet.
+ *
+ * @returns {JSX.Element} O layout renderizado.
+ */
 function MainLayout() {
   // --- Estados de Dados do Dashboard ---
-  const [data, setData] = useState(null); // Os dados (Receitas, Gastos, etc.)
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // --- Estados do Cérebro de Autenticação (V7.6) ---
+  // --- Estados do Contexto de Autenticação ---
   const { syncTrigger, isAuthLoading } = useAuth(); 
 
-  // --- Estados do Filtro Global (V3.8) ---
+  // --- Estados do Filtro Global ---
   const [filterType, setFilterType] = useState('daily');
   const [dataInicio, setDataInicio] = useState(new Date());
   const [dataFim, setDataFim] = useState(new Date());       
   
-  // O 'estado derivado' (strings) que é enviado para a API
   const [dataInicioStr, setDataInicioStr] = useState('');
   const [dataFimStr, setDataFimStr] = useState('');
 
-  // --- Estados do Modal (V6.0) ---
+  // --- Estados do Modal ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState(null); // (null = Criar, Objeto = Editar)
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   /**
-   * Efeito 1: Calcula o 'dataFim' (Corrigido V9.1)
-   *
-   * Ouve o 'filterType' e 'dataInicio' (controlados pelo FilterControls).
-   * Se o filtro NÃO for 'personalizado', ele calcula e define o 'dataFim'.
-   * Esta lógica impede o loop infinito de 'Maximum update depth'.
+   * Efeito colateral que calcula a data final (dataFim) com base no tipo de filtro e data inicial.
+   * Evita loops de atualização se o filtro for 'personalizado'.
    */
   useEffect(() => {
-    // Se o filtro for personalizado, o 'dataFim' é controlado
-    // pelo usuário no FilterControls.
     if (filterType === 'personalizado') return;
 
     let dataFimCalculada;
-    // Usa a data de início (que o FilterControls definiu) como base
     const dataBase = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
 
     switch (filterType) {
       case 'weekly':
-        // A data de início já foi definida para o início da semana
-        // pelo FilterControls, então apenas calculamos o fim.
         dataFimCalculada = new Date(dataBase);
         dataFimCalculada.setDate(dataFimCalculada.getDate() + 6);
         break;
       case 'monthly':
-        // A data de início já é dia 1
         dataFimCalculada = new Date(dataBase.getFullYear(), dataBase.getMonth() + 1, 0);
         break;
       case 'yearly':
-        // A data de início já é 1º de Jan
         dataFimCalculada = new Date(dataBase.getFullYear(), 11, 31);
         break;
       case 'daily':
@@ -100,15 +84,13 @@ function MainLayout() {
         dataFimCalculada = dataBase; 
         break;
     }
-    // Atualiza APENAS o 'dataFim'
     setDataFim(dataFimCalculada);
 
-  }, [filterType, dataInicio]); // <-- Ouve 'dataInicio', mas não o define
+  }, [filterType, dataInicio]);
 
 
   /**
-   * Efeito 2: Converte os objetos Date() em Strings
-   * (Usado para a API)
+   * Efeito colateral que converte as datas para o formato de string da API.
    */
   useEffect(() => {
     setDataInicioStr(formatDateForAPI(dataInicio));
@@ -117,10 +99,10 @@ function MainLayout() {
 
 
   /**
-   * Função principal que busca os dados do 'GET /dashboard/'.
+   * Busca os dados consolidados do dashboard na API.
+   * Utiliza os parâmetros de data inicial e final convertidos.
    */
   const fetchDashboardData = async () => {
-    // Não busca se as datas ainda não foram calculadas
     if (!dataInicioStr || !dataFimStr) return;
     
     try {
@@ -141,63 +123,62 @@ function MainLayout() {
   };
   
   /**
-   * Efeito 3: Busca os dados (Corrigido V7.6)
-   *
-   * Ouve as datas (convertidas em string) E
-   * o 'syncTrigger' (da fila offline) E
-   * o 'isAuthLoading' (da autenticação).
+   * Efeito colateral que dispara a busca de dados.
+   * Depende das datas, do gatilho de sincronização offline e do estado de autenticação.
    */
   useEffect(() => {
-    // Impede a "race condition" (corrida de dados):
-    // Só busca dados APÓS o AuthContext (Pai)
-    // ter confirmado que a autenticação está pronta.
     if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
     
     fetchDashboardData();
-  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading]); // <-- Ouve todos os gatilhos
+  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading]);
   
   // --- FUNÇÕES DE CONTROLE DO MODAL ---
 
-  /** (V6.0) Chamado pelo botão '+' da Navbar (Modo de Criação) */
+  /**
+   * Abre o modal de transação em modo de criação.
+   */
   const handleAddTransactionClick = () => {
     setEditingTransaction(null);
     setIsModalOpen(true);
   };
 
-  /** (V6.0) Chamado pelo botão 'Editar' no Dashboard.jsx */
+  /**
+   * Abre o modal de transação em modo de edição.
+   * @param {object} transaction - Objeto contendo os dados da transação a ser editada.
+   */
   const handleEditClick = (transaction) => {
     setEditingTransaction(transaction);
     setIsModalOpen(true);
   };
 
   /**
-   * (V-Revert Síncrona)
-   * Chamado quando o modal (Criar/Editar) é salvo.
-   * Recebe os dados do dashboard atualizados diretamente da API.
+   * Callback executado após salvar uma transação com sucesso.
+   * Atualiza os dados do dashboard instantaneamente.
+   * @param {object} novosDadosDoDashboard - Dados atualizados do dashboard retornados pela API.
    */
   const handleSaveSuccess = (novosDadosDoDashboard) => {
     setIsModalOpen(false); 
     setEditingTransaction(null);
-    setData(novosDadosDoDashboard); // Atualiza a UI instantaneamente
+    setData(novosDadosDoDashboard);
   };
   
   /**
-   * (V9.0) Chamado pelo Dashboard.jsx quando o 'api.delete'
-   * síncrono retorna os dados atualizados.
+   * Callback executado após excluir uma transação com sucesso.
+   * Atualiza os dados do dashboard.
+   * @param {object} novosDadosDoDashboard - Dados atualizados do dashboard.
    */
   const handleDeleteSuccess = (novosDadosDoDashboard) => {
     setData(novosDadosDoDashboard);
   };
 
-  /** (V6.0) Garante que o estado de edição seja limpo ao fechar */
+  /**
+   * Fecha o modal e limpa o estado de edição.
+   */
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingTransaction(null);
   };
 
-  // (V7.6) Tela de carregamento global
-  // Impede que as páginas 'filhas' sejam renderizadas
-  // antes que a autenticação esteja pronta.
   if (isAuthLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', fontFamily: 'Montserrat', backgroundColor: '#0B1A33' }}>
@@ -209,12 +190,6 @@ function MainLayout() {
   return (
     <div className="layout-container">
       <main className="layout-content">
-        {/*
-          O <Outlet /> renderiza o componente "filho" (Dashboard ou Reports).
-          'context={...}' é a "injeção de dependência" do React Router.
-          Todos os dados e funções aqui são passados para o filho,
-          que os acessa via 'useOutletContext()'.
-        */}
         <Outlet context={{ 
           data, 
           loading, 
@@ -232,17 +207,15 @@ function MainLayout() {
         }} />
       </main>
 
-      {/* A Navbar fica fixa no rodapé */}
       <Navbar onAddTransaction={handleAddTransactionClick} />
 
-      {/* O Modal (controlado 100% pelo 'MainLayout') */}
       {isModalOpen && (
         <TransactionModal 
           onClose={handleCloseModal}
           onSaveSuccess={handleSaveSuccess}
-          transactionToEdit={editingTransaction} // (null = Criar, Objeto = Editar)
-          dataInicioStr={dataInicioStr} // (Para o recálculo síncrono)
-          dataFimStr={dataFimStr}     // (Para o recálculo síncrono)
+          transactionToEdit={editingTransaction}
+          dataInicioStr={dataInicioStr}
+          dataFimStr={dataFimStr}
         />
       )}
     </div>

@@ -1,17 +1,30 @@
 # Arquivo: backend/crud.py
+"""Módulo de Operações CRUD (Create, Read, Update, Delete).
+
+Este módulo contém toda a lógica de interação com o banco de dados. Ele serve
+como uma camada de abstração entre os endpoints da API e os modelos de dados.
+
+Inclui operações para gerenciamento de usuários, categorias, transações e
+geração de dados analíticos para dashboards.
+
+Functions:
+    get_usuario_por_nome: Busca um usuário pelo nome de usuário.
+    criar_usuario: Cria um novo usuário no sistema.
+    atualizar_detalhes_usuario: Atualiza dados do perfil do usuário.
+    mudar_senha_usuario: Altera a senha do usuário.
+    criar_categoria: Cria uma nova categoria de transação.
+    listar_categorias: Retorna todas as categorias cadastradas.
+    atualizar_categoria: Atualiza uma categoria existente.
+    deletar_categoria: Remove uma categoria do sistema.
+    criar_transacao: Registra uma nova transação financeira.
+    atualizar_transacao: Modifica uma transação existente.
+    deletar_transacao: Remove uma transação.
+    listar_transacoes: Lista transações com paginação.
+    listar_transacoes_por_periodo: Lista transações em um intervalo de datas.
+    get_dashboard_data: Calcula métricas financeiras consolidadas.
+    get_dados_de_tendencia: Gera dados para gráficos de evolução financeira.
 """
-Módulo CRUD (Create, Read, Update, Delete) - Camada de Serviço.
 
-Este módulo centraliza a lógica de negócios e interação com o banco de dados,
-mantendo a separação de responsabilidades em relação aos controladores.
-
-Responsabilidades:
-- Gerenciamento de usuários e autenticação.
-- Operações de banco de dados para Transações e Categorias.
-- Geração de dados analíticos para relatórios e dashboards.
-"""
-
-# --- 1. Importações ---
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, cast, Date 
 from sqlalchemy.exc import IntegrityError 
@@ -20,33 +33,32 @@ import decimal
 
 from . import models, schemas, security
 
-# --- 2. FUNÇÕES CRUD (USUÁRIO) ---
+# --- FUNÇÕES CRUD (USUÁRIO) ---
 
 def get_usuario_por_nome(db: Session, nome_usuario: str) -> models.Usuario | None:
-    """
-    Busca um usuário no banco de dados pelo nome de usuário.
+    """Busca um registro de usuário pelo nome de usuário (username).
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        nome_usuario (str): O nome de usuário a ser buscado.
+        db (Session): Sessão ativa do banco de dados.
+        nome_usuario (str): O nome de usuário a ser pesquisado.
 
     Returns:
-        models.Usuario | None: O objeto do usuário se encontrado, senão None.
+        models.Usuario | None: O objeto usuário se encontrado, caso contrário None.
     """
     return db.query(models.Usuario).filter(models.Usuario.nome_usuario == nome_usuario).first()
 
 def criar_usuario(db: Session, usuario: schemas.UsuarioCreate) -> models.Usuario:
-    """
-    Cria um novo usuário no banco de dados com uma senha hasheada.
+    """Registra um novo usuário no banco de dados.
+
+    Realiza o hash da senha antes de salvar.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        usuario (schemas.UsuarioCreate): Os dados do novo usuário (com senha em texto plano).
+        db (Session): Sessão ativa do banco de dados.
+        usuario (schemas.UsuarioCreate): Dados do usuário para criação.
 
     Returns:
-        models.Usuario: O objeto do usuário recém-criado.
+        models.Usuario: O objeto usuário recém-criado.
     """
-    # Gera o hash da senha antes de persistir
     hash_da_senha = security.get_hash_da_senha(usuario.senha)
     
     db_usuario = models.Usuario(nome_usuario=usuario.nome_usuario, senha_hash=hash_da_senha)
@@ -61,19 +73,18 @@ def atualizar_detalhes_usuario(
     usuario: models.Usuario, 
     detalhes: schemas.UsuarioUpdate
 ) -> models.Usuario:
-    """
-    Atualiza parcialmente os dados de um usuário.
-    Utiliza 'exclude_unset=True' para atualizar apenas os campos fornecidos.
+    """Atualiza as informações de perfil de um usuário existente.
+
+    Apenas os campos fornecidos no objeto `detalhes` serão atualizados.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        usuario (models.Usuario): O objeto de usuário (obtido via 'get_usuario_atual').
-        detalhes (schemas.UsuarioUpdate): Um schema Pydantic com os campos opcionais.
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): Instância do usuário a ser atualizada.
+        detalhes (schemas.UsuarioUpdate): Novos dados para atualização.
 
     Returns:
-        models.Usuario: O objeto do usuário atualizado.
+        models.Usuario: O objeto usuário atualizado.
     """
-    # Atualização parcial baseada nos campos fornecidos
     update_data = detalhes.model_dump(exclude_unset=True)
     
     for key, value in update_data.items():
@@ -89,44 +100,41 @@ def mudar_senha_usuario(
     usuario: models.Usuario, 
     payload: schemas.UsuarioChangePassword
 ) -> bool:
-    """
-    Verifica a senha antiga e, se correta, atualiza para a nova senha.
+    """Altera a senha de acesso do usuário.
+
+    Verifica se a senha antiga fornecida corresponde ao hash armazenado antes
+    de aplicar a nova senha.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        usuario (models.Usuario): O objeto de usuário logado.
-        payload (schemas.UsuarioChangePassword): Contém a senha antiga e a nova.
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O usuário que está alterando a senha.
+        payload (schemas.UsuarioChangePassword): Objeto contendo a senha antiga e a nova.
 
     Returns:
-        bool: True se a senha foi alterada, False se a senha antiga estava incorreta.
+        bool: True se a senha foi alterada com sucesso, False se a senha antiga estiver incorreta.
     """
-    # 1. Validação da senha atual
     if not security.verificar_senha(payload.senha_antiga, usuario.senha_hash):
-        return False # Senha antiga não confere
+        return False
     
-    # 2. Gera o hash da nova senha
     novo_hash = security.get_hash_da_senha(payload.senha_nova)
     
-    # 3. Salva a nova senha
     usuario.senha_hash = novo_hash
     db.add(usuario)
     db.commit()
     
     return True
 
-# --- 3. FUNÇÕES CRUD (CATEGORIA) ---
+# --- FUNÇÕES CRUD (CATEGORIA) ---
 
 def criar_categoria(db: Session, categoria: schemas.CategoriaCreate) -> models.Categoria:
-    """
-    Cria uma nova categoria.
-    Lança IntegrityError em caso de duplicidade de nome.
-    
+    """Adiciona uma nova categoria de transação ao sistema.
+
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        categoria (schemas.CategoriaCreate): Dados da nova categoria.
+        db (Session): Sessão ativa do banco de dados.
+        categoria (schemas.CategoriaCreate): Dados da categoria a ser criada.
 
     Returns:
-        models.Categoria: O objeto da categoria recém-criada.
+        models.Categoria: O objeto categoria criado.
     """
     db_categoria = models.Categoria(**categoria.model_dump())
     db.add(db_categoria)
@@ -135,14 +143,13 @@ def criar_categoria(db: Session, categoria: schemas.CategoriaCreate) -> models.C
     return db_categoria
 
 def listar_categorias(db: Session) -> list[models.Categoria]:
-    """
-    Retorna todas as categorias cadastradas.
+    """Retorna a lista de todas as categorias disponíveis.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
+        db (Session): Sessão ativa do banco de dados.
 
     Returns:
-        list[models.Categoria]: Uma lista de todos os objetos de categoria.
+        list[models.Categoria]: Lista de objetos de categoria.
     """
     return db.query(models.Categoria).all()
 
@@ -151,21 +158,19 @@ def atualizar_categoria(
     categoria_id: int, 
     categoria_update: schemas.CategoriaUpdate
 ) -> models.Categoria | None:
-    """
-    Atualiza parcialmente uma categoria existente.
-    Apenas atualiza os campos que foram enviados.
+    """Atualiza os dados de uma categoria específica.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        categoria_id (int): O ID da categoria a ser editada.
-        categoria_update (schemas.CategoriaUpdate): Os campos opcionais a serem alterados.
+        db (Session): Sessão ativa do banco de dados.
+        categoria_id (int): ID da categoria a ser atualizada.
+        categoria_update (schemas.CategoriaUpdate): Dados para atualização.
 
     Returns:
-        models.Categoria | None: O objeto atualizado, ou None se não encontrado.
+        models.Categoria | None: A categoria atualizada ou None se não encontrada.
     """
     db_categoria = db.query(models.Categoria).filter(models.Categoria.id == categoria_id).first()
     if not db_categoria:
-        return None # 404
+        return None
         
     update_data = categoria_update.model_dump(exclude_unset=True)
     
@@ -178,40 +183,35 @@ def atualizar_categoria(
     return db_categoria
 
 def deletar_categoria(db: Session, categoria_id: int) -> bool:
-    """
-    Deleta uma categoria.
-    
+    """Remove uma categoria do banco de dados.
+
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        categoria_id (int): O ID da categoria a ser deletada.
+        db (Session): Sessão ativa do banco de dados.
+        categoria_id (int): ID da categoria a ser removida.
 
     Returns:
-        bool: True se deletou, False se não encontrou.
-        
-    Raises:
-        IntegrityError: Se a categoria estiver vinculada a registros existentes.
+        bool: True se a categoria foi removida, False se não encontrada.
     """
     db_categoria = db.query(models.Categoria).filter(models.Categoria.id == categoria_id).first()
     if not db_categoria:
-        return False # 404
+        return False
     
     db.delete(db_categoria)
     db.commit()
     return True
 
-# --- 4. FUNÇÕES CRUD (TRANSAÇÃO) ---
+# --- FUNÇÕES CRUD (TRANSAÇÃO) ---
 
 def criar_transacao(db: Session, transacao: schemas.TransacaoCreate, usuario_id: int) -> models.Transacao:
-    """
-    Cria uma nova transação (gasto ou receita) no banco, associada a um usuário.
+    """Registra uma nova transação financeira para um usuário.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        transacao (schemas.TransacaoCreate): Os dados da nova transação.
-        usuario_id (int): O ID do usuário (do token) que está registrando.
+        db (Session): Sessão ativa do banco de dados.
+        transacao (schemas.TransacaoCreate): Dados da transação.
+        usuario_id (int): ID do usuário proprietário da transação.
 
     Returns:
-        models.Transacao: O objeto da transação recém-criada.
+        models.Transacao: A transação criada.
     """
     db_transacao = models.Transacao(**transacao.model_dump(), usuario_id=usuario_id)
     db.add(db_transacao)
@@ -225,30 +225,27 @@ def atualizar_transacao(
     transacao: schemas.TransacaoCreate,
     usuario_id: int
 ) -> models.Transacao | None:
-    """
-    Atualiza uma transação existente, verificando a posse (usuário).
+    """Atualiza uma transação existente, garantindo a propriedade do usuário.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        transacao_id (int): O ID da transação a ser editada.
-        transacao (schemas.TransacaoCreate): Os novos dados (completos) do formulário.
-        usuario_id (int): O ID do usuário logado (para verificação de segurança).
+        db (Session): Sessão ativa do banco de dados.
+        transacao_id (int): ID da transação a ser modificada.
+        transacao (schemas.TransacaoCreate): Novos dados da transação.
+        usuario_id (int): ID do usuário que está requisitando a atualização.
 
     Returns:
-        models.Transacao | None: O objeto atualizado, ou None se não encontrado/não autorizado.
+        models.Transacao | None: A transação atualizada ou None se não encontrada/não autorizada.
     """
     db_transacao = db.query(models.Transacao).filter(
         models.Transacao.id == transacao_id
     ).first()
 
     if db_transacao is None:
-        return None # 404
+        return None
     
-    # Verificação de propriedade do recurso
     if db_transacao.usuario_id != usuario_id:
-        return None # 404/403
+        return None
         
-    # Atualiza os campos da transação
     update_data = transacao.model_dump()
     db_transacao.descricao = update_data['descricao']
     db_transacao.valor = update_data['valor']
@@ -266,37 +263,41 @@ def deletar_transacao(
     transacao_id: int,
     usuario_id: int
 ) -> bool:
-    """
-    Deleta uma transação, verificando a posse (usuário).
+    """Remove uma transação do banco de dados.
 
     Args:
-        db (Session): A sessão do SQLAlchemy.
-        transacao_id (int): O ID da transação a ser deletada.
-        usuario_id (int): O ID do usuário logado (para verificação de segurança).
+        db (Session): Sessão ativa do banco de dados.
+        transacao_id (int): ID da transação a ser removida.
+        usuario_id (int): ID do usuário solicitante.
 
     Returns:
-        bool: True se deletou, False se não encontrou/não autorizado.
+        bool: True se removida com sucesso, False caso contrário.
     """
     db_transacao = db.query(models.Transacao).filter(
         models.Transacao.id == transacao_id
     ).first()
 
     if db_transacao is None:
-        return False # 404
+        return False
         
     if db_transacao.usuario_id != usuario_id:
-        return False # 404/403
+        return False
         
     db.delete(db_transacao)
     db.commit()
     return True
 
 def listar_transacoes(db: Session, usuario_id: int, skip: int = 0, limit: int = 100) -> list[models.Transacao]:
-    """
-    Retorna uma lista de transações com paginação, filtrada por usuário.
-    
-    Utiliza 'joinedload' para carregar dados da categoria em uma única consulta,
-    otimizando a performance.
+    """Retorna uma lista paginada das transações de um usuário.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario_id (int): ID do usuário cujas transações serão listadas.
+        skip (int): Número de registros a pular (para paginação). Padrão: 0.
+        limit (int): Número máximo de registros a retornar. Padrão: 100.
+
+    Returns:
+        list[models.Transacao]: Lista de transações encontradas.
     """
     return db.query(models.Transacao).options(
         joinedload(models.Transacao.categoria)
@@ -312,12 +313,17 @@ def listar_transacoes_por_periodo(
     data_inicio: date, 
     data_fim: date
 ) -> list[models.Transacao]:
+    """Retorna todas as transações de um usuário em um determinado intervalo de tempo.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario_id (int): ID do usuário.
+        data_inicio (date): Data inicial do período (inclusiva).
+        data_fim (date): Data final do período (inclusiva).
+
+    Returns:
+        list[models.Transacao]: Lista de transações no período.
     """
-    Retorna TODAS as transações de um usuário dentro de um período.
-    
-    Utiliza 'joinedload' para otimização de consulta.
-    """
-    # Ajusta data_fim para incluir todo o último dia do intervalo
     data_fim_query = data_fim + timedelta(days=1)
     
     return db.query(models.Transacao).options(
@@ -331,18 +337,24 @@ def listar_transacoes_por_periodo(
     ).all()
 
 
-# --- 5. FUNÇÃO DO DASHBOARD (OLAP) ---
+# --- FUNÇÕES ANALÍTICAS (DASHBOARD) ---
 
 def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim: date) -> schemas.DashboardData:
-    """
-    Busca e calcula os dados de resumo financeiro (OLAP)
-    para o Dashboard e a página de Relatórios.
-    
-    Calcula métricas consolidadas para o dashboard.
+    """Calcula e retorna os dados consolidados para o dashboard financeiro.
+
+    Inclui totais de receitas, despesas, lucro líquido e quebras por categoria.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario_id (int): ID do usuário.
+        data_inicio (date): Data inicial do período de análise.
+        data_fim (date): Data final do período de análise.
+
+    Returns:
+        schemas.DashboardData: Objeto com os dados processados para o dashboard.
     """
     data_fim_query = data_fim + timedelta(days=1)
 
-    # 1. Total de Receitas
     total_receitas = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
         models.Transacao.usuario_id == usuario_id,
         models.Categoria.tipo == "Receita",
@@ -350,7 +362,6 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         models.Transacao.data < data_fim_query
     ).scalar() or decimal.Decimal(0)
 
-    # 2. Total de Gastos
     total_gastos = db.query(func.sum(models.Transacao.valor)).join(models.Categoria).filter(
         models.Transacao.usuario_id == usuario_id,
         models.Categoria.tipo == "Gasto",
@@ -358,10 +369,8 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         models.Transacao.data < data_fim_query
     ).scalar() or decimal.Decimal(0)
 
-    # 3. Lucro Líquido (em Python)
     lucro_liquido = total_receitas - total_gastos
 
-    # 4. Gastos Detalhados (Agrupados por Categoria)
     gastos_por_categoria_query = db.query(
         models.Categoria.nome,
         models.Categoria.cor,
@@ -376,7 +385,6 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         func.sum(models.Transacao.valor).desc()
     ).all()
     
-    # 5. Receitas Detalhadas (Agrupadas por Categoria)
     receitas_por_categoria_query = db.query(
         models.Categoria.nome,
         models.Categoria.cor,
@@ -391,7 +399,6 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         func.sum(models.Transacao.valor).desc()
     ).all()
 
-    # 6. Formata os resultados para o schema
     gastos_por_categoria = [
         schemas.CategoriaDetalhada(
             nome_categoria=nome, 
@@ -412,7 +419,6 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         for nome, cor, total, count in receitas_por_categoria_query
     ]
 
-    # 7. Retorna o objeto de dados completo
     return schemas.DashboardData(
         total_receitas=total_receitas,
         total_gastos=total_gastos,
@@ -421,8 +427,6 @@ def get_dashboard_data(db: Session, usuario_id: int, data_inicio: date, data_fim
         receitas_por_categoria=receitas_por_categoria
     )
     
-# --- 6. FUNÇÃO DE RELATÓRIOS (OLAP) ---
-
 def get_dados_de_tendencia(
     db: Session, 
     usuario_id: int, 
@@ -430,12 +434,20 @@ def get_dados_de_tendencia(
     data_fim: date,
     filtro: str
 ) -> schemas.DadosDeTendencia:
-    """
-    Busca e calcula os dados de Receitas e Despesas agrupados
-    POR HORA (se filtro='daily') ou POR DIA (outros filtros).
-    
-    Adapta a sintaxe SQL baseada no dialeto do banco de dados (PostgreSQL ou SQLite)
-    para garantir compatibilidade na formatação de datas.
+    """Gera dados para gráficos de tendência financeira (evolução temporal).
+
+    Agrupa os dados por dia ou hora, dependendo do filtro selecionado e do
+    banco de dados em uso (suporta diferenças de sintaxe entre SQLite e PostgreSQL).
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario_id (int): ID do usuário.
+        data_inicio (date): Data inicial.
+        data_fim (date): Data final.
+        filtro (str): Granularidade do agrupamento ('daily' para hora, outros para dia).
+
+    Returns:
+        schemas.DadosDeTendencia: Dados formatados para plotagem de gráficos.
     """
     data_fim_query = data_fim + timedelta(days=1)
     
@@ -443,19 +455,15 @@ def get_dados_de_tendencia(
 
     if filtro == 'daily':
         if dialect_name == 'postgresql':
-            # Sintaxe do POSTGRESQL (Produção)
             agrupador_de_data = func.to_char(models.Transacao.data, 'YYYY-MM-DD HH24:00:00')
             ordenador_de_data = func.to_char(models.Transacao.data, 'YYYY-MM-DD HH24:00:00')
         else:
-            # Sintaxe do SQLITE (Desenvolvimento)
             agrupador_de_data = func.strftime('%Y-%m-%d %H:00:00', models.Transacao.data)
             ordenador_de_data = func.strftime('%Y-%m-%d %H:00:00', models.Transacao.data)
     else:
-        # Agrupamento por DIA (func.date) é universal
         agrupador_de_data = func.date(models.Transacao.data)
         ordenador_de_data = func.date(models.Transacao.data)
 
-    # --- Subconsulta 1: Receitas agrupadas ---
     query_receitas = db.query(
         agrupador_de_data.label("data"),
         func.sum(models.Transacao.valor).label("valor")
@@ -470,7 +478,6 @@ def get_dados_de_tendencia(
         ordenador_de_data
     ).all()
 
-    # --- Subconsulta 2: Despesas agrupadas ---
     query_despesas = db.query(
         agrupador_de_data.label("data"),
         func.sum(models.Transacao.valor).label("valor")

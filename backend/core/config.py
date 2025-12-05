@@ -1,14 +1,9 @@
 # Arquivo: backend/core/config.py
-"""
-Módulo de Configuração Central - A "Fonte Única da Verdade".
+"""Módulo de Configuração Central da Aplicação.
 
-Este módulo usa o Pydantic `BaseSettings` (da biblioteca 'pydantic-settings')
-para carregar e validar TODAS as variáveis de ambiente (do arquivo .env)
-em um único lugar.
-
-Isso previne a duplicação de lógica `load_dotenv` em outros arquivos
-e garante que a aplicação falhe rapidamente (fail-fast) se uma
-configuração crítica (como a SECRET_KEY) estiver faltando.
+Este módulo é responsável por carregar e validar todas as variáveis de ambiente
+necessárias para a execução do backend. Utiliza o Pydantic Settings para garantir
+que as configurações estejam tipadas e presentes.
 """
 
 import os
@@ -16,43 +11,40 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 # Define o caminho absoluto para a pasta raiz do projeto
-# (um nível acima de 'backend', onde o .env está)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 ENV_PATH = os.path.join(ROOT_DIR, '.env')
 
 
 class Settings(BaseSettings):
+    """Configurações globais da aplicação carregadas de variáveis de ambiente.
+
+    Esta classe define o esquema de configuração, incluindo chaves de segurança,
+    conexão com banco de dados e configurações de filas de tarefas.
+
+    Attributes:
+        SECRET_KEY (str): Chave secreta usada para assinar tokens JWT e outras operações criptográficas.
+        ALGORITHM (str): Algoritmo de criptografia usado para gerar tokens JWT. Padrão: "HS256".
+        ACCESS_TOKEN_EXPIRE_MINUTES (int): Tempo de expiração dos tokens de acesso em minutos. Padrão: 30.
+        DATABASE_URL (Optional[str]): URL de conexão com o banco de dados. Se não fornecido, pode-se usar um fallback (e.g., SQLite).
+        CELERY_BROKER_URL (Optional[str]): URL do broker de mensagens para o Celery (ex: Redis). Opcional para deploys que não utilizam filas.
     """
-    Classe que mapeia e valida as variáveis de ambiente.
     
-    O Pydantic lê automaticamente os nomes (sem case-sensitive)
-    das variáveis de ambiente do sistema ou do arquivo .env especificado.
-    """
-    
-    # --- Configurações de Segurança (usadas por security.py) ---
+    # --- Configurações de Segurança ---
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # --- Configurações do Banco de Dados (usadas por database.py) ---
-    # É 'Optional' para permitir o fallback para o SQLite
-    # se a DATABASE_URL não for definida no .env (modo de dev).
+    # --- Configurações do Banco de Dados ---
     DATABASE_URL: Optional[str] = None
     
-    # --- Configurações da Fila (usadas pelo main.py / worker.py) ---
-    # É 'Optional' para permitir que a API síncrona (deploy gratuito)
-    # rode sem a necessidade de um broker Redis.
+    # --- Configurações da Fila ---
     CELERY_BROKER_URL: Optional[str] = None
 
-    # Configuração do Pydantic para ler o arquivo .env
     model_config = SettingsConfigDict(
         env_file=ENV_PATH,
         env_file_encoding='utf-8',
-        # 'extra="ignore"' impede que o Pydantic reclame de variáveis
-        # extras no .env (como VITE_API_BASE_URL)
         extra='ignore' 
     )
 
-# Cria uma instância única das configurações que será
-# importada por todos os outros módulos do backend.
+# Cria uma instância única das configurações.
 settings = Settings()
