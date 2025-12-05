@@ -1,42 +1,27 @@
 // Arquivo: frontend/src/main.jsx
-/*
- * Ponto de Entrada da Aplicação React.
- *
- * Responsável pela inicialização da árvore de componentes,
- * configuração dos Providers globais (Auth, Theme) e
- * montagem na DOM.
+/**
+ * @file Ponto de entrada principal da aplicação React.
+ * @description Inicializa a árvore de componentes, configura os provedores de contexto globais (Auth e Theme) e monta a aplicação no DOM.
  */
 
-// Importações padrão do React
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-// Componentes principais da nossa aplicação
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 
-// Estilos globais
 import './index.css';
 
-// --- Inicialização do React (React 18+) ---
-
-// Inicialização da raiz React
+/**
+ * Inicializa a raiz da aplicação React e renderiza a árvore de componentes dentro dos provedores de contexto e StrictMode.
+ */
 ReactDOM.createRoot(document.getElementById('root')).render(
-
-  // StrictMode para verificações de desenvolvimento
   <React.StrictMode>
-
-    {/* Configuração dos Provedores de Contexto Globais */}
-
     <AuthProvider>
-
       <ThemeProvider>
-
         <App />
-
       </ThemeProvider>
     </AuthProvider>
-
   </React.StrictMode>,
 );

@@ -18,6 +18,16 @@ Acesse a aplicação em tempo real:
 
 ---
 
+## 📚 Documentação do Código
+
+O projeto possui documentação completa inline em todos os módulos, classes e funções.
+*   **Backend (Python):** Documentado seguindo o padrão Google Style Python Docstrings.
+*   **Frontend (JavaScript/React):** Documentado seguindo o padrão JSDoc.
+
+Para entender detalhes específicos de implementação de cada componente ou endpoint, consulte diretamente os arquivos de código fonte.
+
+---
+
 ## 🏛️ Arquitetura do Sistema
 
 O projeto adota uma arquitetura desacoplada moderna, garantindo escalabilidade e manutenibilidade.

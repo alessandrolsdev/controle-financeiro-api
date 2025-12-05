@@ -1,55 +1,56 @@
 // Arquivo: frontend/src/components/FilterControls/FilterControls.jsx
-/*
- * Componente Reutilizável de Controles de Filtro (V3.9).
- *
- * Este componente renderiza a UI completa dos filtros de data:
- * 1. Os botões de período (Diário, Semanal, Mensal, Anual).
- * 2. O botão "Personalizado".
- * 3. O(s) calendário(s) ('<input type="date">').
- *
- * Este é um "Componente Controlado" (Controlled Component).
- * Ele não tem estado próprio. Ele recebe o estado atual
- * (ex: 'filterType', 'dataInicio') e as funções de 'setter'
- * (ex: 'setFilterType', 'setDataInicio') diretamente do "Pai"
- * (o 'MainLayout.jsx', através do 'Outlet').
+/**
+ * @file Controles de Filtro de Data.
+ * @description Componente para seleção de intervalos de data (Diário, Semanal, Mensal, Anual, Personalizado).
  */
 
 import React from 'react';
 import './FilterControls.css';
 
-// --- Funções Auxiliares (Helpers) de Data ---
-
 /**
- * Lida com a mudança do calendário.
- * Converte a string 'AAAA-MM-DD' (do input) para um
- * objeto Date() no fuso horário local correto,
- * prevenindo o "bug do dia anterior" (fuso UTC).
+ * Manipula a alteração de data no input.
+ * Converte a string do input (AAAA-MM-DD) para um objeto Date ajustado ao fuso horário local.
+ *
+ * @param {Event} event - O evento de mudança do input.
+ * @param {function} setDate - Função setter para atualizar o estado da data.
  */
 const handleDateChange = (event, setDate) => {
   const dateString = event.target.value;
-  // O input 'date' (mesmo local) retorna AAAA-MM-DD
-  // Precisamos tratar o fuso horário para não pular um dia
   const data = new Date(dateString);
   const dataLocal = new Date(data.valueOf() + data.getTimezoneOffset() * 60000);
   setDate(dataLocal);
 };
 
 /**
- * Formata um objeto Date() de volta para a string "AAAA-MM-DD"
- * que o '<input type="date">' exige como valor.
+ * Formata um objeto Date para string no formato 'AAAA-MM-DD'.
+ *
+ * @param {Date} dateObject - O objeto de data a ser formatado.
+ * @returns {string} A data formatada.
  */
 const formatISODate = (dateObject) => {
-  // Garante que 'dateObject' seja um objeto Date válido
   const date = new Date(dateObject); 
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-// ---------------------------------------------------
 
 
-// --- O COMPONENTE ---
+/**
+ * Componente de Controles de Filtro.
+ *
+ * Exibe botões para selecionar tipos de intervalo e inputs de data correspondentes.
+ * É um componente controlado, recebendo estados e setters do componente pai.
+ *
+ * @param {object} props - Propriedades do componente.
+ * @param {string} props.filterType - O tipo de filtro selecionado ('daily', 'weekly', 'monthly', 'yearly', 'personalizado').
+ * @param {function} props.setFilterType - Função para atualizar o tipo de filtro.
+ * @param {Date} props.dataInicio - Data de início do intervalo.
+ * @param {function} props.setDataInicio - Função para atualizar a data de início.
+ * @param {Date} props.dataFim - Data de fim do intervalo.
+ * @param {function} props.setDataFim - Função para atualizar a data de fim.
+ * @returns {JSX.Element} O componente renderizado.
+ */
 function FilterControls({ 
   filterType, 
   setFilterType, 
@@ -59,49 +60,40 @@ function FilterControls({
   setDataFim
 }) {
   
-  // Define o 'max' (hoje) para os calendários
   const maxDateForPicker = formatISODate(new Date());
 
   /**
-   * Lógica 'onClick' dos botões (V3.9).
-   * Esta é a lógica "inteligente" que impede o loop infinito
-   * (o bug 'Maximum update depth').
+   * Manipula a mudança do tipo de filtro.
+   * Calcula a nova data de início baseada no filtro selecionado para evitar inconsistências.
    *
-   * Ela define o tipo de filtro E a data de início
-   * correta para aquele filtro, tudo de uma vez.
+   * @param {string} newFilterType - O novo tipo de filtro selecionado.
    */
   const handleFilterChange = (newFilterType) => {
-    // Usa HOJE como base para filtros relativos
     const dataBase = (newFilterType === 'personalizado') ? new Date(dataInicio) : new Date();
     
     let novaDataInicio;
 
     switch (newFilterType) {
       case 'weekly':
-        // Calcula o primeiro dia (Segunda) da semana atual
         const diaDaSemana = dataBase.getDay();
         const diff = dataBase.getDate() - diaDaSemana + (diaDaSemana === 0 ? -6 : 1);
         novaDataInicio = new Date(dataBase.setDate(diff));
         break;
       case 'monthly':
-        // Primeiro dia do mês atual
         novaDataInicio = new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
         break;
       case 'yearly':
-        // Primeiro dia do ano atual
         novaDataInicio = new Date(dataBase.getFullYear(), 0, 1);
         break;
       case 'personalizado':
-        // Não reseta a data, mantém a seleção atual
         novaDataInicio = dataBase; 
         break;
       case 'daily':
       default:
-        novaDataInicio = dataBase; // Reseta para hoje
+        novaDataInicio = dataBase;
         break;
     }
     
-    // Define os dois estados no "Pai" (MainLayout) de uma vez
     setFilterType(newFilterType);
     setDataInicio(novaDataInicio);
   };
@@ -109,7 +101,6 @@ function FilterControls({
 
   return (
     <div className="filter-tabs-container">
-      {/* Botões de Filtro */}
       <div className="filter-tabs">
         <button 
           className={`tab-button ${filterType === 'daily' ? 'active' : ''}`}
@@ -143,10 +134,8 @@ function FilterControls({
         </button>
       </div>
       
-      {/* O Calendário (Renderização Condicional V3.8) */}
       <div className="date-picker-container">
         {filterType === 'personalizado' ? (
-          // 1. MODO PERSONALIZADO (Dois calendários)
           <div className="date-range-wrapper">
             <input
               type="date"
@@ -165,8 +154,6 @@ function FilterControls({
             />
           </div>
         ) : (
-          // 2. MODO NORMAL (Um calendário)
-          // (Controla 'dataInicio', e o Pai 'MainLayout' calcula 'dataFim')
           <input
             type="date"
             className="date-picker-input"

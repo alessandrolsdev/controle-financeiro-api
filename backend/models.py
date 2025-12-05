@@ -1,12 +1,15 @@
 # Arquivo: backend/models.py
-"""
-Módulo de Modelos (Models) - A "Planta" do Banco de Dados.
+"""Módulo de Definição dos Modelos ORM (Object-Relational Mapping).
 
-Este arquivo define a ESTRUTURA de todas as tabelas no banco de dados
-usando a sintaxe moderna do SQLAlchemy 2.0 (ORM Declarativo com Mapped).
+Este módulo define a estrutura das tabelas do banco de dados utilizando a
+sintaxe declarativa moderna do SQLAlchemy 2.0 (Mapped e mapped_column).
+As classes aqui definidas mapeiam diretamente para as tabelas 'usuarios',
+'categorias' e 'transacoes' no banco de dados.
 
-Cada classe aqui representa uma tabela no PostgreSQL (produção)
-ou SQLite (desenvolvimento).
+Classes:
+    Usuario: Modelo para a tabela de usuários do sistema.
+    Categoria: Modelo para a tabela de categorias de transações.
+    Transacao: Modelo para a tabela de transações financeiras.
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, func, Date
@@ -15,27 +18,35 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-# Importa a Base declarativa que criamos no arquivo database.py
 from .database import Base
 
 
-# --- 1. MODELO DA TABELA DE USUÁRIOS ---
 class Usuario(Base):
-    """
-    Representa a tabela 'usuarios'.
-    Este é o "dono" das transações financeiras e o
-    objeto principal de autenticação.
+    """Representa um usuário do sistema na tabela 'usuarios'.
+
+    Armazena informações de autenticação (nome de usuário, senha hash) e
+    dados de perfil (nome completo, email, avatar).
+
+    Attributes:
+        id (int): Identificador único do usuário (Chave Primária).
+        nome_usuario (str): Nome de usuário único para login.
+        senha_hash (str): Hash da senha do usuário para autenticação segura.
+        nome_completo (Optional[str]): Nome completo do usuário.
+        email (Optional[str]): Endereço de email do usuário (único).
+        data_nascimento (Optional[datetime]): Data de nascimento do usuário.
+        avatar_url (Optional[str]): URL para a imagem de avatar do usuário.
+        criado_em (datetime): Data e hora de criação do registro.
+        transacoes (List[Transacao]): Relacionamento com as transações do usuário.
     """
     __tablename__ = "usuarios"
 
-    # Coluna Primária
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     
     # --- Informações de Autenticação ---
     nome_usuario: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     
-    # --- Campos de Perfil (V7.0+) ---
+    # --- Campos de Perfil ---
     nome_completo: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     data_nascimento: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
@@ -44,81 +55,76 @@ class Usuario(Base):
     # Metadados
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    # --- Relacionamento (O "link" do Python) ---
-    # Define o 'lado um' do relacionamento 'Um-para-Muitos'
-    # (Um 'Usuario' tem Muitas 'Transacoes')
-    # Permite acessar 'meu_usuario.transacoes'
-    # 'lazy="selectin"' é uma otimização de performance moderna.
+    # Relacionamentos
     transacoes: Mapped[List["Transacao"]] = relationship(
         back_populates="proprietario", lazy="selectin"
     )
 
 
-# --- 2. MODELO DA TABELA DE CATEGORIAS ---
 class Categoria(Base):
-    """
-    Representa a tabela 'categorias'.
-    Usada para classificar transações (ex: "Combustível", "Salário").
+    """Representa uma categoria de transação na tabela 'categorias'.
+
+    Categorias são usadas para classificar transações (ex: Alimentação, Transporte)
+    e possuem um tipo (Despesa ou Receita) e uma cor para exibição.
+
+    Attributes:
+        id (int): Identificador único da categoria (Chave Primária).
+        nome (str): Nome da categoria.
+        tipo (str): Tipo da categoria ('Despesa' ou 'Receita').
+        cor (str): Código hexadecimal da cor associada à categoria (ex: '#FF0000').
+        transacoes (List[Transacao]): Relacionamento com as transações desta categoria.
     """
     __tablename__ = "categorias"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     nome: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     
-    # Define se a categoria é uma "Gasto" (Despesa) ou "Receita" (Ganho)
     tipo: Mapped[str] = mapped_column(String(50), nullable=False)
-    
-    # O código HEX da cor (V5.0)
     cor: Mapped[str] = mapped_column(String(7), nullable=False, default="#CCCCCC") 
 
-    # Define o 'lado um' do relacionamento 'Um-para-Muitos'
-    # (Uma 'Categoria' tem Muitas 'Transacoes')
+    # Relacionamentos
     transacoes: Mapped[List["Transacao"]] = relationship(
         back_populates="categoria", lazy="selectin"
     )
 
 
-# --- 3. MODELO DA TABELA DE TRANSAÇÕES (O CORAÇÃO DO SISTEMA) ---
 class Transacao(Base):
-    """
-    Representa a tabela 'transacoes'.
-    Um único registro financeiro (um gasto ou um ganho).
+    """Representa uma transação financeira na tabela 'transacoes'.
+
+    Armazena os detalhes de uma receita ou despesa, vinculada a um usuário
+    e a uma categoria.
+
+    Attributes:
+        id (int): Identificador único da transação (Chave Primária).
+        descricao (str): Descrição ou título da transação.
+        valor (Decimal): Valor monetário da transação.
+        data (datetime): Data e hora da ocorrência da transação.
+        observacoes (Optional[str]): Notas adicionais sobre a transação.
+        categoria_id (int): ID da categoria associada (Chave Estrangeira).
+        usuario_id (int): ID do usuário proprietário (Chave Estrangeira).
+        categoria (Categoria): Objeto da categoria associada.
+        proprietario (Usuario): Objeto do usuário proprietário.
     """
     __tablename__ = "transacoes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     descricao: Mapped[str] = mapped_column(String(255), nullable=False)
     
-    # Decisão de Engenharia:
-    # Usamos 'Numeric' (Decimal) em vez de 'Float' para
-    # garantir precisão absoluta em cálculos financeiros.
+    # Decisão de Engenharia: Numeric para precisão financeira
     valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     
-    # Usamos 'DateTime' para capturar a hora exata da transação (V2.2)
     data: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    
-    # 'Text' permite notas mais longas do que 'String'
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # --- Chaves Estrangeiras (Foreign Keys) ---
-    # (Os "links" físicos entre as tabelas)
-    
-    # Garante que 'categoria_id' DEVE apontar para uma 'categorias.id'
+    # Chaves Estrangeiras
     categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias.id"), nullable=False)
-    
-    # Garante que 'usuario_id' DEVE apontar para um 'usuarios.id'
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
 
-    # --- Relacionamentos (Os "links" do Python) ---
-    
-    # Define o 'lado muitos' do relacionamento 'Muitos-para-Um'
-    # Permite acessar 'minha_transacao.categoria'
-    # (lazy="select" é o padrão, 'lazy="joined"' foi removido na V-Revert)
+    # Relacionamentos
     categoria: Mapped["Categoria"] = relationship(
         back_populates="transacoes"
     )
     
-    # Permite acessar 'minha_transacao.proprietario'
     proprietario: Mapped["Usuario"] = relationship(
         back_populates="transacoes"
     )

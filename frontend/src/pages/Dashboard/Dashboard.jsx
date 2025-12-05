@@ -1,21 +1,7 @@
 // Arquivo: frontend/src/pages/Dashboard/Dashboard.jsx
-/*
- * Página Principal do Dashboard (O "Hub" de Visualização).
- *
- * Este é o componente principal da aplicação (a rota 'index' /).
- * Ele é um "Filho" do 'MainLayout' e recebe a maior parte de
- * seus dados e estado (filtros, dados de resumo)
- * através do 'useOutletContext()'.
- *
- * Responsabilidades:
- * 1. Renderizar os Filtros Globais (<FilterControls />).
- * 2. Renderizar os Cards de Resumo (Receita, Gasto, Lucro).
- * 3. Renderizar os Gráficos de Rosca (<DoughnutChart />).
- * 4. Buscar e Renderizar as listas de transações:
- * - "Transações no Período" (filtrada)
- * - "Últimas 5 Transações" (não filtrada)
- * 5. Implementar a lógica de Edição (V6.0) e Exclusão (V9.0)
- * para os itens da lista.
+/**
+ * @file Página Dashboard.
+ * @description Exibe o resumo financeiro, gráficos de receita/despesa e listas de transações. Permite filtragem por data.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -24,67 +10,70 @@ import { useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
 import './Dashboard.css';
 
-// Componentes de UI importados
 import DoughnutChart from '../../components/DoughnutChart/DoughnutChart';
 import FilterControls from '../../components/FilterControls/FilterControls';
-import { IoPencil, IoTrash } from 'react-icons/io5'; // Ícones de Ação (V6.0, V9.0)
+import { IoPencil, IoTrash } from 'react-icons/io5';
 
-// --- Função Auxiliar (Helper) ---
 /**
- * Formata um valor numérico para a moeda BRL (ex: R$ 5.500,00).
+ * Formata um valor numérico para o formato de moeda BRL.
+ * @param {number|string} value - O valor a ser formatado.
+ * @returns {string} O valor formatado como moeda.
  */
 const formatCurrency = (value) => {
   const number = parseFloat(value) || 0;
   return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-
+/**
+ * Componente Dashboard.
+ *
+ * Principal interface do usuário. Consome dados globais do MainLayout e exibe:
+ * - Filtros de data.
+ * - Cards com totais (Receitas, Gastos, Lucro).
+ * - Gráficos de rosca detalhando categorias.
+ * - Listas de transações recentes e do período selecionado.
+ * - Funcionalidades de editar e excluir transações.
+ *
+ * @returns {JSX.Element} A página do dashboard renderizada.
+ */
 function Dashboard() {
-  // 1. CONSUMINDO OS "CÉREBROS" GLOBAIS
   
-  // Pega o objeto 'user' (para o "Olá, Alessandro!") (V7.1)
   const { user } = useAuth(); 
   
-  // Pega todos os dados e funções injetados pelo 'MainLayout' (Pai)
   const { 
-    data, // Os dados do resumo (R$, Gastos) vindos do 'GET /dashboard/'
-    loading, // O estado de 'loading' do Pai
-    error, // O estado de 'error' do Pai
+    data,
+    loading,
+    error,
     filterType,
     setFilterType,
     dataInicio,
     setDataInicio,
     dataFim,
     setDataFim,
-    dataInicioStr, // A string de data (AAAA-MM-DD) para a API
-    dataFimStr,    // A string de data (AAAA-MM-DD) para a API
-    handleEditClick,     // (V6.0) Função do Pai para abrir o modal em modo de edição
-    handleDeleteSuccess  // (V9.0) Função do Pai para atualizar o resumo após deletar
+    dataInicioStr,
+    dataFimStr,
+    handleEditClick,
+    handleDeleteSuccess
   } = useOutletContext();
   
-  // --- Estados Locais do Dashboard ---
-  // (Este componente gerencia suas próprias listas de transações)
-  
-  // Lista 1: As 5 últimas (ignora o filtro)
+  // --- Estados Locais ---
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
   
-  // Lista 2: Transações filtradas (baseadas no filtro global)
   const [periodTransactions, setPeriodTransactions] = useState([]);
   const [loadingPeriod, setLoadingPeriod] = useState(true);
   
-  // Estado para feedback de erro ao deletar
   const [deleteError, setDeleteError] = useState('');
 
   
-  // --- Efeito 1: Busca "Últimas Transações" ---
-  // Dispara UMA VEZ quando os dados do Pai (resumo) carregam.
+  /**
+   * Efeito colateral para buscar as 5 últimas transações.
+   * Executa quando os dados principais (data) são carregados.
+   */
   useEffect(() => {
-    // Não busca se o Pai (MainLayout) ainda não carregou os dados
     if (!data) return; 
 
     setLoadingRecent(true);
-    // Chama o endpoint de paginação (ignora filtros de data)
     api.get('/transacoes/?skip=0&limit=5')
       .then(response => {
         setRecentTransactions(response.data);
@@ -94,14 +83,14 @@ function Dashboard() {
         console.error("Erro ao buscar transações recentes:", err);
         setLoadingRecent(false);
       });
-  }, [data]); // <-- Gatilho: 'data' (do Pai)
+  }, [data]);
 
   
-  // --- EFEITO 2: Busca "Transações no Período" ---
-  // Dispara toda vez que as datas do filtro global (do Pai) mudam.
-  // (V9.1 Corrigido: usa 'dataInicioStr' e 'dataFimStr' do Pai)
+  /**
+   * Efeito colateral para buscar transações do período filtrado.
+   * Executa quando as strings de data (dataInicioStr, dataFimStr) mudam.
+   */
   useEffect(() => {
-    // Não busca se as strings de data ainda não foram calculadas pelo Pai
     if (!dataInicioStr || !dataFimStr) return;
 
     const fetchPeriodTransactions = async () => {
@@ -122,13 +111,12 @@ function Dashboard() {
     
     fetchPeriodTransactions();
     
-  }, [dataInicioStr, dataFimStr]); // <-- Gatilho: as datas do Pai
+  }, [dataInicioStr, dataFimStr]);
 
 
-  // --- Funções "Getters" para os Gráficos ---
-  // (Preparam os dados para os componentes <DoughnutChart>)
-
-  // (V5.3 Corrigido: Passa o campo 'cor' para o gráfico)
+  /**
+   * Prepara os dados para o gráfico de gastos.
+   */
   const getGastosChartData = () => {
       return data && data.gastos_por_categoria
       ? data.gastos_por_categoria
@@ -142,10 +130,11 @@ function Dashboard() {
       : []; 
   };
   
-  // (V5.3 Corrigido: Passa o campo 'cor' para o gráfico)
+  /**
+   * Prepara os dados para o gráfico de receitas.
+   */
   const getReceitasChartData = () => {
       if (data && data.receitas_por_categoria && data.receitas_por_categoria.length > 0) {
-        // (V5.0) Usa os dados reais do backend
         return data.receitas_por_categoria
           .filter(item => parseFloat(item.valor_total) > 0)
           .map(item => ({
@@ -155,17 +144,18 @@ function Dashboard() {
             cor: item.cor
           }));
       }
-      // (Fallback se não houver receitas, mas houver valor total)
       if (data && data.total_receitas > 0) {
           const totalReceitasFloat = parseFloat(data.total_receitas);
           return [
-            { nome: 'Serviços', valor: totalReceitasFloat, count: 1, cor: '#00E08F' }, // Mock com cor
+            { nome: 'Serviços', valor: totalReceitasFloat, count: 1, cor: '#00E08F' },
           ].filter(item => item.valor > 0);
       }
       return [];
   };
   
-  // (V3.8) Gera o subtítulo dinâmico (ex: "Resumo de quinta-feira...")
+  /**
+   * Gera o texto do subtítulo baseado no filtro selecionado.
+   */
   const getSubtituloFiltro = () => {
     const dataInicioObj = new Date(dataInicio);
     const dataFimObj = new Date(dataFim);
@@ -184,21 +174,20 @@ function Dashboard() {
     }
   };
   
-  // --- Lógica de CRUD (Exclusão V9.0) ---
   /**
-   * Chamado ao clicar no ícone de lixeira (Delete).
-   * Chama o endpoint SÍNCRONO de delete.
+   * Manipula a exclusão de uma transação.
+   * Solicita confirmação e chama a API para deleção, atualizando o dashboard em seguida.
+   *
+   * @param {object} transaction - A transação a ser excluída.
    */
   const handleDeleteTransaction = async (transaction) => {
-    setDeleteError(''); // Limpa erros antigos
+    setDeleteError('');
     
     if (!window.confirm(`Tem certeza que deseja excluir a transação: "${transaction.descricao}"?`)) {
       return;
     }
     
     try {
-      // Chama o endpoint SÍNCRONO (V-Revert)
-      // (Envia as datas do filtro para o backend recalcular)
       const response = await api.delete(`/transacoes/${transaction.id}`, {
         params: {
           data_inicio: dataInicioStr,
@@ -206,8 +195,6 @@ function Dashboard() {
         }
       });
       
-      // A 'response.data' é o DashboardData atualizado
-      // Passa os dados para o Pai (MainLayout) atualizar o estado
       handleDeleteSuccess(response.data);
       
     } catch (err) {
@@ -216,11 +203,14 @@ function Dashboard() {
     }
   };
   
-  
   /**
-   * Função auxiliar para renderizar UMA lista de transações (V2.11)
-   * (Usada 2x: "Período" e "Últimas 5")
-   * @param {boolean} showActions - Se deve renderizar os botões de Editar/Deletar
+   * Renderiza uma lista de transações.
+   *
+   * @param {string} title - O título da seção da lista.
+   * @param {Array} transactions - Lista de transações a exibir.
+   * @param {boolean} loadingState - Estado de carregamento.
+   * @param {boolean} showActions - Se deve exibir botões de editar/excluir.
+   * @returns {JSX.Element} O componente da lista.
    */
   const renderTransactionList = (title, transactions, loadingState, showActions) => {
     let content;
@@ -233,7 +223,6 @@ function Dashboard() {
         <ul>
           {transactions.map((tx) => (
             <li key={tx.id}>
-              {/* Lado Esquerdo: Detalhes */}
               <div className="transaction-details">
                 <span>{tx.descricao}</span>
                 <span className="transaction-date">
@@ -242,14 +231,12 @@ function Dashboard() {
                 </span>
               </div>
               
-              {/* Lado Direito: Ações e Valor */}
               <div className="transaction-actions">
                 <span className={`transaction-amount ${tx.categoria.tipo === 'Gasto' ? 'gasto' : 'lucro'}`}>
                   {tx.categoria.tipo === 'Gasto' ? '-' : '+'}
                   {formatCurrency(tx.valor)}
                 </span>
                 
-                {/* (V6.0 / V9.0) Mostra os botões de Ação */}
                 {showActions && (
                   <>
                     <button className="edit-button" onClick={() => handleEditClick(tx)}>
@@ -269,7 +256,6 @@ function Dashboard() {
     return (
       <div className="recent-transactions">
         <h2>{title}</h2>
-        {/* Mostra o erro de 'delete' (se houver) apenas no card "Período" */}
         {title === "Transações no Período" && deleteError && 
           <p className="error-message">{deleteError}</p>}
         {content}
@@ -278,22 +264,18 @@ function Dashboard() {
   };
 
   /**
-   * Renderiza o conteúdo principal (Cards, Gráficos, Listas)
-   * (Só é chamado se 'loading' (do Pai) for false)
+   * Renderiza o conteúdo principal do dashboard quando os dados estão carregados.
    */
   const renderContent = () => {
-    // Se o Pai (MainLayout) estiver carregando ou falhar, mostra o status.
     if (loading) { return <p className="dashboard-loading">Carregando dados...</p>; }
     if (error) { return <p className="error-message">{error}</p>; }
     
-    // Se os dados do Pai (resumo) estiverem prontos
     if (data) {
       const gastosChartData = getGastosChartData();
       const receitasChartData = getReceitasChartData();
       
       return (
         <>
-          {/* 1. Cards de Resumo */}
           <div className="dashboard-stats">
              <div className="stat-card">
               <h3>Total Receitas</h3>
@@ -311,7 +293,6 @@ function Dashboard() {
             </div>
           </div>
           
-          {/* 2. Gráficos de Rosca */}
           <div className="dashboard-charts-grid">
             <div className="chart-container">
               <h3>Receitas por Categoria</h3>
@@ -331,18 +312,17 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* 3. Listas de Transações */}
           {renderTransactionList(
             "Transações no Período", 
             periodTransactions, 
             loadingPeriod,
-            true // <-- Sim, mostrar botões de ação
+            true
           )}
           {renderTransactionList(
             "Últimas 5 Transações", 
             recentTransactions, 
             loadingRecent,
-            true // <-- Sim, mostrar botões de ação
+            true
           )}
         </>
       );
@@ -353,12 +333,10 @@ function Dashboard() {
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
-        {/* (V7.2) "Olá, [Nome Completo]" ou "Olá, [nome_usuario]" */}
         <h2>Olá, {user ? (user.nome_completo || user.nome_usuario) : '...'}!</h2>
         <span className="dashboard-subtitle">{getSubtituloFiltro()}</span>
       </header>
 
-      {/* A UI DO FILTRO (Componente V3.3) */}
       <FilterControls 
         filterType={filterType}
         setFilterType={setFilterType}
@@ -368,7 +346,6 @@ function Dashboard() {
         setDataFim={setDataFim}
       />
 
-      {/* O Conteúdo Principal (Cards, Gráficos, Listas) */}
       <main className="dashboard-content">
         {renderContent()}
       </main>

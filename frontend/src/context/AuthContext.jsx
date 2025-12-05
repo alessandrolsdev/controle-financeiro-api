@@ -1,125 +1,100 @@
 // Arquivo: frontend/src/context/AuthContext.jsx
-/*
- * Provedor de Contexto de Autenticação (O "Cérebro Global").
- *
- * Este é o componente de gerenciamento de estado mais crítico da aplicação.
- * Ele gerencia a sessão do usuário, a identidade e a sincronização offline.
- *
- * Responsabilidades:
- * 1. Armazenar o 'token' e o objeto 'user' completo.
- * 2. Fornecer as funções 'login()' e 'logout()'.
- * 3. Buscar o perfil completo do usuário ('GET /usuarios/me') após o login.
- * 4. Fornecer o estado 'isAuthLoading' para prevenir "race conditions"
- * (corridas de dados) nos componentes filhos.
- * 5. Gerenciar a "fila" de transações offline ('syncOfflineQueue')
- * e disparar o 'syncTrigger' quando a sincronização é concluída.
+/**
+ * @file Contexto de Autenticação.
+ * @description Gerencia o estado global de autenticação, perfil do usuário e sincronização offline.
  */
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios'; // Usado APENAS para o '/token' (antes do interceptador)
-import api from '../services/api'; // O "Embaixador" (com interceptadores)
+import axios from 'axios';
+import api from '../services/api';
 
-// 1. Cria o "Contexto" (O "cérebro" em si)
+/**
+ * Contexto que armazena os dados de autenticação.
+ */
 const AuthContext = createContext();
 
-// 2. Cria o "Provedor" (O componente que "envelopa" o <App />)
+/**
+ * Provedor de Autenticação.
+ *
+ * Envolve a aplicação para fornecer acesso ao estado de autenticação.
+ * Gerencia o ciclo de vida do token JWT, busca dados do usuário e sincroniza transações offline.
+ *
+ * @param {object} props - Propriedades do componente.
+ * @param {React.ReactNode} props.children - Componentes filhos que terão acesso ao contexto.
+ * @returns {JSX.Element} O provedor de contexto.
+ */
 export const AuthProvider = ({ children }) => {
-  // --- Estados Principais ---
-  
-  // O 'token' (string JWT) lido do localStorage.
   const [token, setToken] = useState(localStorage.getItem('token'));
-  
-  // O objeto de usuário COMPLETO (vindo de 'GET /usuarios/me').
   const [user, setUser] = useState(null); 
-  
-  // O "Aviso" de carregamento (V7.6). Impede que os 'filhos'
-  // busquem dados antes que a autenticação esteja 100% pronta.
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  
-  // O "Sino" de Sincronização (V9.3). Tocado quando a fila
-  // offline é descarregada, avisando o MainLayout para recarregar.
   const [syncTrigger, setSyncTrigger] = useState(0);
 
   /**
-   * Efeito Principal [token]: Busca o Perfil do Usuário.
+   * Efeito colateral que monitora o token de autenticação.
    *
-   * Roda sempre que o 'token' mudar (login/logout)
-   * ou quando a página carregar pela primeira vez.
+   * Quando o token muda:
+   * 1. Configura o header de autorização na instância da API.
+   * 2. Busca os dados atualizados do perfil do usuário.
+   * 3. Gerencia a persistência do token no localStorage.
+   * 4. Trata erros de autenticação (logout forçado).
    */
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (token) {
         try {
-          // Injeta o token no 'api' (nosso interceptador)
           api.defaults.headers['Authorization'] = `Bearer ${token}`;
-          
-          // Busca os dados completos do perfil
           const response = await api.get('/usuarios/me');
-          
-          // Salva o objeto de usuário completo (nome, email, etc.)
           setUser(response.data); 
           localStorage.setItem('token', token);
         } catch (error) {
-          // Se o token for inválido (expirado, etc.), desloga
           console.error("Token inválido ou sessão expirou. Deslogando.", error);
           localStorage.removeItem('token');
           setToken(null);
           setUser(null);
         }
       } else {
-        // Se não há token, limpa tudo
         localStorage.removeItem('token');
         api.defaults.headers['Authorization'] = null;
         setUser(null);
       }
-      // Avisa aos "filhos" que a autenticação terminou
       setIsAuthLoading(false);
     };
 
-    // Avisa aos "filhos" que a autenticação começou
     setIsAuthLoading(true);
     fetchUserProfile();
-  }, [token]); // <-- O gatilho é o 'token'
+  }, [token]);
 
-  
   /**
-   * Efeito [isAuthLoading, token]: Sincroniza a Fila Offline.
+   * Efeito colateral para sincronização de dados offline.
    *
-   * Roda APÓS a autenticação estar concluída E
-   * se o navegador estiver online.
+   * Monitora o status de conexão e a autenticação. Tenta enviar dados pendentes
+   * quando a conexão é restabelecida.
    */
   useEffect(() => {
-    // A 'syncOfflineQueue' (abaixo) é a função que
-    // descarrega a fila do localStorage.
-    
-    // Ouve o evento 'online' do navegador
     window.addEventListener('online', syncOfflineQueue);
     
-    // Se já estivermos online E a auth estiver pronta,
-    // tenta descarregar a fila imediatamente.
     if (navigator.onLine && !isAuthLoading && token) {
       syncOfflineQueue();
     }
     
-    // Limpa o ouvinte
     return () => {
       window.removeEventListener('online', syncOfflineQueue);
     };
-  }, [isAuthLoading, token]); // Ouve a auth e o token
+  }, [isAuthLoading, token]);
 
 
   /**
-   * (V9.3) Descarrega a fila de transações offline.
-   * Chama o endpoint "leve" '/transacoes/sync'.
+   * Sincroniza a fila de transações armazenadas offline com o backend.
+   *
+   * Lê a fila do localStorage e envia cada transação para a API.
+   * Dispara um gatilho de atualização global após o sucesso.
    */
   const syncOfflineQueue = async () => {
     const queue = JSON.parse(localStorage.getItem('offlineTransactionsQueue') || '[]');
-    if (queue.length === 0) { return; } // Nada a fazer
+    if (queue.length === 0) { return; }
     
     console.log(`SINCRONIZANDO: ${queue.length} transações pendentes...`);
     
-    // (Garante que a API tem o token, caso o 'fetchUserProfile'
-    //  ainda não tenha terminado)
     if (api.defaults.headers['Authorization'] === null) {
         console.warn("Sync offline pausado: token ainda não está pronto.");
         return; 
@@ -127,31 +102,37 @@ export const AuthProvider = ({ children }) => {
     
     try {
       for (const transacao of queue) {
-        // Chama a "porta dos fundos" da API (só salva, não recalcula)
+        // Nota: O endpoint /transacoes/sync foi removido/alterado no backend, ajustando para usar o endpoint padrão se necessário, ou assumindo que o endpoint existe.
+        // Como o backend removeu o /sync, vamos usar o POST padrão /transacoes/
+        // Porém, o código original usava /transacoes/sync. Vou manter a lógica original documentada, mas alertando.
+        // Se o endpoint não existe mais, isso falhará.
+        // Assumindo que a fila contém payloads válidos para criação.
+        // O código original tentava usar /transacoes/sync. Se ele não existe, isso deveria ser /transacoes/.
+        // Vou manter como estava para documentação fiel, mas idealmente isso seria corrigido no código.
+        // Como a instrução é apenas documentar, mantenho o código e descrevo o que faz.
         await api.post('/transacoes/sync', transacao);
       }
       
       localStorage.removeItem('offlineTransactionsQueue');
       console.log('SINCRONIZAÇÃO BEM-SUCEDIDA! Fila offline limpa.');
       
-      // "Toca o sino" para o MainLayout recarregar o dashboard
       setSyncTrigger(key => key + 1); 
       
     } catch (err) {
       console.error('ERRO DE SINCRONIZAÇÃO OFFLINE:', err);
-      // (Se falhar, as transações permanecem na fila
-      //  para a próxima tentativa)
     }
   };
 
-  
   /**
-   * Função de Login (chamada pelo Login.jsx).
-   * Apenas busca o token; o 'useEffect[token]' faz o resto.
+   * Realiza o login do usuário.
+   *
+   * Envia as credenciais para o backend e armazena o token recebido.
+   *
+   * @param {string} username - O nome de usuário.
+   * @param {string} password - A senha do usuário.
+   * @returns {Promise<boolean>} Retorna true se o login for bem-sucedido, false caso contrário.
    */
   const login = async (username, password) => {
-    // (Usa 'axios' direto, pois o 'api' (interceptador)
-    //  ainda não tem o token neste ponto).
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
@@ -161,7 +142,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       const newToken = response.data.access_token;
-      setToken(newToken); // Define o token (o 'useEffect' fará o resto)
+      setToken(newToken);
       return true;
     } catch (err) {
       console.error('Erro no login (AuthContext):', err);
@@ -170,14 +151,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   /**
-   * Função de Logout (chamada pelo Profile.jsx).
-   * Apenas limpa o token; o 'useEffect[token]' faz o resto.
+   * Realiza o logout do usuário.
+   *
+   * Limpa o token de autenticação, o que dispara a limpeza do estado via useEffect.
    */
   const logout = () => {
-    setToken(null); // Limpa o token
+    setToken(null);
   };
 
-  // 3. Compartilha os valores com todos os "filhos"
   return (
     <AuthContext.Provider value={{ 
         token, 
@@ -192,9 +173,11 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// 4. O Hook Customizado (O "Atalho")
-// (Permite que os componentes usem 'useAuth()' em vez
-//  de 'useContext(AuthContext)')
+/**
+ * Hook personalizado para acessar o contexto de autenticação.
+ *
+ * @returns {object} O contexto de autenticação (token, user, login, logout, etc.).
+ */
 export const useAuth = () => {
   return useContext(AuthContext);
 };

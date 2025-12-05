@@ -1,34 +1,21 @@
 // Arquivo: frontend/src/pages/Profile/Profile.jsx
-/*
- * Página de Perfil e Gerenciamento de Conta (V7.2).
- *
- * Esta página é um "Filho" do 'MainLayout'.
- * Ela permite ao usuário visualizar e editar suas informações
- * pessoais, alterar seu nome de usuário (login) e
- * alterar sua senha.
- *
- * Decisão de Arquitetura (V7.1):
- * Esta página NÃO busca (fetch) seus próprios dados.
- * Ela lê o objeto 'user' completo diretamente do 'useAuth()',
- * que é preenchido quando o 'AuthContext' chama 'GET /usuarios/me'.
+/**
+ * @file Página de Perfil e Gerenciamento de Conta.
+ * @description Permite visualização e edição de dados do usuário, alteração de senha e logout.
  */
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext'; // O "cérebro" (para 'user' e 'logout')
-import api from '../../services/api'; // O "embaixador"
-import './Profile.css'; // Estilos locais
-
-// --- Funções Auxiliares (Helpers) de Data ---
-// (Necessárias para formatar a data entre o objeto Date()
-//  e o input <input type="date">)
+import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
+import './Profile.css';
 
 /**
- * Formata um objeto Date() para a string "AAAA-MM-DD"
- * que o '<input type="date">' exige como valor.
+ * Formata um objeto Date para string no formato 'AAAA-MM-DD'.
+ * @param {Date} dateObject - O objeto de data.
+ * @returns {string} A string de data formatada.
  */
 const formatISODate = (dateObject) => {
   if (!dateObject) return '';
-  // Garante que 'dateObject' seja um objeto Date válido
   const date = new Date(dateObject); 
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -37,9 +24,9 @@ const formatISODate = (dateObject) => {
 };
 
 /**
- * Lida com a mudança do calendário.
- * Converte a string 'AAAA-MM-DD' (do input) para um
- * objeto Date() no fuso horário local correto.
+ * Manipula a alteração de data no input, corrigindo o fuso horário.
+ * @param {Event} event - O evento de input.
+ * @param {function} setDate - A função setter para o estado da data.
  */
 const handleDateChange = (event, setDate) => {
   const dateString = event.target.value;
@@ -48,22 +35,26 @@ const handleDateChange = (event, setDate) => {
     return;
   }
   const data = new Date(dateString);
-  // (V2.9) Trata o fuso horário para não pular um dia
   const dataLocal = new Date(data.valueOf() + data.getTimezoneOffset() * 60000);
   setDate(dataLocal);
 };
-// ---------------------------------------------------
 
-
+/**
+ * Componente de Perfil.
+ *
+ * Exibe formulários para atualização de dados cadastrais e troca de senha.
+ * Gerencia o logout do usuário.
+ *
+ * @returns {JSX.Element} A página de perfil renderizada.
+ */
 function Profile() {
-  // 1. Pega o 'user' (objeto de perfil completo) e 'logout' do "cérebro"
   const { user, logout } = useAuth(); 
 
   // --- Estados do Formulário de Perfil ---
   const [nomeUsuario, setNomeUsuario] = useState('');
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [email, setEmail] = useState('');
-  const [dataNascimento, setDataNascimento] = useState(null); // (Objeto Date())
+  const [dataNascimento, setDataNascimento] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   
   // --- Estados do Formulário de Senha ---
@@ -71,7 +62,7 @@ function Profile() {
   const [senhaNova, setSenhaNova] = useState('');
   const [senhaConfirmar, setSenhaConfirmar] = useState('');
 
-  // --- Estados de UI (Feedback e Loading) ---
+  // --- Estados de UI ---
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   
@@ -82,10 +73,7 @@ function Profile() {
 
 
   /**
-   * Efeito [user]: Sincroniza o 'user' (do Context) com o estado local.
-   *
-   * Quando o 'AuthContext' termina de carregar o 'user',
-   * este efeito preenche os campos do formulário.
+   * Efeito colateral que preenche o formulário com dados do usuário logado.
    */
   useEffect(() => {
     if (user) {
@@ -94,20 +82,20 @@ function Profile() {
       setEmail(user.email || '');
       setAvatarUrl(user.avatar_url || '');
       
-      // (Usa o helper para garantir que a data (que vem como AAAA-MM-DD
-      //  do JSON) seja convertida corretamente para o fuso local)
       if (user.data_nascimento) {
         handleDateChange({ target: { value: user.data_nascimento } }, setDataNascimento);
       } else {
         setDataNascimento(null);
       }
     }
-  }, [user]); // <-- O gatilho é o 'user' do AuthContext
+  }, [user]);
 
 
   /**
-   * HANDLER 1: Salvar Detalhes do Perfil (V7.2).
-   * Chama 'PUT /usuarios/me'.
+   * Manipula a atualização dos dados do perfil.
+   * Se o nome de usuário for alterado, força o logout.
+   *
+   * @param {Event} event - O evento de submit.
    */
   const handleProfileSubmit = async (event) => {
     event.preventDefault();
@@ -115,7 +103,6 @@ function Profile() {
     setProfileError('');
     setProfileSuccess('');
     
-    // Verifica se o nome de usuário (login) foi alterado
     const usernameChanged = (user && user.nome_usuario !== nomeUsuario);
     
     try {
@@ -129,21 +116,16 @@ function Profile() {
       setProfileLoading(false);
       setProfileSuccess('Perfil atualizado com sucesso!');
       
-      // Decisão de Segurança (V7.2):
-      // Se o usuário mudou o 'nome_usuario' (seu login), o token JWT
-      // antigo (baseado no 'sub' antigo) torna-se inválido.
-      // Devemos forçar o logout para que ele se autentique novamente.
       if (usernameChanged) {
         setProfileSuccess('Nome de usuário alterado! Por favor, faça o login novamente.');
         setTimeout(() => {
           logout();
-        }, 2000); // (Espera 2s para o usuário ler a msg)
+        }, 2000);
       }
 
     } catch (err) {
       console.error("Erro ao atualizar perfil:", err);
       if (err.response && err.response.status === 400) {
-        // (Pega o erro do backend, ex: "Esse nome de usuário já está em uso.")
         setProfileError(err.response.data.detail);
       } else {
         setProfileError("Não foi possível atualizar o perfil.");
@@ -153,8 +135,10 @@ function Profile() {
   };
 
   /**
-   * HANDLER 2: Mudar Senha (V7.0).
-   * Chama 'POST /usuarios/mudar-senha'.
+   * Manipula a alteração de senha.
+   * Realiza validações básicas e chama a API.
+   *
+   * @param {Event} event - O evento de submit.
    */
   const handlePasswordSubmit = async (event) => {
     event.preventDefault();
@@ -162,20 +146,18 @@ function Profile() {
     setPasswordError('');
     setPasswordSuccess('');
 
-    // Validação de frontend
     if (senhaNova !== senhaConfirmar) {
       setPasswordError("As novas senhas não conferem.");
       setPasswordLoading(false);
       return;
     }
-    if (senhaNova.length < 4) { // (Regra de negócio simples)
+    if (senhaNova.length < 4) {
        setPasswordError("A nova senha deve ter pelo menos 4 caracteres.");
        setPasswordLoading(false);
        return;
     }
 
     try {
-      // Chama o endpoint de mudança de senha
       await api.post('/usuarios/mudar-senha', {
         senha_antiga: senhaAntiga,
         senha_nova: senhaNova
@@ -184,14 +166,12 @@ function Profile() {
       setPasswordLoading(false);
       setPasswordSuccess('Senha alterada com sucesso!');
       
-      // Limpa os campos de senha por segurança
       setSenhaAntiga('');
       setSenhaNova('');
       setSenhaConfirmar('');
     } catch (err) {
       console.error("Erro ao mudar senha:", err);
       if (err.response && err.response.status === 400) {
-        // (Pega o erro do backend, ex: "A senha antiga está incorreta.")
         setPasswordError(err.response.data.detail);
       } else {
         setPasswordError("Não foi possível alterar a senha.");
@@ -201,8 +181,7 @@ function Profile() {
   };
 
   /**
-   * HANDLER 3: Logout.
-   * Chama a função 'logout()' do AuthContext.
+   * Realiza o logout do usuário.
    */
   const handleLogout = () => {
     logout();
@@ -216,7 +195,6 @@ function Profile() {
 
       <main className="profile-content">
         
-        {/* Card 1: Avatar e Nome */}
         <div className="profile-card avatar-card">
           {avatarUrl ? (
             <img src={avatarUrl} alt="Avatar" className="avatar-image" />
@@ -225,11 +203,9 @@ function Profile() {
               <span>(Sem foto)</span>
             </div>
           )}
-          {/* (V7.2) Usa o "Nome Completo" (se existir) ou o "Nome de Usuário" */}
           <h3>Olá, {user ? (user.nome_completo || user.nome_usuario) : 'Usuário'}!</h3>
         </div>
 
-        {/* Card 2: Informações Pessoais e Login (V7.2) */}
         <form className="profile-card" onSubmit={handleProfileSubmit}>
           <h2>Informações Pessoais e Login</h2>
           
@@ -278,7 +254,7 @@ function Profile() {
                 id="data_nascimento"
                 value={dataNascimento ? formatISODate(dataNascimento) : ''}
                 onChange={(e) => handleDateChange(e, setDataNascimento)}
-                max={formatISODate(new Date())} // (V2.10) Impede datas futuras
+                max={formatISODate(new Date())}
               />
             </div>
             
@@ -299,7 +275,6 @@ function Profile() {
           </>
         </form>
 
-        {/* Card 3: Mudar Senha (V7.0) */}
         <form className="profile-card" onSubmit={handlePasswordSubmit}>
           <h2>Alterar Senha</h2>
 
@@ -345,7 +320,6 @@ function Profile() {
           </button>
         </form>
 
-        {/* Card 4: Logout */}
         <div className="profile-card">
           <h2>Sessão</h2>
           <button onClick={handleLogout} className="logout-button-profile">

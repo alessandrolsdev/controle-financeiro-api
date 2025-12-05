@@ -1,20 +1,7 @@
 // Arquivo: frontend/src/pages/Reports/Reports.jsx
-/*
- * Página de Relatórios Visuais.
- *
- * Este componente é um "Filho" do 'MainLayout' (assim como o Dashboard).
- * Sua responsabilidade é consumir o filtro de data global e
- * exibir visualizações de dados detalhadas.
- *
- * Responsabilidades:
- * 1. Renderizar os Filtros Globais (<FilterControls />).
- * 2. Buscar dados de 3 endpoints da API em paralelo
- * (Tendência, Resumo do Dashboard, Lista Detalhada).
- * 3. Renderizar o gráfico de Linha (TrendChart).
- * 4. Renderizar os gráficos de Barra (Gastos e Receitas).
- * 5. Implementar a lógica de 'Exportar para Excel' (V4.3).
- * 6. Passar o 'theme' (Light/Dark) para os gráficos para
- * corrigir o contraste do SVG (V4.6).
+/**
+ * @file Página de Relatórios e Análise Financeira.
+ * @description Exibe gráficos de tendências, distribuição de receitas/despesas e permite exportação de dados para Excel.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -23,40 +10,29 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import api from '../../services/api';
 import './Reports.css';
 
-// Importa a biblioteca de Excel (V4.2)
 import * as XLSX from 'xlsx'; 
 
-// Importa os componentes de UI
 import FilterControls from '../../components/FilterControls/FilterControls';
 import HorizontalBarChart from '../../components/HorizontalBarChart/HorizontalBarChart';
 
-// Importa os "cérebros" de contexto
 import { useTheme } from '../../context/ThemeContext'; 
 import { useAuth } from '../../context/AuthContext';
 
 
-// --- Componente Filho "TrendChart" (Gráfico de Linha V4.6) ---
-// (Definido localmente, pois é usado apenas aqui)
-
 /**
- * Renderiza o gráfico de linha "Saldo ao Longo do Tempo".
+ * Componente local para renderizar o gráfico de linhas de tendência financeira.
  *
  * @param {object} props
- * @param {Array<object>} props.data - Os dados formatados.
- * @param {string} props.filterType - 'daily', 'monthly', etc. (para formatar o eixo X).
- * @param {string} props.theme - 'light' ou 'dark' (para a cor dos eixos).
+ * @param {Array<object>} props.data - Dados para plotagem (data, receitas, despesas).
+ * @param {string} props.filterType - Tipo de filtro de data ('daily', 'monthly', etc.) para formatação do eixo X.
+ * @param {string} props.theme - Tema atual ('light' ou 'dark') para ajuste de cores.
  */
 const TrendChart = ({ data, filterType, theme }) => {
   
-  // Decisão de Engenharia (V4.6):
-  // O SVG (recharts) não lê variáveis CSS.
-  // Definimos a cor do texto do eixo (stroke) via JavaScript.
-  const axisColor = theme === 'dark' ? '#CED4DA' : '#6C757D'; // Dark: Cinza Suporte, Light: Cinza Névoa
+  const axisColor = theme === 'dark' ? '#CED4DA' : '#6C757D';
   
   /**
-   * Formata o eixo X (horizontal)
-   * Se for 'daily', mostra "14:00".
-   * Se não, mostra "06/Nov".
+   * Formata os valores do eixo X.
    */
   const formatXAxis = (tickItem) => {
     const date = new Date(tickItem);
@@ -66,7 +42,9 @@ const TrendChart = ({ data, filterType, theme }) => {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
   
-  /** Formata o eixo Y (vertical) (ex: "R$ 10k") */
+  /**
+   * Formata os valores do eixo Y para moeda abreviada.
+   */
   const formatYAxis = (tickItem) => {
     if (tickItem > 1000) {
       return `R$ ${(tickItem / 1000).toLocaleString('pt-BR')}k`;
@@ -83,7 +61,6 @@ const TrendChart = ({ data, filterType, theme }) => {
           stroke={axisColor}
           tickFormatter={formatXAxis} 
         />
-        {/* Decisão de Design (V3.0): Eixo Y movido para a direita. */}
         <YAxis 
           stroke={axisColor}
           tickFormatter={formatYAxis} 
@@ -99,7 +76,6 @@ const TrendChart = ({ data, filterType, theme }) => {
           labelFormatter={(label) => {
             const date = new Date(label);
             if (filterType === 'daily') {
-              // (V3.7) Corrige o fuso horário do tooltip para 'daily'
               const offset = date.getTimezoneOffset() * 60000;
               const localDate = new Date(date.valueOf() + offset);
               return localDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -118,15 +94,18 @@ const TrendChart = ({ data, filterType, theme }) => {
     </ResponsiveContainer>
   );
 };
-// ---------------------------------------------------
 
 
-// --- Componente Pai "Reports" ---
+/**
+ * Componente de Página de Relatórios.
+ *
+ * Exibe gráficos detalhados de tendência financeira, análise de gastos e receitas por categoria.
+ * Oferece funcionalidade para exportar os dados exibidos para uma planilha Excel.
+ *
+ * @returns {JSX.Element} A página de relatórios renderizada.
+ */
 function Reports() {
   
-  // 1. CONSUMINDO OS "CÉREBROS" GLOBAIS
-  
-  // Pega todos os dados e funções do filtro global (do MainLayout)
   const { 
     dataInicioStr, 
     dataFimStr,
@@ -138,29 +117,23 @@ function Reports() {
     setDataFim
   } = useOutletContext();
   
-  // Pega o tema (light/dark) para passar aos gráficos
   const { theme } = useTheme(); 
-  // Pega o status de loading da autenticação (para evitar race conditions)
   const { isAuthLoading } = useAuth();
 
-  // --- Estados Locais (para os dados dos 3 gráficos) ---
   const [lineChartData, setLineChartData] = useState([]);
   const [gastosBarData, setGastosBarData] = useState([]);
   const [receitasBarData, setReceitasBarData] = useState([]);
-  const [detailedTransactions, setDetailedTransactions] = useState([]); // (Para o Excel)
+  const [detailedTransactions, setDetailedTransactions] = useState([]);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   
   /**
-   * Efeito Principal: Busca TODOS os dados dos relatórios.
-   *
-   * Dispara quando os filtros (do Pai) mudam, mas ESPERA
-   * a autenticação ('isAuthLoading') estar pronta.
+   * Efeito colateral para carregar todos os dados dos relatórios.
+   * Realiza chamadas paralelas à API para buscar dados de tendência, dashboard e transações detalhadas.
    */
   useEffect(() => {
-    // V7.6: Espera o AuthContext e os filtros estarem prontos
     if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
 
     const fetchAllReportData = async () => {
@@ -168,25 +141,23 @@ function Reports() {
       setError('');
       
       try {
-        // Prepara os parâmetros para as 3 chamadas de API
         const paramsTrend = {
           data_inicio: dataInicioStr,
           data_fim: dataFimStr,
-          filtro: filterType // (Envia 'daily', 'monthly', etc. - V3.7)
+          filtro: filterType
         };
         const paramsDashboard = {
           data_inicio: dataInicioStr,
           data_fim: dataFimStr,
         };
         
-        // V9.6: Busca as 3 fontes de dados em paralelo
         const [responseTrend, responseDashboard, responseTransactions] = await Promise.all([
-          api.get('/relatorios/tendencia', { params: paramsTrend }), // Gráfico 1
-          api.get('/dashboard/', { params: paramsDashboard }),       // Gráfico 2 e 3
-          api.get('/transacoes/periodo/', { params: paramsDashboard }) // Para o Excel
+          api.get('/relatorios/tendencia', { params: paramsTrend }),
+          api.get('/dashboard/', { params: paramsDashboard }),
+          api.get('/transacoes/periodo/', { params: paramsDashboard })
         ]);
 
-        // --- Processa Gráfico 1 (Linha) ---
+        // Processa dados de Tendência
         const combinedData = {};
         responseTrend.data.receitas.forEach(item => {
           combinedData[item.data] = { ...combinedData[item.data], data: item.data, Receitas: parseFloat(item.valor) };
@@ -201,31 +172,30 @@ function Reports() {
         })).sort((a, b) => new Date(a.data) - new Date(b.data));
         setLineChartData(finalData);
 
-        // --- Processa Gráfico 2 (Barras de Gastos) ---
+        // Processa dados de Gastos por Categoria
         const gastosFormatados = responseDashboard.data.gastos_por_categoria
           .filter(item => parseFloat(item.valor_total) > 0)
           .map(item => ({
             nome: item.nome_categoria,
             valor: parseFloat(item.valor_total),
             count: item.total_compras,
-            cor: item.cor // (V5.0) Passa a cor dinâmica
+            cor: item.cor
           }))
-          .sort((a, b) => a.valor - b.valor); // (Ordena menor -> maior)
+          .sort((a, b) => a.valor - b.valor);
         setGastosBarData(gastosFormatados);
 
-        // --- Processa Gráfico 3 (Barras de Receitas) ---
+        // Processa dados de Receitas por Categoria
         const receitasFormatadas = responseDashboard.data.receitas_por_categoria
           .filter(item => parseFloat(item.valor_total) > 0)
           .map(item => ({
             nome: item.nome_categoria,
             valor: parseFloat(item.valor_total),
             count: item.total_compras,
-            cor: item.cor // (V5.0) Passa a cor dinâmica
+            cor: item.cor
           }))
           .sort((a, b) => a.valor - b.valor);
         setReceitasBarData(receitasFormatadas);
 
-        // --- Salva a Lista Detalhada (para o Excel) ---
         setDetailedTransactions(responseTransactions.data); 
 
         setLoading(false);
@@ -238,13 +208,12 @@ function Reports() {
     };
 
     fetchAllReportData();
-  }, [dataInicioStr, dataFimStr, filterType, isAuthLoading]); // <-- Ouve todos os gatilhos
+  }, [dataInicioStr, dataFimStr, filterType, isAuthLoading]);
   
   
   /**
-   * Função de Exportação para Excel (V4.3).
-   * Usa a lista 'detailedTransactions' (do estado)
-   * para gerar um arquivo .xlsx detalhado com 3 abas.
+   * Gera e baixa um arquivo Excel com os dados detalhados das transações.
+   * Cria abas separadas para Geral, Gastos e Receitas.
    */
   const handleExport = () => {
     try {
@@ -253,7 +222,6 @@ function Reports() {
         return;
       }
 
-      // 1. Formata os dados (como você pediu: Detalhes, Data, Categoria, etc.)
       const dadosFormatados = detailedTransactions.map(tx => ({
         "Data e Hora": new Date(tx.data).toLocaleString('pt-BR', {
           dateStyle: 'short', timeStyle: 'short'
@@ -261,21 +229,17 @@ function Reports() {
         "Descricao": tx.descricao,
         "Tipo": tx.categoria.tipo,
         "Categoria": tx.categoria.nome,
-        // (V4.3) Formata o valor (positivo/negativo)
         "Valor (R$)": parseFloat(tx.valor) * (tx.categoria.tipo === 'Gasto' ? -1 : 1),
         "Detalhes": tx.observacoes || ''
       }));
       
-      // 2. Filtra para abas separadas
       const gastos = dadosFormatados.filter(tx => tx.Tipo === 'Gasto');
       const receitas = dadosFormatados.filter(tx => tx.Tipo === 'Receita');
 
-      // 3. Cria as Planilhas (Worksheets)
       const wsGeral = XLSX.utils.json_to_sheet(dadosFormatados);
       const wsGastos = XLSX.utils.json_to_sheet(gastos);
       const wsReceitas = XLSX.utils.json_to_sheet(receitas);
       
-      // Define a largura das colunas
       const wscols = [ 
         { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 40 }
       ];
@@ -283,13 +247,11 @@ function Reports() {
       wsGastos["!cols"] = wscols;
       wsReceitas["!cols"] = wscols;
 
-      // 4. Cria o "Arquivo" (Workbook) e adiciona as abas
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, wsGeral, "Extrato Geral");
       XLSX.utils.book_append_sheet(wb, wsGastos, "Extrato de Gastos");
       XLSX.utils.book_append_sheet(wb, wsReceitas, "Extrato de Receitas");
 
-      // 5. Gera o arquivo e força o download
       const filename = `Relatorio_Detalhado_NOMAD_${dataInicioStr}_ate_${dataFimStr}.xlsx`;
       XLSX.writeFile(wb, filename);
 
@@ -299,7 +261,6 @@ function Reports() {
     }
   };
   
-  // (V7.6) Tela de carregamento global
   if (isAuthLoading) {
     return <p className="loading-transactions">Carregando...</p>
   }
@@ -308,7 +269,6 @@ function Reports() {
     <div className="reports-container">
       <header className="reports-header">
         <h2>Relatórios Visuais</h2>
-        {/* (V9.6) O botão aparece se os dados estiverem prontos */}
         {!loading && !error && (
           <button 
             className={`export-button ${detailedTransactions.length === 0 ? 'export-button-disabled' : ''}`}
@@ -320,7 +280,6 @@ function Reports() {
         )}
       </header>
 
-      {/* RENDERIZA OS FILTROS GLOBAIS (V3.3) */}
       <FilterControls 
         filterType={filterType}
         setFilterType={setFilterType}
@@ -332,14 +291,12 @@ function Reports() {
 
       <main className="reports-content">
 
-        {/* Card 1: Gráfico de Tendência */}
         <div className="report-card">
           <h3>Saldo ao Longo do Tempo</h3>
           {loading && <p className="loading-transactions">Carregando gráfico...</p>}
           {error && <p className="error-message">Não foi possível carregar os dados do relatório.</p>}
           {!loading && !error && (
             lineChartData.length > 0 ? (
-              // (V4.6) Passa o 'theme' e 'filterType'
               <TrendChart data={lineChartData} filterType={filterType} theme={theme} /> 
             ) : (
               <p className="loading-transactions">Sem dados de tendência para exibir.</p>
@@ -347,14 +304,12 @@ function Reports() {
           )}
         </div>
         
-        {/* Card 2: Gráfico de Gastos (V3.4) */}
         <div className="report-card">
           <h3>Gastos por Categoria - Detalhado</h3>
           {loading && <p className="loading-transactions">Carregando gráfico...</p>}
           {error && <p className="error-message">Não foi possível carregar os dados do relatório.</p>}
           {!loading && !error && (
             gastosBarData.length > 0 ? (
-              // (V4.6) Passa o 'theme'
               <HorizontalBarChart data={gastosBarData} theme={theme} />
             ) : (
               <p className="loading-transactions">Sem dados de gastos para exibir.</p>
@@ -362,14 +317,12 @@ function Reports() {
           )}
         </div>
         
-        {/* Card 3: Gráfico de Receitas (V3.4) */}
         <div className="report-card">
           <h3>Receitas por Categoria - Detalhado</h3>
           {loading && <p className="loading-transactions">Carregando gráfico...</p>}
           {error && <p className="error-message">Não foi possível carregar os dados do relatório.</p>}
           {!loading && !error && (
             receitasBarData.length > 0 ? (
-              // (V4.6) Passa o 'theme'
               <HorizontalBarChart data={receitasBarData} theme={theme} />
             ) : (
               <p className="loading-transactions">Sem dados de receitas para exibir.</p>
