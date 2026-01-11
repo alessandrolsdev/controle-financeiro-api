@@ -1,7 +1,7 @@
 // Arquivo: frontend/src/pages/Reports/Reports.jsx
 /**
  * @file Página de Relatórios e Análise Financeira.
- * @description Exibe gráficos de tendências, distribuição de receitas/despesas e permite exportação de dados para Excel.
+ * @description Exibe gráficos de tendências, distribuição de receitas/despesas.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -10,30 +10,21 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import api from '../../services/api';
 import './Reports.css';
 
-import * as XLSX from 'xlsx'; 
-
 import FilterControls from '../../components/FilterControls/FilterControls';
 import HorizontalBarChart from '../../components/HorizontalBarChart/HorizontalBarChart';
 
 import { useTheme } from '../../context/ThemeContext'; 
 import { useAuth } from '../../context/AuthContext';
 
+// REMOVIDO: import * as XLSX from 'xlsx'; (Correção de Segurança/Build)
 
 /**
  * Componente local para renderizar o gráfico de linhas de tendência financeira.
- *
- * @param {object} props
- * @param {Array<object>} props.data - Dados para plotagem (data, receitas, despesas).
- * @param {string} props.filterType - Tipo de filtro de data ('daily', 'monthly', etc.) para formatação do eixo X.
- * @param {string} props.theme - Tema atual ('light' ou 'dark') para ajuste de cores.
  */
 const TrendChart = ({ data, filterType, theme }) => {
   
   const axisColor = theme === 'dark' ? '#CED4DA' : '#6C757D';
   
-  /**
-   * Formata os valores do eixo X.
-   */
   const formatXAxis = (tickItem) => {
     const date = new Date(tickItem);
     if (filterType === 'daily') {
@@ -42,9 +33,6 @@ const TrendChart = ({ data, filterType, theme }) => {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
   
-  /**
-   * Formata os valores do eixo Y para moeda abreviada.
-   */
   const formatYAxis = (tickItem) => {
     if (tickItem > 1000) {
       return `R$ ${(tickItem / 1000).toLocaleString('pt-BR')}k`;
@@ -96,14 +84,6 @@ const TrendChart = ({ data, filterType, theme }) => {
 };
 
 
-/**
- * Componente de Página de Relatórios.
- *
- * Exibe gráficos detalhados de tendência financeira, análise de gastos e receitas por categoria.
- * Oferece funcionalidade para exportar os dados exibidos para uma planilha Excel.
- *
- * @returns {JSX.Element} A página de relatórios renderizada.
- */
 function Reports() {
   
   const { 
@@ -123,16 +103,11 @@ function Reports() {
   const [lineChartData, setLineChartData] = useState([]);
   const [gastosBarData, setGastosBarData] = useState([]);
   const [receitasBarData, setReceitasBarData] = useState([]);
-  const [detailedTransactions, setDetailedTransactions] = useState([]);
+  // const [detailedTransactions, setDetailedTransactions] = useState([]); // Desnecessário sem exportação por enquanto
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  
-  /**
-   * Efeito colateral para carregar todos os dados dos relatórios.
-   * Realiza chamadas paralelas à API para buscar dados de tendência, dashboard e transações detalhadas.
-   */
   useEffect(() => {
     if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
 
@@ -151,10 +126,10 @@ function Reports() {
           data_fim: dataFimStr,
         };
         
-        const [responseTrend, responseDashboard, responseTransactions] = await Promise.all([
+        // Removi a chamada de transações detalhadas para otimizar, já que não vamos exportar agora
+        const [responseTrend, responseDashboard] = await Promise.all([
           api.get('/relatorios/tendencia', { params: paramsTrend }),
           api.get('/dashboard/', { params: paramsDashboard }),
-          api.get('/transacoes/periodo/', { params: paramsDashboard })
         ]);
 
         // Processa dados de Tendência
@@ -196,7 +171,7 @@ function Reports() {
           .sort((a, b) => a.valor - b.valor);
         setReceitasBarData(receitasFormatadas);
 
-        setDetailedTransactions(responseTransactions.data); 
+        // setDetailedTransactions(responseTransactions.data); 
 
         setLoading(false);
         
@@ -211,56 +186,6 @@ function Reports() {
   }, [dataInicioStr, dataFimStr, filterType, isAuthLoading]);
   
   
-  /**
-   * Gera e baixa um arquivo Excel com os dados detalhados das transações.
-   * Cria abas separadas para Geral, Gastos e Receitas.
-   */
-  const handleExport = () => {
-    try {
-      if (detailedTransactions.length === 0) {
-        alert("Não há transações para exportar neste período.");
-        return;
-      }
-
-      const dadosFormatados = detailedTransactions.map(tx => ({
-        "Data e Hora": new Date(tx.data).toLocaleString('pt-BR', {
-          dateStyle: 'short', timeStyle: 'short'
-        }),
-        "Descricao": tx.descricao,
-        "Tipo": tx.categoria.tipo,
-        "Categoria": tx.categoria.nome,
-        "Valor (R$)": parseFloat(tx.valor) * (tx.categoria.tipo === 'Gasto' ? -1 : 1),
-        "Detalhes": tx.observacoes || ''
-      }));
-      
-      const gastos = dadosFormatados.filter(tx => tx.Tipo === 'Gasto');
-      const receitas = dadosFormatados.filter(tx => tx.Tipo === 'Receita');
-
-      const wsGeral = XLSX.utils.json_to_sheet(dadosFormatados);
-      const wsGastos = XLSX.utils.json_to_sheet(gastos);
-      const wsReceitas = XLSX.utils.json_to_sheet(receitas);
-      
-      const wscols = [ 
-        { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 40 }
-      ];
-      wsGeral["!cols"] = wscols;
-      wsGastos["!cols"] = wscols;
-      wsReceitas["!cols"] = wscols;
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, wsGeral, "Extrato Geral");
-      XLSX.utils.book_append_sheet(wb, wsGastos, "Extrato de Gastos");
-      XLSX.utils.book_append_sheet(wb, wsReceitas, "Extrato de Receitas");
-
-      const filename = `Relatorio_Detalhado_NOMAD_${dataInicioStr}_ate_${dataFimStr}.xlsx`;
-      XLSX.writeFile(wb, filename);
-
-    } catch (exportError) {
-      console.error("Erro ao exportar para Excel:", exportError);
-      setError("Ocorreu um erro ao gerar o arquivo Excel.");
-    }
-  };
-  
   if (isAuthLoading) {
     return <p className="loading-transactions">Carregando...</p>
   }
@@ -269,15 +194,7 @@ function Reports() {
     <div className="reports-container">
       <header className="reports-header">
         <h2>Relatórios Visuais</h2>
-        {!loading && !error && (
-          <button 
-            className={`export-button ${detailedTransactions.length === 0 ? 'export-button-disabled' : ''}`}
-            onClick={handleExport}
-            disabled={detailedTransactions.length === 0}
-          >
-            {detailedTransactions.length === 0 ? 'Exportar Excel (sem dados)' : 'Exportar Excel'}
-          </button>
-        )}
+        {/* BOTÃO REMOVIDO TEMPORARIAMENTE */}
       </header>
 
       <FilterControls 
