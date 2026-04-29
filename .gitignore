@@ -14,3 +14,12 @@ __pycache__/
 
 # Ignora arquivos de configuração de IDEs (como o VS Code)
 .vscode/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
