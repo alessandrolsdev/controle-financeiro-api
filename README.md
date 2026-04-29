@@ -151,6 +151,20 @@ graph LR
 - Node.js 18 ou superior
 - Git
 
+### Configuração segura de ambiente local
+
+Antes de iniciar backend ou frontend, crie os arquivos locais a partir dos exemplos:
+
+```bash
+cp .env.example .env
+cp frontend/.env.example frontend/.env
+```
+
+Depois, preencha apenas valores locais nos arquivos `.env`. Esses arquivos nunca devem ser commitados.
+
+> [!WARNING]
+> A `SECRET_KEY` anteriormente versionada deve ser considerada comprometida. É obrigatório rotacionar a `SECRET_KEY` em todos os ambientes reais. Remover `.env` do índice Git não remove o segredo do histórico; a limpeza de histórico deve ser planejada separadamente com `git filter-repo` ou BFG, mediante decisão explícita.
+
 ### 1. Configuração do Backend
 
 ```bash
@@ -170,9 +184,8 @@ source venv/bin/activate
 # Instale as dependências
 pip install -r requirements.txt
 
-# Configure as variáveis de ambiente (.env)
-# Crie um arquivo .env na raiz do projeto
-echo "SECRET_KEY=sua_chave_secreta_super_segura_aqui" > .env
+# Configure as variáveis de ambiente locais
+cp .env.example .env
 
 # Inicie o servidor
 uvicorn backend.main:app --reload
@@ -187,8 +200,8 @@ uvicorn backend.main:app --reload
 # Em um novo terminal, navegue para a pasta frontend
 cd frontend
 
-# Crie o arquivo .env
-echo "VITE_API_BASE_URL=http://127.0.0.1:8000" > .env
+# Configure as variáveis de ambiente locais
+cp .env.example .env
 
 # Instale as dependências
 npm install
