@@ -153,7 +153,7 @@ graph LR
 
 ### Configuração segura de ambiente local
 
-Antes de iniciar backend ou frontend, crie os arquivos locais a partir dos exemplos:
+Antes de iniciar o backend ou o frontend, crie os arquivos locais a partir dos exemplos:
 
 ```bash
 cp .env.example .env
