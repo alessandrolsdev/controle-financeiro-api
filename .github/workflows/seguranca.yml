@@ -1,0 +1,117 @@
+# Arquivo: .github/workflows/seguranca.yml
+# Verificação contínua de segurança e testes.
+#
+# O objetivo é que uma regressão de segurança quebre o build, e não seja
+# descoberta em produção: dependência com CVE conhecida, teste de isolamento
+# entre usuários falhando ou segredo commitado por engano.
+
+name: Segurança e Testes
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Reexecuta semanalmente: uma CVE nova pode ser publicada para uma
+    # dependência que não mudou desde o último commit.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (testes, CVEs, análise estática)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Testes
+        env:
+          # Chave descartável só para a execução dos testes.
+          SECRET_KEY: ${{ github.run_id }}-CIzQx7mVn9RtKw4YbGc8HdJf5NsQe3AuIoPy
+          ENVIRONMENT: development
+        run: pytest -v
+
+      - name: Validar migrações (upgrade e downgrade)
+        env:
+          SECRET_KEY: ${{ github.run_id }}-CIzQx7mVn9RtKw4YbGc8HdJf5NsQe3AuIoPy
+          DATABASE_URL: sqlite:///./ci-migracao.db
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Auditar CVEs nas dependências
+        run: pip-audit --strict
+
+      - name: Análise estática de segurança
+        run: bandit -r backend/ -ll
+
+      - name: Lint
+        run: ruff check backend/ tests/
+
+  frontend:
+    name: Frontend (build e CVEs)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Auditar CVEs
+        run: npm audit --audit-level=moderate
+
+      - name: Build
+        env:
+          VITE_API_BASE_URL: https://exemplo.invalid
+        run: npm run build
+
+      - name: Garantir que o service worker não cacheia a API
+        # Regressão de segurança específica: o PWA já guardou saldos e extrato
+        # em disco por 7 dias. Se alguém reintroduzir o runtimeCaching da API,
+        # este passo falha.
+        run: |
+          if grep -q "api-cache" dist/sw.js; then
+            echo "ERRO: o service worker voltou a cachear respostas da API."
+            exit 1
+          fi
+
+  segredos:
+    name: Varredura de segredos
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Histórico completo: o gitleaks precisa varrer todos os commits,
+          # não apenas o estado atual da árvore.
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

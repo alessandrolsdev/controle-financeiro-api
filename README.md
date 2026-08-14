@@ -104,11 +104,18 @@ graph LR
 *   **Exportação de Dados:** Suporte para exportação de relatórios (futuro: Excel, PDF)
 
 ### 🔐 Segurança e Autenticação
-*   **Autenticação JWT:** Sistema seguro de tokens com expiração configurável
-*   **Criptografia de Senhas:** Hashing com Argon2 (algoritmo recomendado pela OWASP)
-*   **Proteção de Rotas:** Sistema de rotas protegidas no frontend
-*   **Validação de Dados:** Validação rigorosa em ambos backend e frontend
-*   **Gerenciamento de Perfil:** Atualização de dados cadastrais e alteração segura de senha
+*   **Autenticação JWT:** Tokens assinados com `iss`, `aud`, `iat`, `nbf`, `exp` e `jti`, com algoritmo fixado por allowlist
+*   **Revogação de sessões:** Trocar a senha invalida imediatamente todos os tokens já emitidos
+*   **Criptografia de Senhas:** Argon2id com parâmetros da RFC 9106 e política mínima de 12 caracteres
+*   **Isolamento entre usuários:** Categorias e transações são estritamente escopadas ao dono
+*   **Rate limiting:** Proteção contra força bruta no login e no cadastro
+*   **Trilha de auditoria:** Toda escrita financeira registra autor, origem e valores alterados
+*   **Idempotência:** `Idempotency-Key` impede lançamentos duplicados por retry de rede
+*   **Headers de segurança:** HSTS, CSP, anti-clickjacking e `Cache-Control: no-store`
+*   **Logs com redação:** Senhas, tokens e credenciais de banco nunca chegam ao log
+
+> Consulte **[SECURITY.md](SECURITY.md)** para o relatório completo da auditoria e o
+> checklist obrigatório de implantação em produção.
 
 ---
 
@@ -118,21 +125,23 @@ graph LR
 | Tecnologia | Versão | Finalidade |
 |------------|--------|------------|
 | Python | 3.12+ | Linguagem base |
-| FastAPI | 0.115+ | Framework web assíncrono |
-| SQLAlchemy | 2.0+ | ORM para banco de dados |
-| Pydantic | 2.x | Validação de dados |
-| Uvicorn | Latest | Servidor ASGI |
-| python-jose | Latest | Geração e validação JWT |
-| passlib | Latest | Hashing de senhas (Argon2) |
+| FastAPI | 0.141 | Framework web assíncrono |
+| SQLAlchemy | 2.0 | ORM para banco de dados |
+| Alembic | 1.16 | Migrações versionadas de esquema |
+| Pydantic | 2.13 | Validação de dados |
+| Uvicorn | 0.38 | Servidor ASGI |
+| PyJWT | 2.13 | Geração e validação JWT |
+| argon2-cffi | 25.1 | Hashing de senhas (Argon2id) |
+| psycopg | 3.2 | Driver PostgreSQL |
 | PostgreSQL | 14+ | Banco de dados (produção) |
 
 ### Frontend
 | Tecnologia | Versão | Finalidade |
 |------------|--------|------------|
-| React | 18.3+ | Biblioteca UI |
-| Vite | 5.x | Build tool e dev server |
-| React Router | 6.x | Roteamento SPA |
-| Recharts | 2.x | Visualização de dados |
+| React | 19.1 | Biblioteca UI |
+| Vite | 7.x | Build tool e dev server |
+| React Router | 7.x | Roteamento SPA |
+| Recharts | 3.x | Visualização de dados |
 | Axios | Latest | Cliente HTTP |
 | React Icons | Latest | Ícones |
 
@@ -162,8 +171,18 @@ cp frontend/.env.example frontend/.env
 
 Depois, preencha apenas valores locais nos arquivos `.env`. Esses arquivos nunca devem ser commitados.
 
+Gere uma `SECRET_KEY` própria — a aplicação recusa iniciar sem uma chave forte:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
 > [!WARNING]
-> A `SECRET_KEY` anteriormente versionada deve ser considerada comprometida. É obrigatório rotacionar a `SECRET_KEY` em todos os ambientes reais. Remover `.env` do índice Git não remove o segredo do histórico; a limpeza de histórico deve ser planejada separadamente com `git filter-repo` ou BFG, mediante decisão explícita.
+> Versões anteriores deste README instruíam a usar a chave de exemplo da documentação
+> do FastAPI (`09d25e09...`). Essa chave é **pública**: quem a conhece consegue forjar
+> tokens de qualquer usuário. Se alguma implantação sua foi criada seguindo aquelas
+> instruções, **rotacione a `SECRET_KEY` agora**. A aplicação passou a rejeitar essa
+> chave explicitamente. Detalhes em [SECURITY.md](SECURITY.md).
 
 ### 1. Configuração do Backend
 
@@ -186,10 +205,20 @@ pip install -r requirements.txt
 
 # Configure as variáveis de ambiente locais
 cp .env.example .env
+# Preencha SECRET_KEY no .env antes de continuar
+
+# Crie o esquema do banco (o schema é gerido por migrações, não por create_all)
+alembic upgrade head
 
 # Inicie o servidor
 uvicorn backend.main:app --reload
 ```
+
+> Já tem um banco criado pela versão anterior (que usava `create_all`)? Marque o
+> estado inicial antes de migrar:
+> ```bash
+> alembic stamp 0001 && alembic upgrade head
+> ```
 
 ✅ **O backend estará disponível em `http://127.0.0.1:8000`**  
 📖 **Documentação automática em `http://127.0.0.1:8000/docs`**
@@ -221,15 +250,20 @@ controle-financeiro-api/
 ├── backend/                    # Backend FastAPI
 │   ├── core/                  # Configurações centrais
 │   │   ├── __init__.py
-│   │   └── config.py          # Settings e variáveis de ambiente
+│   │   ├── config.py          # Settings validadas e variáveis de ambiente
+│   │   ├── logging.py         # Log estruturado com redação de segredos
+│   │   ├── middleware.py      # Headers de segurança e log de requisições
+│   │   └── rate_limit.py      # Limitação de taxa (memória ou Redis)
 │   ├── crud.py                # Operações CRUD (Create, Read, Update, Delete)
 │   ├── database.py            # Configuração do SQLAlchemy
 │   ├── main.py                # Aplicação FastAPI e rotas
 │   ├── models.py              # Modelos ORM (Usuario, Categoria, Transacao)
 │   ├── schemas.py             # Schemas Pydantic (validação)
 │   ├── security.py            # Autenticação JWT e hashing de senhas
-│   ├── tasks.py               # Tarefas assíncronas (futuro)
-│   └── worker.py              # Worker Celery (futuro)
+│   └── dependencies.py        # Injeção de sessão, usuário atual e rate limit
+├── alembic/                   # Migrações versionadas de banco
+│   └── versions/
+├── tests/                     # Suíte de testes de segurança e integridade
 ├── frontend/                  # Frontend React
 │   ├── public/                # Arquivos públicos e manifest PWA
 │   ├── src/
@@ -257,7 +291,10 @@ controle-financeiro-api/
 │   └── vite.config.js
 ├── .env                       # Variáveis de ambiente (não versionado)
 ├── .gitignore
-├── requirements.txt           # Dependências Python
+├── alembic.ini                # Configuração do Alembic
+├── requirements.txt           # Dependências Python (fixadas e auditadas)
+├── requirements-dev.txt       # Testes e ferramentas de segurança
+├── SECURITY.md                # Relatório de auditoria e checklist de produção
 └── README.md
 ```
 
@@ -266,16 +303,24 @@ controle-financeiro-api/
 ## 🧪 Testes
 
 ### Backend
-Os endpoints podem ser testados através da documentação automática do FastAPI:
+
 ```bash
-# Com o servidor rodando, acesse:
-http://127.0.0.1:8000/docs
+pip install -r requirements-dev.txt
+
+pytest                 # suíte completa (isolamento entre usuários, JWT, integridade contábil)
+pip-audit              # CVEs conhecidas nas dependências
+bandit -r backend/     # análise estática de segurança
+ruff check backend/    # lint
 ```
+
+Os endpoints também podem ser explorados pela documentação automática em
+`http://127.0.0.1:8000/docs` (desative com `DOCS_ENABLED=false` em produção).
 
 ### Frontend
 ```bash
 cd frontend
-npm run build  # Verifica build de produção
+npm audit        # CVEs conhecidas nas dependências
+npm run build    # Verifica build de produção
 npm run preview  # Preview do build
 ```
 
@@ -286,9 +331,19 @@ npm run preview  # Preview do build
 ### Backend (Render)
 1. Conecte seu repositório GitHub ao Render
 2. Configure as variáveis de ambiente:
-   - `SECRET_KEY`
+   - `ENVIRONMENT=production`
+   - `SECRET_KEY` (nova, exclusiva deste ambiente — veja [SECURITY.md](SECURITY.md))
    - `DATABASE_URL` (PostgreSQL fornecido pelo Render)
+   - `CORS_ORIGINS` (a URL exata do frontend, sem curinga)
+   - `TRUSTED_HOSTS` (o host da API)
+   - `DOCS_ENABLED=false`
+   - `REDIS_URL` (necessário se rodar com mais de um worker)
 3. O Render detectará automaticamente o `requirements.txt`
+4. Defina o comando de start aplicando as migrações antes de subir:
+   `alembic upgrade head && gunicorn backend.main:app -k uvicorn.workers.UvicornWorker`
+
+> A aplicação **falha ao iniciar** se qualquer variável acima estiver ausente ou
+> insegura em produção. É intencional: melhor não subir do que subir vulnerável.
 
 ### Frontend (Vercel)
 1. Conecte seu repositório GitHub à Vercel

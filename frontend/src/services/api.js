@@ -48,13 +48,29 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response && error.response.status === 401) {
       console.error("Interceptador 401: Token vencido ou inválido. Deslogando...");
-      
+
       localStorage.removeItem('token');
-      
+
+      // Remove também os caches de resposta da API gravados por versões
+      // anteriores do PWA: uma sessão encerrada não pode deixar saldos e
+      // extrato acessíveis no disco do dispositivo.
+      if (typeof caches !== 'undefined') {
+        try {
+          const nomes = await caches.keys();
+          await Promise.all(
+            nomes
+              .filter((nome) => nome.startsWith('api-cache'))
+              .map((nome) => caches.delete(nome))
+          );
+        } catch (err) {
+          console.warn('Falha ao limpar caches da API:', err);
+        }
+      }
+
       // Força um recarregamento da página para garantir limpeza de estado
-      window.location.href = '/login'; 
+      window.location.href = '/login';
     }
-    
+
     return Promise.reject(error);
   }
 );

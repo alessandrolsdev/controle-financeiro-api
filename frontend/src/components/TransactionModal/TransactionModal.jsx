@@ -176,12 +176,25 @@ function TransactionModal({
       
       try {
         setSuccess('Salvando offline...');
-        
+
         const queue = JSON.parse(localStorage.getItem('offlineTransactionsQueue') || '[]');
-        queue.push(transactionPayload);
+
+        /*
+         * A chave de idempotência é gerada AQUI, no momento em que o
+         * lançamento entra na fila — e não na hora do envio. Assim ela
+         * sobrevive a recargas da página e a tentativas repetidas de
+         * sincronização, e o backend reconhece o reenvio como o mesmo
+         * lançamento em vez de criar um segundo débito.
+         */
+        queue.push({
+          ...transactionPayload,
+          chaveIdempotencia: crypto.randomUUID(),
+          periodo: { data_inicio: dataInicioStr, data_fim: dataFimStr },
+        });
+
         localStorage.setItem('offlineTransactionsQueue', JSON.stringify(queue));
 
-        setSuccess('Gasto salvo offline! Será sincronizado quando a internet voltar.');
+        setSuccess('Lançamento salvo offline! Será sincronizado quando a internet voltar.');
         
         setTimeout(() => {
            onClose(); 

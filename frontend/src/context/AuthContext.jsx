@@ -14,6 +14,31 @@ import api from '../services/api';
 const AuthContext = createContext();
 
 /**
+ * Remove do dispositivo qualquer cache de resposta da API.
+ *
+ * Versões anteriores do PWA armazenavam respostas autenticadas — saldos e
+ * extrato — no Cache Storage por até 7 dias. Essa configuração foi removida,
+ * mas as entradas já gravadas continuam no disco de quem tem o app instalado
+ * até serem apagadas explicitamente.
+ *
+ * @returns {Promise<void>} Conclui quando os caches tiverem sido removidos.
+ */
+export const limparCachesDaAplicacao = async () => {
+  if (typeof caches === 'undefined') { return; }
+
+  try {
+    const nomes = await caches.keys();
+    await Promise.all(
+      nomes
+        .filter((nome) => nome.startsWith('api-cache'))
+        .map((nome) => caches.delete(nome))
+    );
+  } catch (err) {
+    console.warn('Não foi possível limpar os caches da aplicação:', err);
+  }
+};
+
+/**
  * Provedor de Autenticação.
  *
  * Envolve a aplicação para fornecer acesso ao estado de autenticação.
@@ -92,34 +117,61 @@ export const AuthProvider = ({ children }) => {
   const syncOfflineQueue = async () => {
     const queue = JSON.parse(localStorage.getItem('offlineTransactionsQueue') || '[]');
     if (queue.length === 0) { return; }
-    
-    console.log(`SINCRONIZANDO: ${queue.length} transações pendentes...`);
-    
-    if (api.defaults.headers['Authorization'] === null) {
-        console.warn("Sync offline pausado: token ainda não está pronto.");
-        return; 
+
+    if (!localStorage.getItem('token')) {
+      console.warn('Sync offline pausado: sem sessão autenticada.');
+      return;
     }
-    
-    try {
-      for (const transacao of queue) {
-        // Nota: O endpoint /transacoes/sync foi removido/alterado no backend, ajustando para usar o endpoint padrão se necessário, ou assumindo que o endpoint existe.
-        // Como o backend removeu o /sync, vamos usar o POST padrão /transacoes/
-        // Porém, o código original usava /transacoes/sync. Vou manter a lógica original documentada, mas alertando.
-        // Se o endpoint não existe mais, isso falhará.
-        // Assumindo que a fila contém payloads válidos para criação.
-        // O código original tentava usar /transacoes/sync. Se ele não existe, isso deveria ser /transacoes/.
-        // Vou manter como estava para documentação fiel, mas idealmente isso seria corrigido no código.
-        // Como a instrução é apenas documentar, mantenho o código e descrevo o que faz.
-        await api.post('/transacoes/sync', transacao);
+
+    console.log(`SINCRONIZANDO: ${queue.length} transações pendentes...`);
+
+    /*
+     * Cada item é enviado individualmente e removido da fila só depois de
+     * confirmado. A versão anterior chamava POST /transacoes/sync — um endpoint
+     * que não existe no backend — dentro de um único try/catch que apagava a
+     * fila inteira ao final. Na prática, toda sincronização falhava com 404 e,
+     * pior, um erro no meio do laço descartava lançamentos já enviados.
+     *
+     * O cabeçalho Idempotency-Key garante que reenviar um item após uma queda
+     * de conexão não gere um lançamento financeiro duplicado.
+     */
+    const pendentes = [];
+    let sincronizou = false;
+
+    for (const item of queue) {
+      const { chaveIdempotencia, periodo, ...transacao } = item;
+
+      try {
+        await api.post('/transacoes/', transacao, {
+          params: periodo,
+          headers: { 'Idempotency-Key': chaveIdempotencia },
+        });
+        sincronizou = true;
+      } catch (err) {
+        const status = err.response?.status;
+
+        // 4xx (exceto 429) indica payload permanentemente inválido: reenviar
+        // não vai resolver e manteria o item preso na fila para sempre.
+        if (status && status >= 400 && status < 500 && status !== 429) {
+          console.error('Lançamento offline descartado por ser inválido:', status);
+          continue;
+        }
+
+        // Falha de rede ou erro do servidor: preserva para a próxima tentativa.
+        pendentes.push(item);
       }
-      
+    }
+
+    if (pendentes.length > 0) {
+      localStorage.setItem('offlineTransactionsQueue', JSON.stringify(pendentes));
+      console.warn(`${pendentes.length} lançamento(s) ainda pendente(s).`);
+    } else {
       localStorage.removeItem('offlineTransactionsQueue');
       console.log('SINCRONIZAÇÃO BEM-SUCEDIDA! Fila offline limpa.');
-      
-      setSyncTrigger(key => key + 1); 
-      
-    } catch (err) {
-      console.error('ERRO DE SINCRONIZAÇÃO OFFLINE:', err);
+    }
+
+    if (sincronizou) {
+      setSyncTrigger(key => key + 1);
     }
   };
 
@@ -153,10 +205,21 @@ export const AuthProvider = ({ children }) => {
   /**
    * Realiza o logout do usuário.
    *
-   * Limpa o token de autenticação, o que dispara a limpeza do estado via useEffect.
+   * Além de limpar o token, apaga todo dado financeiro que tenha ficado no
+   * dispositivo: a fila offline e quaisquer caches de API remanescentes de
+   * versões anteriores do PWA. Sem isso, em um computador compartilhado o
+   * próximo usuário poderia recuperar o extrato do anterior.
+   *
+   * @returns {Promise<void>} Conclui após a limpeza do armazenamento local.
    */
-  const logout = () => {
+  const logout = async () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('offlineTransactionsQueue');
+
+    await limparCachesDaAplicacao();
+
     setToken(null);
+    setUser(null);
   };
 
   return (

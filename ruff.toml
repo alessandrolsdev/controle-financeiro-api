@@ -1,0 +1,27 @@
+# Arquivo: ruff.toml
+# Configuração do linter.
+
+line-length = 100
+target-version = "py311"
+
+exclude = [".venv", "alembic/versions", "frontend"]
+
+[lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit (segurança)
+    "UP",   # pyupgrade
+    "C4",   # comprehensions
+]
+
+ignore = [
+    "E501",  # comprimento de linha: já controlado por `line-length`
+    "B008",  # chamada em argumento padrão: é o idioma do Depends() do FastAPI
+]
+
+[lint.per-file-ignores]
+# Testes legitimamente usam assert e credenciais fictícias.
+"tests/*" = ["S101", "S105", "S106"]
