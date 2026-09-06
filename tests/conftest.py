@@ -98,7 +98,11 @@ def criar_conta(
 def autenticar(
     cliente: TestClient, nome: str = "usuario_teste", senha: str = SENHA_VALIDA
 ) -> str:
-    """Autentica e devolve o token de acesso.
+    """Autentica e devolve o token CSRF da sessão aberta.
+
+    Os tokens de sessão ficam em cookies `httpOnly`, que o `TestClient` guarda
+    e reenvia sozinho. O que o teste precisa carregar adiante é o token CSRF,
+    exigido nos métodos que alteram estado.
 
     Args:
         cliente (TestClient): Cliente HTTP de teste.
@@ -106,25 +110,46 @@ def autenticar(
         senha (str): Senha em texto plano.
 
     Returns:
-        str: O token JWT de acesso.
+        str: O token CSRF da sessão.
     """
     resposta = cliente.post(
-        "/token", data={"username": nome, "password": senha}
+        "/auth/login", data={"username": nome, "password": senha}
     )
     assert resposta.status_code == 200, resposta.text
-    return resposta.json()["access_token"]
+    return resposta.json()["csrf_token"]
 
 
 def cabecalho(token: str) -> dict[str, str]:
-    """Monta o cabeçalho de autorização Bearer.
+    """Monta os cabeçalhos de uma requisição autenticada por cookie.
 
     Args:
-        token (str): O token de acesso.
+        token (str): O token CSRF devolvido por :func:`autenticar`.
 
     Returns:
         dict[str, str]: Cabeçalhos prontos para uso.
     """
-    return {"Authorization": f"Bearer {token}"}
+    return {"X-CSRF-Token": token}
+
+
+def cliente_autenticado(
+    nome: str = "alice", senha: str = SENHA_VALIDA
+) -> tuple[TestClient, str]:
+    """Cria um cliente com sessão própria, isolado de outros clientes.
+
+    Cada `TestClient` mantém seu próprio jar de cookies, então dois clientes
+    representam dois navegadores distintos — o que é necessário para verificar
+    isolamento entre usuários.
+
+    Args:
+        nome (str): Nome de usuário a criar.
+        senha (str): Senha da conta.
+
+    Returns:
+        tuple[TestClient, str]: O cliente autenticado e seu token CSRF.
+    """
+    cliente = TestClient(app)
+    criar_conta(cliente, nome, senha)
+    return cliente, autenticar(cliente, nome, senha)
 
 
 @pytest.fixture
@@ -135,7 +160,7 @@ def usuario_com_token(cliente: TestClient) -> tuple[dict, str]:
         cliente (TestClient): Cliente HTTP de teste.
 
     Returns:
-        tuple[dict, str]: Os dados do usuário e o token de acesso.
+        tuple[dict, str]: Os dados do usuário e o token CSRF da sessão.
     """
     usuario = criar_conta(cliente, "alice")
     token = autenticar(cliente, "alice")
@@ -143,17 +168,13 @@ def usuario_com_token(cliente: TestClient) -> tuple[dict, str]:
 
 
 @pytest.fixture
-def dois_usuarios(cliente: TestClient) -> tuple[str, str]:
-    """Cria duas contas distintas e devolve seus tokens.
+def dois_clientes() -> tuple[tuple[TestClient, str], tuple[TestClient, str]]:
+    """Cria dois navegadores independentes, cada um com sua própria sessão.
 
-    Usado para verificar isolamento entre inquilinos.
-
-    Args:
-        cliente (TestClient): Cliente HTTP de teste.
+    Com autenticação por cookie, dois usuários não podem compartilhar o mesmo
+    `TestClient`: o segundo login sobrescreveria os cookies do primeiro.
 
     Returns:
-        tuple[str, str]: Tokens de 'alice' e 'bob'.
+        tuple: Pares (cliente, token CSRF) de 'alice' e 'bob'.
     """
-    criar_conta(cliente, "alice")
-    criar_conta(cliente, "bob")
-    return autenticar(cliente, "alice"), autenticar(cliente, "bob")
+    return cliente_autenticado("alice"), cliente_autenticado("bob")

@@ -1,37 +1,59 @@
 /* Arquivo: frontend/src/components/HorizontalBarChart/HorizontalBarChart.css */
 /*
- * Estilos para o Componente de Gráfico de Barras Horizontais (V3.4).
+ * Barras horizontais.
  *
- * Este arquivo estiliza os elementos HTML customizados (o tooltip)
- * que renderizamos por cima do gráfico SVG do 'recharts'.
+ * Escolhidas em vez de barras verticais porque nomes de categoria são textos
+ * longos: na horizontal eles cabem no eixo sem rotacionar o rótulo, que é
+ * sempre a leitura mais difícil em um gráfico.
  */
 
-/* --- 1. Contêiner Principal --- */
-.horizontal-bar-wrapper {
-  width: 100%;
-  /* A altura é controlada dinamicamente pelo componente .jsx
-     (baseado no 'data.length') */
+.barras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
 }
 
-/* --- 2. O Tooltip Customizado (V4.0) --- */
-/* (Estiliza o pop-up que aparece ao passar o mouse) */
-.horizontal-bar-tooltip {
-  /* Usa o fundo "Glassmorphism" do nosso tema */
-  background-color: var(--cor-fundo-card); 
-  border: 1px solid var(--cor-borda);
-  border-radius: 8px;
-  padding: 10px 15px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  opacity: 1; /* Garante que não fique transparente */
+.barra-item {
+  display: grid;
+  grid-template-columns: minmax(6rem, 9rem) 1fr auto;
+  align-items: center;
+  gap: var(--e-3);
+  font-size: var(--t-sm);
 }
-.tooltip-label {
-  color: var(--cor-texto-primario);
-  font-weight: 700;
-  font-size: 0.9rem;
-  margin: 0;
+
+.barra-nome {
+  color: var(--texto-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tooltip-sublabel {
-  color: var(--cor-texto-secundario);
-  font-size: 0.8rem;
-  margin: 4px 0 0 0;
+
+.barra-trilho {
+  height: 0.5rem;
+  background-color: var(--superficie-2);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.barra-preenchimento {
+  height: 100%;
+  border-radius: var(--r-full);
+  transition: width 300ms ease;
+}
+
+.barra-valor {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .barra-item {
+    grid-template-columns: 1fr auto;
+  }
+
+  /* Em telas estreitas a barra ocupa a linha inteira, sob o nome. */
+  .barra-trilho {
+    grid-column: 1 / -1;
+    order: 3;
+  }
 }

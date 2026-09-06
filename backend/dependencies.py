@@ -17,7 +17,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from . import crud, models, security
+from . import crud, models, security, sessoes
 from .core.config import settings
 from .core.logging import obter_logger
 from .core.middleware import obter_ip_do_cliente
@@ -26,9 +26,10 @@ from .database import SessionLocal
 
 logger = obter_logger(__name__)
 
-# `auto_error=False` permite devolver a mesma resposta 401 genérica tanto para
-# "sem cabeçalho" quanto para "token inválido", sem variar a mensagem.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+# Mantido para que o Swagger UI ofereça o botão "Authorize" e documente o
+# esquema Bearer. A extração real do token é feita por `sessoes`, que também
+# aceita o cookie httpOnly usado pelo navegador.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -66,19 +67,57 @@ def get_contexto_de_auditoria(request: Request) -> crud.ContextoDeAuditoria:
     )
 
 
-def get_usuario_atual(
-    token: Annotated[str | None, Depends(oauth2_scheme)],
-    db: Annotated[Session, Depends(get_db)],
-) -> models.Usuario:
-    """Verifica o token JWT e retorna o usuário autenticado.
+def verificar_csrf(request: Request) -> None:
+    """Exige um token CSRF válido em requisições autenticadas por cookie.
 
-    Além de validar assinatura e claims, confere se a versão de credenciais do
-    token ainda corresponde à do usuário. Um token emitido antes de uma troca de
-    senha é rejeitado mesmo que ainda esteja dentro do prazo de expiração.
+    Só se aplica ao caminho por cookie e a métodos que alteram estado. Um
+    cliente que autentica via `Authorization: Bearer` não é vulnerável a CSRF —
+    o navegador nunca envia esse cabeçalho por conta própria — e portanto é
+    dispensado da verificação.
 
     Args:
-        token (Optional[str]): O token JWT Bearer, se enviado.
+        request (Request): A requisição atual.
+
+    Raises:
+        HTTPException: 403 se o cabeçalho CSRF estiver ausente ou divergente.
+    """
+    if request.method not in sessoes.METODOS_INSEGUROS:
+        return
+
+    if not sessoes.requisicao_usa_cookie(request):
+        return
+
+    if not sessoes.csrf_valido(request):
+        logger.warning(
+            "Requisição bloqueada por falha de CSRF",
+            extra={
+                "caminho": request.url.path,
+                "ip_cliente": obter_ip_do_cliente(request),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token CSRF ausente ou inválido.",
+        )
+
+
+def get_usuario_atual(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    _csrf: Annotated[None, Depends(verificar_csrf)] = None,
+) -> models.Usuario:
+    """Verifica o token de sessão e retorna o usuário autenticado.
+
+    O token é lido do cookie `httpOnly` (caminho do navegador) ou do cabeçalho
+    `Authorization` (clientes que não são navegadores). Além de validar
+    assinatura e claims, confere se a versão de credenciais do token ainda
+    corresponde à do usuário: um token emitido antes de uma troca de senha é
+    rejeitado mesmo dentro do prazo de expiração.
+
+    Args:
+        request (Request): A requisição atual.
         db (Session): Sessão do banco de dados.
+        _csrf: Dependência que aplica a verificação de CSRF antes desta.
 
     Raises:
         HTTPException: 401 se o token for ausente, inválido, expirado, revogado
@@ -89,10 +128,17 @@ def get_usuario_atual(
     """
     credentials_exception = security.criar_excecao_de_credenciais()
 
+    token = sessoes.extrair_token_de_acesso(request)
     if not token:
         raise credentials_exception
 
     payload = security.decodificar_token(token, credentials_exception)
+
+    # Um token de desafio de MFA representa apenas o primeiro fator aprovado.
+    # Aceitá-lo aqui faria a senha sozinha dar acesso aos dados, anulando o
+    # segundo fator.
+    if payload.get("typ") == "mfa_desafio":
+        raise credentials_exception
 
     nome_usuario: str = payload["sub"]
     usuario_id = payload.get("uid")
@@ -185,4 +231,21 @@ def rate_limit_cadastro(request: Request) -> None:
         "cadastro",
         settings.RATE_LIMIT_SIGNUP,
         settings.RATE_LIMIT_SIGNUP_WINDOW_SECONDS,
+    )
+
+
+def rate_limit_mfa(request: Request) -> None:
+    """Limita tentativas de verificação do segundo fator por IP.
+
+    Um código TOTP tem apenas seis dígitos: sem limite de tentativas, adivinhá-lo
+    por força bruta dentro da janela de validade é viável.
+
+    Args:
+        request (Request): A requisição atual.
+    """
+    aplicar_rate_limit(
+        request,
+        "mfa",
+        settings.RATE_LIMIT_MFA,
+        settings.RATE_LIMIT_MFA_WINDOW_SECONDS,
     )

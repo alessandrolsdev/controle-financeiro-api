@@ -29,6 +29,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -39,9 +40,11 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from .core.cripto import TextoCifrado
 from .database import Base
 
 # Domínio fechado de tipos de categoria. O dashboard depende exatamente destes
@@ -65,6 +68,26 @@ def agora_utc() -> datetime:
         datetime: O instante atual em UTC.
     """
     return datetime.now(UTC)
+
+
+def como_utc(valor: datetime) -> datetime:
+    """Garante que um datetime lido do banco tenha fuso horário.
+
+    O PostgreSQL devolve `TIMESTAMPTZ` já com fuso, mas o SQLite não guarda
+    fuso algum e devolve datetimes ingênuos. Comparar um ingênuo com um ciente
+    levanta `TypeError`, então o código que compara timestamps precisa passar
+    por aqui — caso contrário funciona em produção e quebra em desenvolvimento
+    (ou o contrário, dependendo de onde o teste roda).
+
+    Args:
+        valor (datetime): O timestamp lido do banco.
+
+    Returns:
+        datetime: O mesmo instante, com fuso UTC explícito.
+    """
+    if valor.tzinfo is None:
+        return valor.replace(tzinfo=UTC)
+    return valor
 
 
 class Usuario(Base):
@@ -100,11 +123,31 @@ class Usuario(Base):
         Integer, nullable=False, default=1, server_default="1"
     )
 
-    # --- Campos de Perfil ---
-    nome_completo: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    email: Mapped[str | None] = mapped_column(
-        String(255), unique=True, index=True, nullable=True
+    # --- Autenticação em Duas Etapas ---
+    # O segredo TOTP é cifrado: quem obtém uma cópia do banco não consegue
+    # gerar os códigos da vítima e contornar o segundo fator.
+    mfa_secret: Mapped[str | None] = mapped_column(TextoCifrado(512), nullable=True)
+    mfa_ativado: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
     )
+    mfa_ativado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # --- Campos de Perfil (cifrados em repouso) ---
+    # Dados pessoais ficam cifrados pela aplicação, além da criptografia de
+    # disco do provedor: um backup vazado ou uma injeção de SQL entregam o
+    # conteúdo já descriptografado pelo disco, mas não por esta camada.
+    nome_completo: Mapped[str | None] = mapped_column(TextoCifrado(512), nullable=True)
+    email: Mapped[str | None] = mapped_column(TextoCifrado(512), nullable=True)
+
+    # O e-mail cifrado não é pesquisável (cada gravação usa um nonce novo), por
+    # isso a unicidade e a busca por igualdade passam por este índice cego:
+    # um HMAC com chave secreta, que não revela o endereço.
+    email_indice: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True, nullable=True
+    )
+
     data_nascimento: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -137,6 +180,132 @@ class Usuario(Base):
         back_populates="proprietario",
         lazy="raise",
         cascade="all, delete-orphan",
+    )
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+        back_populates="proprietario",
+        lazy="raise",
+        cascade="all, delete-orphan",
+    )
+    codigos_de_recuperacao: Mapped[list[CodigoDeRecuperacao]] = relationship(
+        back_populates="proprietario",
+        lazy="raise",
+        cascade="all, delete-orphan",
+    )
+
+
+class RefreshToken(Base):
+    """Refresh token emitido a um usuário, com rastreamento de rotação.
+
+    O token em si **nunca** é armazenado: guarda-se apenas o SHA-256 dele. Um
+    vazamento do banco não permite assumir sessões, do mesmo modo que um hash
+    de senha não permite fazer login.
+
+    Cada cadeia de rotações compartilha um `familia_id`. Quando um token já
+    rotacionado é apresentado de novo, isso indica que uma cópia vazou — o
+    legítimo já teria rotacionado. Nesse caso a família inteira é revogada,
+    encerrando tanto a sessão do atacante quanto a da vítima.
+
+    Attributes:
+        id (int): Identificador único.
+        token_hash (str): SHA-256 do token, em hexadecimal.
+        familia_id (str): Agrupa a cadeia de rotações de uma mesma sessão.
+        usuario_id (int): Usuário dono do token.
+        expira_em (datetime): Instante de expiração.
+        criado_em (datetime): Instante de emissão.
+        usado_em (datetime | None): Quando foi trocado por um novo token.
+        revogado_em (datetime | None): Quando foi invalidado.
+        motivo_revogacao (str | None): Por que foi invalidado.
+        ip_cliente (str | None): IP de origem na emissão.
+        user_agent (str | None): Cliente que solicitou o token.
+        proprietario (Usuario): Usuário dono do token.
+    """
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, index=True, nullable=False
+    )
+    familia_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    expira_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=agora_utc,
+        server_default=func.now(),
+    )
+    usado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revogado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    motivo_revogacao: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    ip_cliente: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    proprietario: Mapped[Usuario] = relationship(back_populates="refresh_tokens")
+
+    __table_args__ = (
+        Index("ix_refresh_token_usuario_familia", "usuario_id", "familia_id"),
+    )
+
+    @property
+    def esta_ativo(self) -> bool:
+        """Indica se o token ainda pode ser trocado por um novo.
+
+        Returns:
+            bool: True se não foi usado, não foi revogado e não expirou.
+        """
+        return (
+            self.usado_em is None
+            and self.revogado_em is None
+            and como_utc(self.expira_em) > agora_utc()
+        )
+
+
+class CodigoDeRecuperacao(Base):
+    """Código de uso único para recuperar o acesso sem o autenticador.
+
+    Armazenado como hash Argon2, pelo mesmo motivo das senhas: quem lê o banco
+    não consegue usar os códigos.
+
+    Attributes:
+        id (int): Identificador único.
+        codigo_hash (str): Hash Argon2id do código.
+        usuario_id (int): Usuário dono do código.
+        criado_em (datetime): Quando o lote foi gerado.
+        usado_em (datetime | None): Quando foi consumido.
+        proprietario (Usuario): Usuário dono do código.
+    """
+
+    __tablename__ = "codigos_de_recuperacao"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    codigo_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=agora_utc,
+        server_default=func.now(),
+    )
+    usado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    proprietario: Mapped[Usuario] = relationship(
+        back_populates="codigos_de_recuperacao"
     )
 
 
@@ -227,7 +396,14 @@ class Transacao(Base):
     valor: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
 
     data: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Campo de texto livre onde o usuário costuma anotar detalhes sensíveis
+    # ("consulta médica do X", "advogado do divórcio"). Cifrado em repouso;
+    # não é usado em nenhuma consulta, então a perda de pesquisabilidade não
+    # tem custo.
+    observacoes: Mapped[str | None] = mapped_column(
+        TextoCifrado(4096), nullable=True
+    )
 
     # Chave enviada pelo cliente para tornar a criação idempotente.
     chave_idempotencia: Mapped[str | None] = mapped_column(

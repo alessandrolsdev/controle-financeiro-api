@@ -12,6 +12,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 
 import './index.css';
+import './App.css';
 
 /**
  * Inicializa a raiz da aplicação React e renderiza a árvore de componentes dentro dos provedores de contexto e StrictMode.

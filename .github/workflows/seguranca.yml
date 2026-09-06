@@ -82,6 +82,12 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Lint
+        # Gate exigido pela issue #9. A configuração do ESLint carrega o
+        # plugin do React, sem o qual o uso de componentes em JSX não é
+        # reconhecido e o lint enche de falsos positivos (issue #10).
+        run: npm run lint
+
       - name: Auditar CVEs
         run: npm audit --audit-level=moderate
 

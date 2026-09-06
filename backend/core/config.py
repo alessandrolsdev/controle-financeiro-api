@@ -121,11 +121,35 @@ class Settings(BaseSettings):
     # --- Configurações de Segurança ---
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, ge=1, le=1440)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, ge=1, le=1440)
     JWT_ISSUER: str = "nomad-controle-financeiro"
     JWT_AUDIENCE: str = "nomad-app"
 
+    # Validade do refresh token. Como ele é rotacionado a cada uso e a família
+    # inteira é revogada ao detectar reuso, uma validade longa é aceitável e
+    # permite reduzir bastante a do token de acesso.
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=14, ge=1, le=365)
+
+    # Chave dedicada à criptografia de campos em repouso. Mantê-la separada da
+    # SECRET_KEY permite rotacionar a assinatura de tokens sem tornar ilegíveis
+    # os dados já gravados. Quando ausente, deriva-se da SECRET_KEY — o que é
+    # aceitável em desenvolvimento, mas recusado em produção.
+    ENCRYPTION_KEY: str | None = None
+
+    # --- Cookies de sessão ---
+    # Os tokens passam a trafegar em cookies httpOnly, fora do alcance de
+    # JavaScript e portanto de um XSS. `Strict` é seguro aqui porque o frontend
+    # e a API compartilham o mesmo site em produção.
+    COOKIE_SAMESITE: Literal["strict", "lax", "none"] = "strict"
+    COOKIE_DOMAIN: str | None = None
+
     # --- Configurações do Banco de Dados ---
+    # A trilha de auditoria vive no mesmo banco, e isso é deliberado: gravá-la
+    # na mesma transação da operação auditada garante que as duas existam ou
+    # nenhuma exista. Movê-la para outro banco daria isolamento contra as
+    # credenciais da aplicação, mas ao custo dessa atomicidade — o isolamento
+    # se obtém melhor no nível de infraestrutura (réplica append-only, papel
+    # sem DELETE, backup WORM). Ver SECURITY.md.
     DATABASE_URL: str | None = None
     DB_POOL_SIZE: int = Field(default=5, ge=1, le=100)
     DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
@@ -142,7 +166,14 @@ class Settings(BaseSettings):
     RATE_LIMIT_LOGIN_WINDOW_SECONDS: int = Field(default=300, ge=10)
     RATE_LIMIT_SIGNUP: int = Field(default=5, ge=1)
     RATE_LIMIT_SIGNUP_WINDOW_SECONDS: int = Field(default=3600, ge=10)
+    RATE_LIMIT_MFA: int = Field(default=5, ge=1)
+    RATE_LIMIT_MFA_WINDOW_SECONDS: int = Field(default=300, ge=10)
     REDIS_URL: str | None = None
+
+    # Número de processos servindo a aplicação. Com mais de um, o rate limiting
+    # em memória deixa de ser confiável (cada processo conta separadamente),
+    # então o Redis passa a ser exigido em produção.
+    WEB_CONCURRENCY: int = Field(default=1, ge=1)
 
     # --- Observabilidade ---
     LOG_LEVEL: str = "INFO"
@@ -202,10 +233,28 @@ class Settings(BaseSettings):
             )
         return valor
 
+    @field_validator("ENCRYPTION_KEY")
+    @classmethod
+    def _validar_encryption_key(cls, valor: str | None) -> str | None:
+        """Aplica à chave de criptografia o mesmo rigor da chave de assinatura.
+
+        Args:
+            valor (str | None): A chave configurada, se houver.
+
+        Raises:
+            ValueError: Se a chave for fraca ou constar na denylist.
+
+        Returns:
+            str | None: A chave validada.
+        """
+        if valor is None or valor == "":
+            return None
+        return cls._validar_secret_key(valor)
+
     @field_validator("SECRET_KEY")
     @classmethod
     def _validar_secret_key(cls, valor: str) -> str:
-        """Garante que a SECRET_KEY tem entropia suficiente e não é pública.
+        """Garante que a chave tem entropia suficiente e não é pública.
 
         Args:
             valor (str): A chave configurada.
@@ -306,6 +355,33 @@ class Settings(BaseSettings):
             raise ValueError(
                 "TRUSTED_HOSTS precisa ser explícito em produção para impedir "
                 "ataques de Host header poisoning."
+            )
+
+        if not self.ENCRYPTION_KEY:
+            raise ValueError(
+                "ENCRYPTION_KEY é obrigatória em produção. Derivá-la da "
+                "SECRET_KEY faria com que rotacionar a chave de assinatura "
+                "tornasse ilegíveis todos os dados pessoais já gravados."
+            )
+
+        if self.ENCRYPTION_KEY == self.SECRET_KEY:
+            raise ValueError(
+                "ENCRYPTION_KEY deve ser diferente da SECRET_KEY para que as "
+                "duas possam ser rotacionadas de forma independente."
+            )
+
+        if self.WEB_CONCURRENCY > 1 and not self.REDIS_URL:
+            raise ValueError(
+                f"REDIS_URL é obrigatória com WEB_CONCURRENCY={self.WEB_CONCURRENCY}. "
+                "O rate limiting em memória conta por processo, então o limite "
+                "efetivo seria multiplicado pelo número de workers — o que "
+                "inutiliza a proteção contra força bruta."
+            )
+
+        if self.COOKIE_SAMESITE == "none":
+            raise ValueError(
+                "COOKIE_SAMESITE='none' desativa a proteção nativa contra CSRF. "
+                "Use 'strict' (recomendado) ou 'lax'."
             )
 
         return self

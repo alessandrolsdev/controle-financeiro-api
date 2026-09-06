@@ -4,7 +4,7 @@
  * @description Define a configuração para compilação do React, geração do PWA e estratégias de cache offline.
  */
 
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -12,10 +12,7 @@ import { VitePWA } from 'vite-plugin-pwa';
  * Exporta a configuração do Vite.
  * Utiliza o modo (desenvolvimento/produção) para carregar as variáveis de ambiente corretas.
  */
-export default defineConfig(({ mode }) => {
-  
-  const env = loadEnv(mode, process.cwd(), '');
-
+export default defineConfig(() => {
   return {
     plugins: [
       react(),

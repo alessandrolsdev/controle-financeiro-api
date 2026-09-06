@@ -1,107 +1,188 @@
 // Arquivo: frontend/src/pages/Login/Login.jsx
 /**
- * @file Página de Login.
- * @description Rota pública para autenticação de usuários. Contém o formulário de login e redireciona para o dashboard após sucesso.
+ * @file Tela de Login.
+ * @description Autenticação em uma ou duas etapas, conforme o segundo fator.
  */
 
-import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
-import './Login.css';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
-import logoNomad from '../../assets/logo.png'; 
+import logo from '../../assets/logo.png';
+import { useAuth } from '../../context/useAuth';
+import '../../styles/auth.css';
 
 /**
- * Componente de Login.
+ * Tela de login.
  *
- * Permite que o usuário insira suas credenciais (nome de usuário e senha) para acessar a aplicação.
- * Utiliza o contexto de autenticação para realizar a operação de login.
+ * Quando a conta tem segundo fator, a senha correta não abre sessão: o
+ * formulário troca para a etapa do código, usando o token de desafio recebido.
  *
- * @returns {JSX.Element} A página de login renderizada.
+ * @returns {JSX.Element} A tela de login.
  */
 function Login() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { login, verificarSegundoFator } = useAuth();
 
-  const { login } = useAuth(); 
-  const navigate = useNavigate(); 
+  const [usuario, setUsuario] = useState('');
+  const [senha, setSenha] = useState('');
+  const [codigo, setCodigo] = useState('');
+  const [desafio, setDesafio] = useState(null);
+  const [erro, setErro] = useState('');
+  const [enviando, setEnviando] = useState(false);
 
   /**
-   * Manipula o envio do formulário de login.
+   * Envia as credenciais da primeira etapa.
    *
-   * Chama a função de login do contexto. Se bem-sucedido, redireciona para a página inicial.
-   * Caso contrário, exibe mensagem de erro.
-   *
-   * @param {Event} event - O evento de submit do formulário.
+   * @param {React.FormEvent} evento - O evento de submit.
    */
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError('');
-    setLoading(true);
+  const enviarCredenciais = async (evento) => {
+    evento.preventDefault();
+    setErro('');
+    setEnviando(true);
 
-    try {
-      const success = await login(username, password);
+    const resultado = await login(usuario, senha);
+    setEnviando(false);
 
-      if (success) {
-        navigate('/'); 
-      } else {
-        setError('Nome de usuário ou senha incorretos.');
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error('Erro no handleSubmit do Login:', err);
-      setError('Ocorreu um erro inesperado. Tente novamente.');
-      setLoading(false);
+    if (!resultado.ok) {
+      setErro(resultado.erro);
+      return;
+    }
+
+    if (resultado.mfaRequerido) {
+      setDesafio(resultado.desafio);
+    }
+    // Sem MFA, o contexto já carregou o perfil e o roteador redireciona.
+  };
+
+  /**
+   * Envia o código do segundo fator.
+   *
+   * @param {React.FormEvent} evento - O evento de submit.
+   */
+  const enviarCodigo = async (evento) => {
+    evento.preventDefault();
+    setErro('');
+    setEnviando(true);
+
+    const resultado = await verificarSegundoFator(desafio, codigo);
+    setEnviando(false);
+
+    if (!resultado.ok) {
+      setErro(resultado.erro);
+      setCodigo('');
     }
   };
 
   return (
-    <div className="login-page-wrapper">
-      <div className="login-container">
+    <div className="auth-tela">
+      <div className="auth-card">
+        <div className="auth-marca">
+          <img src={logo} alt="" />
+          NOMAD
+        </div>
 
-        <img src={logoNomad} alt="Logo NOMAD" className="login-logo" />
+        {desafio ? (
+          <>
+            <h1>Verificação em duas etapas</h1>
+            <p>
+              Digite o código do seu aplicativo autenticador ou um código de
+              recuperação.
+            </p>
 
-        <h1 className="login-title">NOMAD</h1>
-        <p className="login-subtitle">Offline. Sempre. Seu.</p>
+            <form className="auth-form" onSubmit={enviarCodigo}>
+              {erro && <p className="mensagem mensagem-erro">{erro}</p>}
 
-        <form className="login-form" onSubmit={handleSubmit}>
+              <div>
+                <label className="rotulo" htmlFor="codigo">
+                  Código
+                </label>
+                <input
+                  id="codigo"
+                  className="campo auth-codigo"
+                  value={codigo}
+                  onChange={(e) => setCodigo(e.target.value)}
+                  autoComplete="one-time-code"
+                  inputMode="text"
+                  maxLength={32}
+                  required
+                  autoFocus
+                />
+              </div>
 
-          {error && <p className="error-message">{error}</p>}
+              <button
+                type="submit"
+                className="botao botao-primario"
+                disabled={enviando}
+              >
+                {enviando ? 'Verificando…' : 'Verificar'}
+              </button>
+            </form>
 
-          <div className="input-group">
-            <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Nome de usuário"
-              required
-              autoCapitalize="none"
-            />
-          </div>
+            <p className="auth-alternativa">
+              <button
+                type="button"
+                className="botao-discreto"
+                onClick={() => {
+                  setDesafio(null);
+                  setCodigo('');
+                  setErro('');
+                }}
+              >
+                Usar outra conta
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <h1>Entrar</h1>
+            <p>Acesse sua conta para ver seu painel financeiro.</p>
 
-          <div className="input-group">
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Senha"
-              required
-            />
-          </div>
+            <form className="auth-form" onSubmit={enviarCredenciais}>
+              {erro && <p className="mensagem mensagem-erro">{erro}</p>}
 
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? 'Entrando...' : 'ENTRAR'}
-          </button>
+              <div>
+                <label className="rotulo" htmlFor="usuario">
+                  Usuário
+                </label>
+                <input
+                  id="usuario"
+                  className="campo"
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  autoComplete="username"
+                  required
+                  autoFocus
+                />
+              </div>
 
-          <div className="login-links">
-            <Link to="/signup" className="login-link">Criar nova conta</Link>
-          </div>
-        </form>
+              <div>
+                <label className="rotulo" htmlFor="senha">
+                  Senha
+                </label>
+                <input
+                  id="senha"
+                  type="password"
+                  className="campo"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="botao botao-primario"
+                disabled={enviando}
+              >
+                {enviando ? 'Entrando…' : 'Entrar'}
+              </button>
+            </form>
+
+            <p className="auth-rodape">
+              Não tem conta? <Link to="/signup">Criar conta</Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

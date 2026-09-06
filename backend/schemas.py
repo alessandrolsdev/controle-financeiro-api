@@ -130,6 +130,97 @@ class Token(BaseModel):
     expires_in: int
 
 
+class RespostaDeLogin(BaseModel):
+    """Resposta do endpoint de login.
+
+    Quando o usuário tem MFA ativo, `mfa_requerido` vem `True` e nenhum token de
+    sessão é emitido: o cliente precisa completar o segundo fator apresentando o
+    `token_de_desafio`.
+
+    Attributes:
+        mfa_requerido (bool): Se o segundo fator ainda precisa ser verificado.
+        token_de_desafio (str | None): Token de curta duração para o segundo fator.
+        expires_in (int | None): Validade do token de acesso, em segundos.
+        csrf_token (str | None): Token CSRF a ser ecoado no cabeçalho.
+    """
+
+    mfa_requerido: bool = False
+    token_de_desafio: str | None = None
+    expires_in: int | None = None
+    csrf_token: str | None = None
+
+
+class VerificacaoDeMFA(SchemaBase):
+    """Entrada para concluir o login com o segundo fator.
+
+    Attributes:
+        token_de_desafio (str): Token recebido na primeira etapa do login.
+        codigo (str): Código TOTP de 6 dígitos ou código de recuperação.
+    """
+
+    token_de_desafio: Annotated[str, StringConstraints(min_length=1, max_length=2048)]
+    codigo: Annotated[str, StringConstraints(min_length=6, max_length=32)]
+
+
+class InicioDeMFA(BaseModel):
+    """Dados de provisionamento do segundo fator.
+
+    O segredo aparece apenas nesta resposta, uma única vez, para que o usuário
+    o registre no aplicativo autenticador.
+
+    Attributes:
+        segredo (str): O segredo TOTP em base32.
+        uri_de_provisionamento (str): URI `otpauth://` para gerar o QR Code.
+    """
+
+    segredo: str
+    uri_de_provisionamento: str
+
+
+class ConfirmacaoDeMFA(SchemaBase):
+    """Entrada para ativar o segundo fator após o provisionamento.
+
+    Attributes:
+        codigo (str): Código TOTP gerado pelo aplicativo, provando que o
+            usuário registrou o segredo corretamente.
+    """
+
+    codigo: Annotated[str, StringConstraints(min_length=6, max_length=6)]
+
+
+class DesativacaoDeMFA(SchemaBase):
+    """Entrada para desativar o segundo fator.
+
+    Attributes:
+        senha (str): A senha atual, exigida para que um invasor com a sessão
+            aberta não consiga remover o segundo fator sozinho.
+    """
+
+    senha: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+
+
+class CodigosDeRecuperacao(BaseModel):
+    """Lote de códigos de recuperação em texto claro.
+
+    Attributes:
+        codigos (List[str]): Os códigos, exibidos uma única vez.
+    """
+
+    codigos: list[str]
+
+
+class StatusDeMFA(BaseModel):
+    """Situação atual do segundo fator de uma conta.
+
+    Attributes:
+        ativado (bool): Se o segundo fator está em uso.
+        codigos_restantes (int): Códigos de recuperação ainda não consumidos.
+    """
+
+    ativado: bool
+    codigos_restantes: int
+
+
 class TokenData(BaseModel):
     """Dados extraídos do payload do token JWT.
 
@@ -570,6 +661,36 @@ class DadosDeTendencia(BaseModel):
 
     receitas: list[PontoDeTendencia]
     despesas: list[PontoDeTendencia]
+
+
+class ErroDeImportacao(BaseModel):
+    """Uma linha da planilha que não pôde ser importada.
+
+    Attributes:
+        linha (int): Número da linha na planilha original.
+        motivo (str): Explicação legível do problema.
+    """
+
+    linha: int
+    motivo: str
+
+
+class ResultadoDaImportacao(BaseModel):
+    """Relatório de uma importação de planilha.
+
+    Attributes:
+        importadas (int): Quantidade de transações gravadas.
+        ignoradas (int): Linhas rejeitadas por conterem dados inválidos.
+        erros (List[ErroDeImportacao]): Detalhamento por linha.
+        colunas_detectadas (dict): Mapeamento entre campo e cabeçalho da planilha.
+        dashboard (DashboardData | None): Dados atualizados após a importação.
+    """
+
+    importadas: int
+    ignoradas: int
+    erros: list[ErroDeImportacao]
+    colunas_detectadas: dict[str, str]
+    dashboard: DashboardData | None = None
 
 
 class MensagemDeSucesso(BaseModel):

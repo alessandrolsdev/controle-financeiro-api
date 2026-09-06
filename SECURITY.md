@@ -1,8 +1,8 @@
 # Política e Estado de Segurança
 
-Documento gerado pela auditoria de segurança de 14/08/2026. Descreve o que foi
-encontrado, o que foi corrigido e o que **você precisa fazer manualmente** antes
-de considerar a aplicação segura em produção.
+Auditoria de segurança de 14/08/2026, atualizada na segunda rodada de
+06/09/2026. Descreve o que foi encontrado, o que foi corrigido e o que **você
+precisa fazer manualmente** antes de considerar a aplicação segura em produção.
 
 ---
 
@@ -115,11 +115,14 @@ trazendo de volta os valores que estavam invisíveis.
 ```bash
 ENVIRONMENT=production
 SECRET_KEY=<nova, 64+ caracteres, exclusiva>
+ENCRYPTION_KEY=<outra chave, DIFERENTE da SECRET_KEY>
 DATABASE_URL=postgresql://...          # PostgreSQL; SQLite é recusado
 CORS_ORIGINS=https://seu-app.com       # sem curinga, sempre https
 TRUSTED_HOSTS=api.seu-app.com          # '*' é recusado
-REDIS_URL=redis://...                  # necessário com mais de um worker
+REDIS_URL=redis://...                  # obrigatório com WEB_CONCURRENCY > 1
+WEB_CONCURRENCY=4
 DOCS_ENABLED=false                     # não exponha /docs
+COOKIE_SAMESITE=strict
 LOG_LEVEL=INFO
 ```
 
@@ -141,37 +144,99 @@ A migração `0002` **aborta** se encontrar transações com valor ≤ 0, pedind
 revisão manual. Corrigir valores financeiros automaticamente seria pior do que
 falhar.
 
+A migração `0003` cifra os dados pessoais já gravados. Ela usa a mesma chave que
+a aplicação usará, então defina a `ENCRYPTION_KEY` **definitiva antes** de
+migrar: trocá-la depois torna os dados ilegíveis.
+
 ---
 
 ## 4. Verificação contínua
 
 ```bash
-pytest                      # 70 testes, incluindo isolamento entre usuários
-pip-audit                   # CVEs nas dependências Python
-bandit -r backend/          # análise estática
-npm audit --prefix frontend # CVEs no frontend
+pytest                       # 132 testes: isolamento, JWT, sessões, MFA, cripto
+pip-audit                    # CVEs nas dependências Python
+bandit -r backend/           # análise estática
+ruff check backend/ tests/   # lint
+
+cd frontend
+npm run lint                 # lint do frontend
+npm audit                    # CVEs no frontend
 ```
 
 ---
 
-## 5. Limitações conhecidas
+## 5. Segunda rodada (06/09/2026)
 
-Itens que exigem decisão de produto ou infraestrutura e ficaram fora do escopo
-desta auditoria:
+Fecha os itens que a primeira rodada havia deixado em aberto.
 
-- **Token em `localStorage`.** Continua exposto a XSS. A mitigação adequada é
-  cookie `httpOnly` + `SameSite=Strict` com proteção CSRF, o que muda o contrato
-  entre frontend e backend. O risco atual está reduzido (CSP restritiva, nenhum
-  `dangerouslySetInnerHTML` no código, validação de `avatar_url`), mas não
-  eliminado.
-- **Sem refresh token.** A sessão expira em 30 minutos e exige novo login.
-- **Sem MFA.**
-- **Rate limiting em memória** quando `REDIS_URL` não está configurado: o limite
-  passa a valer por processo.
-- **Trilha de auditoria no mesmo banco** da aplicação. Para conformidade estrita,
-  ela deveria ir para armazenamento append-only separado, fora do alcance das
-  credenciais da aplicação.
-- **Sem criptografia em repouso** no nível da aplicação; depende do provedor.
+| # | Item anterior | Resolução |
+|---|---------------|-----------|
+| 25 | Token em `localStorage`, exposto a XSS | Sessão em cookies `httpOnly` + `SameSite=Strict`, com CSRF por double-submit |
+| 26 | Sem refresh token | Refresh token opaco, hasheado, com rotação a cada uso e revogação da família ao detectar reuso |
+| 27 | Sem MFA | TOTP (RFC 6238) com códigos de recuperação de uso único |
+| 28 | Rate limiting em memória com vários workers | Produção recusa iniciar com `WEB_CONCURRENCY > 1` sem `REDIS_URL` |
+| 29 | Sem criptografia em repouso na aplicação | AES-256-GCM em nome, e-mail, observações e segredo TOTP, com índice cego para o e-mail |
+
+### Detalhes das mudanças
+
+**Cookies em vez de `localStorage`.** Um XSS ainda consegue agir em nome do
+usuário enquanto a página está aberta, mas não consegue mais **exfiltrar** a
+credencial para uso posterior — a diferença entre um incidente contido e uma
+conta comprometida em definitivo. Como o navegador passa a enviar cookies
+automaticamente, o CSRF é barrado por `SameSite=Strict` mais um token de
+double-submit no cabeçalho `X-CSRF-Token`. O caminho `Authorization: Bearer`
+segue disponível para clientes que não são navegadores, e é dispensado da
+verificação de CSRF porque o navegador nunca envia esse cabeçalho sozinho.
+
+**Rotação com detecção de reuso.** Cada renovação invalida o refresh token
+apresentado e emite um sucessor na mesma família. Se um token já consumido
+reaparece, a conclusão é que uma cópia vazou — o cliente legítimo já teria o
+sucessor — e a família inteira é revogada, encerrando as duas sessões. É o
+desfecho seguro: melhor derrubar a vítima junto do atacante do que manter as
+duas ativas.
+
+**Criptografia de campos.** Complementa, não substitui, a criptografia de disco
+do provedor. As duas cobrem ameaças diferentes: a do provedor protege contra
+alguém que leve o disco embora; esta protege contra quem obtém leitura do banco
+— backup vazado, réplica mal configurada, dump em ticket de suporte, injeção de
+SQL —, cenários em que o disco já foi descriptografado e os dados apareceriam em
+claro. O e-mail continua pesquisável através de um índice cego (HMAC com chave
+secreta), que preserva a restrição de unicidade sem guardar o endereço.
+
+> **A `ENCRYPTION_KEY` não tem backup automático.** Perdê-la torna os dados
+> cifrados irrecuperáveis. Guarde-a no cofre de segredos do provedor, não apenas
+> na variável de ambiente.
+
+### Bugs encontrados executando a aplicação
+
+Três defeitos só apareceram ao rodar a interface de ponta a ponta, e não nos
+testes:
+
+1. **Laço de redirecionamento em `/login`.** A sondagem inicial de sessão recebe
+   401 quando ninguém está logado; o interceptor tratava isso como sessão
+   expirada, tentava renovar, falhava e redirecionava para `/login` — de onde a
+   sondagem recomeçava.
+2. **Preflight de CORS reprovado.** `X-CSRF-Token` não constava da allowlist de
+   cabeçalhos, então toda escrita vinda do navegador era barrada antes de chegar
+   à aplicação. Os testes não pegaram isso porque o `TestClient` não simula CORS;
+   agora há um teste específico para o preflight.
+3. **`App.css` nunca importado**, deixando o layout sem o contêiner de largura
+   máxima.
+
+## 6. Limitações conhecidas
+
+- **Trilha de auditoria no mesmo banco da aplicação.** É uma escolha, não uma
+  omissão: gravá-la na mesma transação da operação auditada garante que as duas
+  existam ou nenhuma exista. Movê-la para outro banco daria isolamento contra as
+  credenciais da aplicação, mas ao custo dessa atomicidade. Para conformidade
+  estrita, o isolamento se obtém melhor na infraestrutura — réplica lógica
+  append-only, papel de banco sem `DELETE`/`UPDATE` na tabela, ou backup WORM.
+- **Sem WebAuthn/passkeys.** O TOTP é resistente a vazamento de senha, mas não a
+  phishing em tempo real. Passkeys seriam o próximo passo.
+- **Sem recuperação de senha por e-mail**, o que torna os códigos de recuperação
+  o único caminho de volta caso o usuário perca o autenticador.
+- **Categorização da importação é heurística.** Palavras-chave acertam os casos
+  comuns de extrato brasileiro, mas não substituem revisão do usuário.
 
 ---
 

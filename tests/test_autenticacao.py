@@ -13,18 +13,68 @@ from backend import security
 from backend.core.config import settings
 
 
+def _claims(usuario: dict, **substituicoes) -> dict:
+    """Monta o conjunto de claims de um token de acesso válido.
+
+    Serve de base para os testes de forja, que alteram um claim por vez.
+
+    Args:
+        usuario (dict): Dados do usuário autenticado.
+        **substituicoes: Claims a sobrescrever.
+
+    Returns:
+        dict: O payload do token.
+    """
+    agora = datetime.now(UTC)
+    payload = {
+        "sub": usuario["nome_usuario"],
+        "uid": usuario["id"],
+        "ver": 1,
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "iat": agora,
+        "nbf": agora,
+        "exp": agora + timedelta(hours=1),
+        "jti": "teste",
+    }
+    payload.update(substituicoes)
+    return payload
+
+
+def _tentar_com_token(cliente, token: str):
+    """Faz uma requisição autenticada apenas com o token informado.
+
+    Os cookies da sessão real são removidos para que o teste exercite de fato
+    o token forjado, e não a sessão legítima já aberta pelo cliente.
+
+    Args:
+        cliente: Cliente HTTP de teste.
+        token (str): O token a apresentar.
+
+    Returns:
+        Response: A resposta HTTP.
+    """
+    cliente.cookies.clear()
+    return cliente.get("/usuarios/me", headers={"Authorization": f"Bearer {token}"})
+
+
 def test_login_com_credenciais_validas(cliente):
     """O login bem-sucedido devolve um token e sua validade."""
     criar_conta(cliente, "alice")
 
     resposta = cliente.post(
-        "/token", data={"username": "alice", "password": SENHA_VALIDA}
+        "/auth/login", data={"username": "alice", "password": SENHA_VALIDA}
     )
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    assert corpo["token_type"] == "bearer"
+    assert corpo["mfa_requerido"] is False
     assert corpo["expires_in"] == settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+    # Os tokens de sessão vão em cookies httpOnly, nunca no corpo — é isso que
+    # os coloca fora do alcance de um XSS.
+    assert "access_token" not in corpo
+    assert "refresh_token" not in corpo
 
 
 def test_mensagem_de_erro_nao_revela_se_usuario_existe(cliente):
@@ -35,10 +85,10 @@ def test_mensagem_de_erro_nao_revela_se_usuario_existe(cliente):
     criar_conta(cliente, "alice")
 
     inexistente = cliente.post(
-        "/token", data={"username": "fantasma", "password": "QualquerCoisa#123"}
+        "/auth/login", data={"username": "fantasma", "password": "QualquerCoisa#123"}
     )
     senha_errada = cliente.post(
-        "/token", data={"username": "alice", "password": "SenhaErrada#4567"}
+        "/auth/login", data={"username": "alice", "password": "SenhaErrada#4567"}
     )
 
     assert inexistente.status_code == senha_errada.status_code == 401
@@ -58,19 +108,13 @@ def test_endpoints_protegidos_exigem_token(cliente):
 
 def test_token_com_assinatura_invalida_e_rejeitado(cliente, usuario_com_token):
     """Um token assinado com outra chave não é aceito."""
-    _, token = usuario_com_token
-    payload = jwt.decode(
-        token,
-        settings.SECRET_KEY,
-        algorithms=[settings.ALGORITHM],
-        audience=settings.JWT_AUDIENCE,
-        issuer=settings.JWT_ISSUER,
+    usuario, _ = usuario_com_token
+
+    token_forjado = jwt.encode(
+        _claims(usuario), "chave-do-atacante", algorithm="HS256"
     )
 
-    token_forjado = jwt.encode(payload, "chave-do-atacante", algorithm="HS256")
-
-    resposta = cliente.get("/usuarios/me", headers=cabecalho(token_forjado))
-    assert resposta.status_code == 401
+    assert _tentar_com_token(cliente, token_forjado).status_code == 401
 
 
 def test_token_sem_assinatura_e_rejeitado(cliente, usuario_com_token):
@@ -79,19 +123,11 @@ def test_token_sem_assinatura_e_rejeitado(cliente, usuario_com_token):
     Esta é a falha clássica de confusão de algoritmo; o decodificador fixa o
     algoritmo por allowlist justamente para bloqueá-la.
     """
-    _, token = usuario_com_token
-    payload = jwt.decode(
-        token,
-        settings.SECRET_KEY,
-        algorithms=[settings.ALGORITHM],
-        audience=settings.JWT_AUDIENCE,
-        issuer=settings.JWT_ISSUER,
-    )
+    usuario, _ = usuario_com_token
 
-    token_sem_assinatura = jwt.encode(payload, key="", algorithm="none")
+    token_sem_assinatura = jwt.encode(_claims(usuario), key="", algorithm="none")
 
-    resposta = cliente.get("/usuarios/me", headers=cabecalho(token_sem_assinatura))
-    assert resposta.status_code == 401
+    assert _tentar_com_token(cliente, token_sem_assinatura).status_code == 401
 
 
 def test_token_expirado_e_rejeitado(cliente, usuario_com_token):
@@ -100,48 +136,30 @@ def test_token_expirado_e_rejeitado(cliente, usuario_com_token):
 
     agora = datetime.now(UTC)
     token_expirado = jwt.encode(
-        {
-            "sub": usuario["nome_usuario"],
-            "uid": usuario["id"],
-            "ver": 1,
-            "iss": settings.JWT_ISSUER,
-            "aud": settings.JWT_AUDIENCE,
-            "iat": agora - timedelta(hours=2),
-            "nbf": agora - timedelta(hours=2),
-            "exp": agora - timedelta(hours=1),
-            "jti": "teste",
-        },
+        _claims(
+            usuario,
+            iat=agora - timedelta(hours=2),
+            nbf=agora - timedelta(hours=2),
+            exp=agora - timedelta(hours=1),
+        ),
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
 
-    resposta = cliente.get("/usuarios/me", headers=cabecalho(token_expirado))
-    assert resposta.status_code == 401
+    assert _tentar_com_token(cliente, token_expirado).status_code == 401
 
 
 def test_token_de_outro_emissor_e_rejeitado(cliente, usuario_com_token):
     """Um token válido emitido para outro serviço não vale aqui."""
     usuario, _ = usuario_com_token
 
-    agora = datetime.now(UTC)
     token_de_terceiro = jwt.encode(
-        {
-            "sub": usuario["nome_usuario"],
-            "uid": usuario["id"],
-            "ver": 1,
-            "iss": "outro-servico",
-            "aud": "outra-audiencia",
-            "iat": agora,
-            "nbf": agora,
-            "exp": agora + timedelta(hours=1),
-            "jti": "teste",
-        },
+        _claims(usuario, iss="outro-servico", aud="outra-audiencia"),
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
 
-    resposta = cliente.get("/usuarios/me", headers=cabecalho(token_de_terceiro))
-    assert resposta.status_code == 401
+    assert _tentar_com_token(cliente, token_de_terceiro).status_code == 401
 
 
 def test_troca_de_senha_revoga_tokens_existentes(cliente, usuario_com_token):
@@ -240,7 +258,7 @@ def test_rate_limit_bloqueia_forca_bruta(cliente):
 
     respostas = [
         cliente.post(
-            "/token", data={"username": "alvo", "password": f"ErradaN{i}#2026"}
+            "/auth/login", data={"username": "alvo", "password": f"ErradaN{i}#2026"}
         ).status_code
         for i in range(settings.RATE_LIMIT_LOGIN + 3)
     ]

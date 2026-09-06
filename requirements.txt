@@ -38,6 +38,11 @@ PyJWT==2.13.0
 # release desde 2020 e quebra em Python 3.13 por depender de `crypt`, removido
 # da biblioteca padrão.
 argon2-cffi==25.1.0
+# AES-256-GCM para cifrar dados pessoais em repouso e HKDF para derivar as
+# chaves por finalidade. O TOTP é implementado no próprio projeto
+# (backend/mfa.py) sobre a hmac/hashlib da biblioteca padrão.
+cryptography==50.0.0
 
 # --- Rate limiting distribuído (opcional, recomendado em produção) ---
 redis==5.2.1
+openpyxl==3.1.5

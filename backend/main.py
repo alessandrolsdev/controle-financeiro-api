@@ -28,27 +28,31 @@ from typing import Annotated
 from fastapi import (
     Depends,
     FastAPI,
+    File,
     Header,
     HTTPException,
     Query,
     Request,
+    Response,
+    UploadFile,
     status,
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import crud, schemas, security
+from . import crud, importacao, models, schemas, security, sessoes
 from .core.config import descrever_configuracao, settings
 from .core.logging import configurar_logging, obter_logger
 from .core.middleware import (
     MiddlewareDeHeadersDeSeguranca,
     MiddlewareDeLogDeRequisicao,
     MiddlewareDeTamanhoDeCorpo,
+    obter_ip_do_cliente,
 )
 from .dependencies import (
     Auditoria,
@@ -56,6 +60,7 @@ from .dependencies import (
     UsuarioAutenticado,
     rate_limit_cadastro,
     rate_limit_login,
+    rate_limit_mfa,
 )
 from .schemas import MAXIMO_DIAS_POR_CONSULTA
 
@@ -114,7 +119,16 @@ app.add_middleware(
     allow_credentials=True,
     # Apenas os métodos efetivamente usados pela API.
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key"],
+    # A allowlist precisa incluir todo cabeçalho que o frontend envia: um
+    # cabeçalho ausente aqui faz o navegador reprovar o preflight e a
+    # requisição sequer chega à aplicação.
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Request-ID",
+        "X-CSRF-Token",
+        "Idempotency-Key",
+    ],
     expose_headers=["X-Request-ID"],
     max_age=600,
 )
@@ -243,33 +257,88 @@ def validar_periodo(data_inicio: date, data_fim: date) -> None:
 # --- ENDPOINTS (Autenticação) ---
 
 
+def _abrir_sessao(
+    resposta: Response,
+    db: SessaoDB,
+    usuario: models.Usuario,
+    request: Request,
+) -> dict:
+    """Emite o par de tokens e grava os cookies de sessão.
+
+    Args:
+        resposta (Response): A resposta em construção, que receberá os cookies.
+        db (Session): Sessão do banco de dados.
+        usuario (models.Usuario): O usuário autenticado.
+        request (Request): A requisição atual, usada para IP e user agent.
+
+    Returns:
+        dict: Corpo da resposta, com validade e token CSRF.
+    """
+    token_de_acesso = security.criar_token_de_acesso(
+        nome_usuario=usuario.nome_usuario,
+        usuario_id=usuario.id,
+        token_version=usuario.token_version,
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    refresh_token = sessoes.emitir_refresh_token(
+        db,
+        usuario,
+        ip_cliente=obter_ip_do_cliente(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+
+    token_csrf = sessoes.gerar_token_csrf()
+    sessoes.definir_cookies_de_sessao(
+        resposta, token_de_acesso, refresh_token, token_csrf
+    )
+
+    return {
+        "mfa_requerido": False,
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "csrf_token": token_csrf,
+    }
+
+
 @app.post(
-    "/token",
-    response_model=schemas.Token,
+    "/auth/login",
+    response_model=schemas.RespostaDeLogin,
     summary="Login do Usuário",
     dependencies=[Depends(rate_limit_login)],
 )
-def login_para_obter_token(
+def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: SessaoDB,
     contexto: Auditoria,
+    request: Request,
+    resposta: Response,
 ):
-    """Autentica um usuário e retorna um token de acesso JWT.
+    """Autentica um usuário e abre uma sessão em cookies httpOnly.
+
+    Os tokens vão em cookies inacessíveis ao JavaScript, em vez do corpo da
+    resposta: assim um XSS não consegue exfiltrar a credencial para uso fora do
+    navegador da vítima.
 
     A resposta é idêntica para "usuário inexistente" e "senha incorreta", e o
     custo de tempo é equalizado com um hash descartável — sem isso, o tempo de
     resposta revelaria quais nomes de usuário existem.
 
+    Quando a conta tem segundo fator ativo, nenhuma sessão é aberta: devolve-se
+    um token de desafio de curta duração, que só serve para `/auth/mfa/verificar`.
+
     Args:
         form_data (OAuth2PasswordRequestForm): Dados do formulário de login.
         db (Session): Sessão do banco de dados.
         contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+        request (Request): A requisição atual.
+        resposta (Response): A resposta em construção.
 
     Raises:
         HTTPException: 401 se as credenciais forem inválidas.
 
     Returns:
-        dict: Token de acesso, tipo e validade em segundos.
+        dict: Situação do login e, quando aplicável, o token de desafio.
     """
     erro_de_credenciais = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -303,22 +372,221 @@ def login_para_obter_token(
         usuario.senha_hash = security.get_hash_da_senha(form_data.password)
         db.commit()
 
+    if usuario.mfa_ativado:
+        crud.registrar_auditoria(
+            db,
+            "auth.primeiro_fator_ok",
+            usuario_id=usuario.id,
+            nome_usuario=usuario.nome_usuario,
+            entidade="usuario",
+            entidade_id=usuario.id,
+            contexto=contexto,
+        )
+        db.commit()
+
+        return {
+            "mfa_requerido": True,
+            "token_de_desafio": security.criar_token_de_desafio_mfa(
+                usuario.id, usuario.nome_usuario
+            ),
+        }
+
     crud.registrar_tentativa_de_login(
         db, form_data.username, sucesso=True, usuario_id=usuario.id, contexto=contexto
     )
 
-    access_token = security.criar_token_de_acesso(
+    return _abrir_sessao(resposta, db, usuario, request)
+
+
+@app.post(
+    "/auth/mfa/verificar",
+    response_model=schemas.RespostaDeLogin,
+    summary="Concluir Login com Segundo Fator",
+    dependencies=[Depends(rate_limit_mfa)],
+)
+def verificar_segundo_fator(
+    payload: schemas.VerificacaoDeMFA,
+    db: SessaoDB,
+    contexto: Auditoria,
+    request: Request,
+    resposta: Response,
+):
+    """Conclui o login validando o código do segundo fator.
+
+    Aceita tanto um código TOTP do aplicativo quanto um código de recuperação —
+    este último é consumido no ato, por ser de uso único.
+
+    Args:
+        payload (schemas.VerificacaoDeMFA): Token de desafio e código.
+        db (Session): Sessão do banco de dados.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+        request (Request): A requisição atual.
+        resposta (Response): A resposta em construção.
+
+    Raises:
+        HTTPException: 401 se o desafio ou o código forem inválidos.
+
+    Returns:
+        dict: Situação da sessão aberta.
+    """
+    credenciais = security.criar_excecao_de_credenciais()
+
+    dados = security.decodificar_token_de_desafio_mfa(
+        payload.token_de_desafio, credenciais
+    )
+
+    usuario = crud.get_usuario_por_id(db, dados["uid"])
+    if usuario is None or not usuario.mfa_ativado:
+        raise credenciais
+
+    if not crud.verificar_segundo_fator(db, usuario, payload.codigo, contexto):
+        crud.registrar_auditoria(
+            db,
+            "auth.segundo_fator_falhou",
+            usuario_id=usuario.id,
+            nome_usuario=usuario.nome_usuario,
+            entidade="usuario",
+            entidade_id=usuario.id,
+            sucesso=False,
+            contexto=contexto,
+        )
+        db.commit()
+        raise credenciais
+
+    crud.registrar_tentativa_de_login(
+        db, usuario.nome_usuario, sucesso=True, usuario_id=usuario.id, contexto=contexto
+    )
+
+    return _abrir_sessao(resposta, db, usuario, request)
+
+
+@app.post(
+    "/auth/refresh",
+    response_model=schemas.RespostaDeLogin,
+    summary="Renovar Sessão",
+)
+def renovar_sessao(
+    db: SessaoDB,
+    contexto: Auditoria,
+    request: Request,
+    resposta: Response,
+):
+    """Troca o refresh token por um novo par de tokens.
+
+    O refresh token é rotacionado a cada uso. Se um token já consumido for
+    apresentado de novo, é sinal de que uma cópia vazou — o cliente legítimo já
+    teria recebido o sucessor —, e toda a família de tokens daquela sessão é
+    revogada.
+
+    Args:
+        db (Session): Sessão do banco de dados.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+        request (Request): A requisição atual.
+        resposta (Response): A resposta em construção.
+
+    Raises:
+        HTTPException: 401 se o refresh token for ausente ou inválido.
+
+    Returns:
+        dict: Situação da sessão renovada.
+    """
+    credenciais = security.criar_excecao_de_credenciais()
+
+    token = request.cookies.get(sessoes.COOKIE_REFRESH)
+    if not token:
+        raise credenciais
+
+    resultado = sessoes.rotacionar_refresh_token(
+        db,
+        token,
+        ip_cliente=obter_ip_do_cliente(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    if not resultado.sucesso:
+        if resultado.reuso_detectado:
+            crud.registrar_auditoria(
+                db,
+                "auth.refresh_reuso_detectado",
+                sucesso=False,
+                contexto=contexto,
+            )
+        db.commit()
+        sessoes.limpar_cookies_de_sessao(resposta)
+        raise credenciais
+
+    usuario = resultado.usuario
+    if usuario is None or resultado.novo_refresh_token is None:
+        # Não deveria acontecer: `sucesso` implica os dois preenchidos. Tratar
+        # explicitamente evita depender de `assert`, que some sob `python -O`.
+        logger.error("Rotação de refresh token retornou estado inconsistente")
+        raise credenciais
+
+    token_de_acesso = security.criar_token_de_acesso(
         nome_usuario=usuario.nome_usuario,
         usuario_id=usuario.id,
         token_version=usuario.token_version,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    db.commit()
+
+    token_csrf = sessoes.gerar_token_csrf()
+    sessoes.definir_cookies_de_sessao(
+        resposta, token_de_acesso, resultado.novo_refresh_token, token_csrf
+    )
 
     return {
-        "access_token": access_token,
-        "token_type": "bearer",
+        "mfa_requerido": False,
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "csrf_token": token_csrf,
     }
+
+
+@app.post(
+    "/auth/logout",
+    response_model=schemas.MensagemDeSucesso,
+    summary="Encerrar Sessão",
+)
+def logout(db: SessaoDB, contexto: Auditoria, request: Request, resposta: Response):
+    """Encerra a sessão atual e limpa os cookies.
+
+    O refresh token apresentado é revogado junto com sua família, de modo que o
+    logout tenha efeito imediato no servidor — e não apenas no navegador.
+
+    Args:
+        db (Session): Sessão do banco de dados.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+        request (Request): A requisição atual.
+        resposta (Response): A resposta em construção.
+
+    Returns:
+        dict: Mensagem de sucesso.
+    """
+    token = request.cookies.get(sessoes.COOKIE_REFRESH)
+
+    if token:
+        registro = db.scalar(
+            select(models.RefreshToken).where(
+                models.RefreshToken.token_hash
+                == security.hash_de_refresh_token(token)
+            )
+        )
+        if registro is not None:
+            sessoes.revogar_familia(
+                db, registro.usuario_id, registro.familia_id, "logout"
+            )
+            crud.registrar_auditoria(
+                db,
+                "auth.logout",
+                usuario_id=registro.usuario_id,
+                entidade="usuario",
+                entidade_id=registro.usuario_id,
+                contexto=contexto,
+            )
+            db.commit()
+
+    sessoes.limpar_cookies_de_sessao(resposta)
+    return {"message": "Sessão encerrada."}
 
 
 @app.post(
@@ -509,6 +777,169 @@ def mudar_senha(
             "faça login novamente."
         )
     }
+
+
+# --- ENDPOINTS DE SEGUNDO FATOR (MFA) ---
+
+
+@app.get(
+    "/usuarios/me/mfa",
+    response_model=schemas.StatusDeMFA,
+    summary="Consultar Situação do Segundo Fator",
+)
+def consultar_mfa(db: SessaoDB, usuario_atual: UsuarioAutenticado):
+    """Informa se o segundo fator está ativo e quantos códigos restam.
+
+    Args:
+        db (Session): Sessão do banco de dados.
+        usuario_atual (models.Usuario): Usuário autenticado.
+
+    Returns:
+        dict: Situação do segundo fator.
+    """
+    return {
+        "ativado": usuario_atual.mfa_ativado,
+        "codigos_restantes": crud.contar_codigos_de_recuperacao(db, usuario_atual.id),
+    }
+
+
+@app.post(
+    "/usuarios/me/mfa/iniciar",
+    response_model=schemas.InicioDeMFA,
+    summary="Gerar Segredo do Segundo Fator",
+)
+def iniciar_mfa(db: SessaoDB, usuario_atual: UsuarioAutenticado):
+    """Gera o segredo TOTP e a URI de provisionamento.
+
+    O segundo fator ainda **não** fica ativo: só passa a valer depois que o
+    usuário confirma um código, provando que registrou o segredo corretamente.
+    Ativar antes disso trancaria a conta se o QR Code fosse lido errado.
+
+    Args:
+        db (Session): Sessão do banco de dados.
+        usuario_atual (models.Usuario): Usuário autenticado.
+
+    Raises:
+        HTTPException: 400 se o segundo fator já estiver ativo.
+
+    Returns:
+        dict: O segredo e a URI de provisionamento.
+    """
+    if usuario_atual.mfa_ativado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="O segundo fator já está ativo. Desative-o antes de gerar outro.",
+        )
+
+    segredo, uri = crud.iniciar_mfa(db, usuario_atual)
+    return {"segredo": segredo, "uri_de_provisionamento": uri}
+
+
+@app.post(
+    "/usuarios/me/mfa/confirmar",
+    response_model=schemas.CodigosDeRecuperacao,
+    summary="Ativar Segundo Fator",
+    dependencies=[Depends(rate_limit_mfa)],
+)
+def confirmar_mfa(
+    payload: schemas.ConfirmacaoDeMFA,
+    db: SessaoDB,
+    usuario_atual: UsuarioAutenticado,
+    contexto: Auditoria,
+):
+    """Ativa o segundo fator e devolve os códigos de recuperação.
+
+    Os códigos são exibidos uma única vez: o banco guarda apenas o hash deles.
+
+    Args:
+        payload (schemas.ConfirmacaoDeMFA): Código gerado pelo aplicativo.
+        db (Session): Sessão do banco de dados.
+        usuario_atual (models.Usuario): Usuário autenticado.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+
+    Raises:
+        HTTPException: 400 se o código não conferir.
+
+    Returns:
+        dict: Os códigos de recuperação.
+    """
+    codigos = crud.confirmar_mfa(db, usuario_atual, payload.codigo, contexto)
+
+    if codigos is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código inválido. Confira o horário do dispositivo e tente de novo.",
+        )
+
+    return {"codigos": codigos}
+
+
+@app.post(
+    "/usuarios/me/mfa/codigos",
+    response_model=schemas.CodigosDeRecuperacao,
+    summary="Gerar Novos Códigos de Recuperação",
+)
+def regenerar_codigos(
+    db: SessaoDB, usuario_atual: UsuarioAutenticado, contexto: Auditoria
+):
+    """Emite um lote novo de códigos, invalidando o anterior.
+
+    Args:
+        db (Session): Sessão do banco de dados.
+        usuario_atual (models.Usuario): Usuário autenticado.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+
+    Raises:
+        HTTPException: 400 se o segundo fator não estiver ativo.
+
+    Returns:
+        dict: Os novos códigos de recuperação.
+    """
+    if not usuario_atual.mfa_ativado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="O segundo fator não está ativo.",
+        )
+
+    return {"codigos": crud.regenerar_codigos_de_recuperacao(db, usuario_atual, contexto)}
+
+
+@app.post(
+    "/usuarios/me/mfa/desativar",
+    response_model=schemas.MensagemDeSucesso,
+    summary="Desativar Segundo Fator",
+    dependencies=[Depends(rate_limit_mfa)],
+)
+def desativar_mfa(
+    payload: schemas.DesativacaoDeMFA,
+    db: SessaoDB,
+    usuario_atual: UsuarioAutenticado,
+    contexto: Auditoria,
+):
+    """Remove o segundo fator, exigindo a senha atual.
+
+    Pedir a senha impede que alguém com uma sessão sequestrada — mas sem a
+    senha — remova a proteção que o impediria de voltar depois.
+
+    Args:
+        payload (schemas.DesativacaoDeMFA): A senha atual.
+        db (Session): Sessão do banco de dados.
+        usuario_atual (models.Usuario): Usuário autenticado.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+
+    Raises:
+        HTTPException: 400 se a senha estiver incorreta.
+
+    Returns:
+        dict: Mensagem de sucesso.
+    """
+    if not security.verificar_senha(payload.senha, usuario_atual.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Senha incorreta."
+        )
+
+    crud.desativar_mfa(db, usuario_atual, contexto)
+    return {"message": "Segundo fator desativado."}
 
 
 @app.post(
@@ -828,6 +1259,85 @@ def ler_transacoes(
     return crud.listar_transacoes(
         db, usuario_id=usuario_atual.id, skip=skip, limit=limit
     )
+
+
+@app.post(
+    "/transacoes/importar",
+    response_model=schemas.ResultadoDaImportacao,
+    summary="Importar Transações de Planilha (CSV/XLSX)",
+)
+async def importar_transacoes(
+    db: SessaoDB,
+    usuario_atual: UsuarioAutenticado,
+    contexto: Auditoria,
+    data_inicio: date,
+    data_fim: date,
+    arquivo: Annotated[UploadFile, File(description="Planilha .csv ou .xlsx")],
+):
+    """Importa transações de uma planilha, criando as categorias necessárias.
+
+    O arquivo é lido inteiro na memória, mas apenas depois que o limite de
+    tamanho é verificado — ler primeiro e validar depois seria o próprio vetor
+    de exaustão de memória que o limite existe para evitar.
+
+    Linhas inválidas não invalidam o arquivo: elas voltam no relatório com o
+    número da linha e o motivo, e as demais são gravadas.
+
+    Args:
+        db (Session): Sessão do banco de dados.
+        usuario_atual (models.Usuario): Usuário autenticado.
+        contexto (crud.ContextoDeAuditoria): Metadados da requisição.
+        data_inicio (date): Início do período para recálculo do dashboard.
+        data_fim (date): Fim do período para recálculo do dashboard.
+        arquivo (UploadFile): A planilha enviada.
+
+    Raises:
+        HTTPException: 400 se o arquivo for inválido ou grande demais.
+
+    Returns:
+        dict: Relatório da importação e dashboard atualizado.
+    """
+    validar_periodo(data_inicio, data_fim)
+
+    conteudo = await arquivo.read(importacao.TAMANHO_MAXIMO_ARQUIVO + 1)
+
+    if len(conteudo) > importacao.TAMANHO_MAXIMO_ARQUIVO:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                "O arquivo excede o limite de "
+                f"{importacao.TAMANHO_MAXIMO_ARQUIVO // (1024 * 1024)} MB."
+            ),
+        )
+
+    try:
+        leitura = importacao.ler_planilha(arquivo.filename or "", conteudo)
+    except importacao.ArquivoInvalidoError as erro:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(erro)
+        ) from None
+
+    importadas, erros_de_gravacao = crud.importar_transacoes(
+        db, leitura.linhas, usuario_atual.id, contexto
+    )
+
+    erros = [
+        {"linha": e.numero, "motivo": e.motivo}
+        for e in (*leitura.erros, *erros_de_gravacao)
+    ]
+
+    return {
+        "importadas": importadas,
+        "ignoradas": len(erros),
+        "erros": erros,
+        "colunas_detectadas": leitura.colunas_detectadas,
+        "dashboard": crud.get_dashboard_data(
+            db=db,
+            usuario_id=usuario_atual.id,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+        ),
+    }
 
 
 # --- ENDPOINTS DE CATEGORIA ---

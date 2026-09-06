@@ -1,0 +1,84 @@
+/* Arquivo: frontend/src/styles/auth.css */
+/*
+ * Telas de autenticação (login e cadastro).
+ *
+ * Um único cartão centrado, sem ilustração nem painel lateral decorativo:
+ * a tela existe para receber duas informações e sair da frente.
+ */
+
+.auth-tela {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e-4);
+  background-color: var(--superficie-0);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.auth-marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  margin-bottom: var(--e-6);
+  font-size: var(--t-md);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--texto-1);
+}
+
+.auth-marca img {
+  height: 1.5rem;
+  width: auto;
+}
+
+.auth-card h1 {
+  font-size: var(--t-lg);
+  margin-bottom: var(--e-1);
+}
+
+.auth-card > p {
+  color: var(--texto-2);
+  font-size: var(--t-sm);
+  margin-bottom: var(--e-5);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+.auth-form .botao {
+  margin-top: var(--e-1);
+  width: 100%;
+}
+
+.auth-rodape {
+  margin-top: var(--e-5);
+  text-align: center;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+
+/* --- Segundo fator --- */
+
+.auth-codigo {
+  /* Código de 6 dígitos: monoespaçado, grande e espaçado, para que o usuário
+     confira o que digitou sem esforço. */
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+  font-size: var(--t-lg);
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.auth-alternativa {
+  margin-top: var(--e-3);
+  text-align: center;
+  font-size: var(--t-sm);
+}

@@ -29,7 +29,8 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from . import models, schemas, security
+from . import mfa, models, schemas, security, sessoes
+from .core import cripto
 from .core.logging import obter_logger
 
 logger = obter_logger(__name__)
@@ -178,6 +179,27 @@ def get_usuario_por_id(db: Session, usuario_id: int) -> models.Usuario | None:
     return db.get(models.Usuario, usuario_id)
 
 
+def get_usuario_por_email(db: Session, email: str) -> models.Usuario | None:
+    """Busca um usuário pelo e-mail usando o índice cego.
+
+    A coluna de e-mail é cifrada com nonce aleatório, então uma comparação
+    direta nunca encontraria nada. A busca passa pelo HMAC determinístico
+    guardado em `email_indice`.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        email (str): O endereço a pesquisar.
+
+    Returns:
+        models.Usuario | None: O usuário, se encontrado.
+    """
+    return db.scalar(
+        select(models.Usuario).where(
+            models.Usuario.email_indice == cripto.indice_cego(email)
+        )
+    )
+
+
 def criar_usuario(
     db: Session,
     usuario: schemas.UsuarioCreate,
@@ -262,6 +284,12 @@ def atualizar_detalhes_usuario(
     for key, value in update_data.items():
         setattr(usuario, key, value)
 
+        # O índice cego precisa acompanhar o e-mail: é ele que sustenta a
+        # restrição de unicidade e a busca, já que o valor cifrado não é
+        # comparável.
+        if key == "email":
+            usuario.email_indice = cripto.indice_cego(value) if value else None
+
     registrar_auditoria(
         db,
         "usuario.perfil_atualizado",
@@ -316,8 +344,12 @@ def mudar_senha_usuario(
 
     usuario.senha_hash = security.get_hash_da_senha(payload.senha_nova)
     usuario.senha_alterada_em = models.agora_utc()
-    # Revoga todos os tokens emitidos antes desta troca.
+    # Revoga todos os tokens de acesso emitidos antes desta troca.
     usuario.token_version += 1
+
+    # E também os refresh tokens: sem isso, uma sessão comprometida se
+    # renovaria indefinidamente e a troca de senha não a expulsaria.
+    revogados = sessoes.revogar_todas_as_sessoes(db, usuario.id, "senha_alterada")
 
     registrar_auditoria(
         db,
@@ -327,7 +359,7 @@ def mudar_senha_usuario(
         entidade="usuario",
         entidade_id=usuario.id,
         contexto=contexto,
-        detalhes={"sessoes_revogadas": True},
+        detalhes={"sessoes_revogadas": True, "refresh_tokens_revogados": revogados},
     )
 
     db.commit()
@@ -351,6 +383,8 @@ def revogar_sessoes(
     """
     usuario.token_version += 1
 
+    revogados = sessoes.revogar_todas_as_sessoes(db, usuario.id, "revogacao_manual")
+
     registrar_auditoria(
         db,
         "usuario.sessoes_revogadas",
@@ -359,6 +393,7 @@ def revogar_sessoes(
         entidade="usuario",
         entidade_id=usuario.id,
         contexto=contexto,
+        detalhes={"refresh_tokens_revogados": revogados},
     )
 
     db.commit()
@@ -393,6 +428,264 @@ def registrar_tentativa_de_login(
         sucesso=sucesso,
         contexto=contexto,
     )
+    db.commit()
+
+
+# --- FUNÇÕES DE SEGUNDO FATOR (MFA) ---
+
+
+def iniciar_mfa(db: Session, usuario: models.Usuario) -> tuple[str, str]:
+    """Gera um segredo TOTP para o usuário, ainda sem ativá-lo.
+
+    O segredo é gravado, mas `mfa_ativado` continua falso até que o usuário
+    prove, com um código válido, que registrou o segredo no aplicativo. Sem
+    essa confirmação, um erro de leitura do QR Code trancaria a conta.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O usuário que está ativando o MFA.
+
+    Returns:
+        tuple[str, str]: O segredo em base32 e a URI de provisionamento.
+    """
+    segredo = mfa.gerar_segredo()
+
+    usuario.mfa_secret = segredo
+    usuario.mfa_ativado = False
+    db.commit()
+
+    return segredo, mfa.montar_uri_de_provisionamento(segredo, usuario.nome_usuario)
+
+
+def confirmar_mfa(
+    db: Session,
+    usuario: models.Usuario,
+    codigo: str,
+    contexto: ContextoDeAuditoria | None = None,
+) -> list[str] | None:
+    """Ativa o segundo fator após validar um código do aplicativo.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O usuário que está ativando o MFA.
+        codigo (str): Código TOTP gerado pelo aplicativo autenticador.
+        contexto (ContextoDeAuditoria | None): Metadados da requisição.
+
+    Returns:
+        list[str] | None: Os códigos de recuperação em texto claro, ou None se
+        o código informado não conferir.
+    """
+    if not usuario.mfa_secret:
+        return None
+
+    if mfa.verificar_codigo(usuario.mfa_secret, codigo) is None:
+        registrar_auditoria(
+            db,
+            "mfa.ativacao_negada",
+            usuario_id=usuario.id,
+            nome_usuario=usuario.nome_usuario,
+            entidade="usuario",
+            entidade_id=usuario.id,
+            sucesso=False,
+            contexto=contexto,
+        )
+        db.commit()
+        return None
+
+    usuario.mfa_ativado = True
+    usuario.mfa_ativado_em = models.agora_utc()
+
+    codigos = _gerar_codigos_de_recuperacao(db, usuario)
+
+    registrar_auditoria(
+        db,
+        "mfa.ativado",
+        usuario_id=usuario.id,
+        nome_usuario=usuario.nome_usuario,
+        entidade="usuario",
+        entidade_id=usuario.id,
+        contexto=contexto,
+    )
+
+    db.commit()
+    return codigos
+
+
+def _gerar_codigos_de_recuperacao(
+    db: Session, usuario: models.Usuario
+) -> list[str]:
+    """Substitui os códigos de recuperação do usuário por um lote novo.
+
+    Os códigos antigos são removidos: manter os dois lotes válidos ampliaria a
+    superfície de ataque sem benefício.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O dono dos códigos.
+
+    Returns:
+        list[str]: Os códigos em texto claro, para exibição única.
+    """
+    antigos = db.scalars(
+        select(models.CodigoDeRecuperacao).where(
+            models.CodigoDeRecuperacao.usuario_id == usuario.id
+        )
+    ).all()
+    for antigo in antigos:
+        db.delete(antigo)
+
+    codigos = mfa.gerar_codigos_de_recuperacao()
+
+    for codigo in codigos:
+        db.add(
+            models.CodigoDeRecuperacao(
+                codigo_hash=security.hash_de_codigo(
+                    mfa.normalizar_codigo_de_recuperacao(codigo)
+                ),
+                usuario_id=usuario.id,
+            )
+        )
+
+    return codigos
+
+
+def regenerar_codigos_de_recuperacao(
+    db: Session,
+    usuario: models.Usuario,
+    contexto: ContextoDeAuditoria | None = None,
+) -> list[str]:
+    """Emite um novo lote de códigos de recuperação, invalidando o anterior.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O dono dos códigos.
+        contexto (ContextoDeAuditoria | None): Metadados da requisição.
+
+    Returns:
+        list[str]: Os novos códigos em texto claro.
+    """
+    codigos = _gerar_codigos_de_recuperacao(db, usuario)
+
+    registrar_auditoria(
+        db,
+        "mfa.codigos_regenerados",
+        usuario_id=usuario.id,
+        nome_usuario=usuario.nome_usuario,
+        entidade="usuario",
+        entidade_id=usuario.id,
+        contexto=contexto,
+    )
+
+    db.commit()
+    return codigos
+
+
+def verificar_segundo_fator(
+    db: Session,
+    usuario: models.Usuario,
+    codigo: str,
+    contexto: ContextoDeAuditoria | None = None,
+) -> bool:
+    """Valida um código TOTP ou um código de recuperação.
+
+    Um código de recuperação é consumido no ato: ele é de uso único e não pode
+    valer para uma segunda tentativa.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O usuário em autenticação.
+        codigo (str): O código informado.
+        contexto (ContextoDeAuditoria | None): Metadados da requisição.
+
+    Returns:
+        bool: True se o código conferir.
+    """
+    if usuario.mfa_secret and mfa.verificar_codigo(usuario.mfa_secret, codigo):
+        return True
+
+    normalizado = mfa.normalizar_codigo_de_recuperacao(codigo)
+
+    disponiveis = db.scalars(
+        select(models.CodigoDeRecuperacao).where(
+            models.CodigoDeRecuperacao.usuario_id == usuario.id,
+            models.CodigoDeRecuperacao.usado_em.is_(None),
+        )
+    ).all()
+
+    for registro in disponiveis:
+        if security.verificar_codigo(normalizado, registro.codigo_hash):
+            registro.usado_em = models.agora_utc()
+
+            registrar_auditoria(
+                db,
+                "mfa.codigo_de_recuperacao_usado",
+                usuario_id=usuario.id,
+                nome_usuario=usuario.nome_usuario,
+                entidade="usuario",
+                entidade_id=usuario.id,
+                contexto=contexto,
+                detalhes={"codigos_restantes": len(disponiveis) - 1},
+            )
+
+            db.commit()
+            return True
+
+    return False
+
+
+def contar_codigos_de_recuperacao(db: Session, usuario_id: int) -> int:
+    """Conta os códigos de recuperação ainda não utilizados.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario_id (int): O dono dos códigos.
+
+    Returns:
+        int: Quantidade de códigos disponíveis.
+    """
+    return db.scalar(
+        select(func.count())
+        .select_from(models.CodigoDeRecuperacao)
+        .where(
+            models.CodigoDeRecuperacao.usuario_id == usuario_id,
+            models.CodigoDeRecuperacao.usado_em.is_(None),
+        )
+    ) or 0
+
+
+def desativar_mfa(
+    db: Session,
+    usuario: models.Usuario,
+    contexto: ContextoDeAuditoria | None = None,
+) -> None:
+    """Remove o segundo fator e descarta os códigos de recuperação.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        usuario (models.Usuario): O usuário alvo.
+        contexto (ContextoDeAuditoria | None): Metadados da requisição.
+    """
+    usuario.mfa_ativado = False
+    usuario.mfa_secret = None
+    usuario.mfa_ativado_em = None
+
+    for registro in db.scalars(
+        select(models.CodigoDeRecuperacao).where(
+            models.CodigoDeRecuperacao.usuario_id == usuario.id
+        )
+    ).all():
+        db.delete(registro)
+
+    registrar_auditoria(
+        db,
+        "mfa.desativado",
+        usuario_id=usuario.id,
+        nome_usuario=usuario.nome_usuario,
+        entidade="usuario",
+        entidade_id=usuario.id,
+        contexto=contexto,
+    )
+
     db.commit()
 
 
@@ -926,6 +1219,98 @@ def listar_transacoes_por_periodo(
             .limit(limit)
         )
     )
+
+
+def importar_transacoes(
+    db: Session,
+    linhas: list,
+    usuario_id: int,
+    contexto: ContextoDeAuditoria | None = None,
+) -> tuple[int, list]:
+    """Grava em lote as transações lidas de uma planilha.
+
+    Categorias mencionadas na planilha que ainda não existem são criadas para o
+    usuário — sem isso, o usuário teria de cadastrar dezenas de categorias à mão
+    antes de conseguir importar.
+
+    Tudo acontece em uma única transação de banco: ou a planilha inteira entra,
+    ou nada entra. Uma importação parcial deixaria o usuário sem saber quais
+    lançamentos precisam ser reenviados.
+
+    Args:
+        db (Session): Sessão ativa do banco de dados.
+        linhas (list): Linhas já validadas por `importacao.ler_planilha`.
+        usuario_id (int): Dono das transações.
+        contexto (ContextoDeAuditoria | None): Metadados da requisição.
+
+    Returns:
+        tuple[int, list]: Quantidade importada e os erros ocorridos na gravação.
+    """
+    from .importacao import ErroDeLinha
+
+    # Índice das categorias existentes, por (nome normalizado, tipo).
+    existentes: dict[tuple[str, str], models.Categoria] = {}
+    for categoria in listar_categorias(db, usuario_id):
+        existentes[(categoria.nome.strip().lower(), categoria.tipo)] = categoria
+
+    erros: list = []
+    importadas = 0
+
+    for linha in linhas:
+        nome_categoria = linha.categoria_sugerida or (
+            "Outros Gastos" if linha.tipo == models.TIPO_GASTO else "Outras Receitas"
+        )
+        chave = (nome_categoria.strip().lower(), linha.tipo)
+
+        categoria = existentes.get(chave)
+        if categoria is None:
+            categoria = models.Categoria(
+                nome=nome_categoria.strip()[:100],
+                tipo=linha.tipo,
+                cor="#95A5A6",
+                usuario_id=usuario_id,
+            )
+            db.add(categoria)
+            try:
+                db.flush()
+            except IntegrityError:
+                # O mesmo nome já existe com o outro tipo. A restrição de
+                # unicidade é por (usuario, nome), então desambiguamos.
+                db.rollback()
+                return importadas, [
+                    ErroDeLinha(
+                        numero=linha.numero,
+                        motivo=(
+                            f"Já existe uma categoria chamada '{nome_categoria}' "
+                            "com outro tipo. Renomeie-a ou ajuste a planilha."
+                        ),
+                    )
+                ]
+            existentes[chave] = categoria
+
+        db.add(
+            models.Transacao(
+                descricao=linha.descricao,
+                valor=linha.valor,
+                data=linha.data,
+                observacoes=linha.observacoes,
+                categoria_id=categoria.id,
+                usuario_id=usuario_id,
+            )
+        )
+        importadas += 1
+
+    registrar_auditoria(
+        db,
+        "transacao.importada_em_lote",
+        usuario_id=usuario_id,
+        entidade="transacao",
+        contexto=contexto,
+        detalhes={"quantidade": importadas},
+    )
+
+    db.commit()
+    return importadas, erros
 
 
 # --- FUNÇÕES ANALÍTICAS (DASHBOARD) ---

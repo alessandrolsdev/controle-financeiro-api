@@ -4,7 +4,7 @@
  * @description Exibe gráficos de tendências, distribuição de receitas/despesas.
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../services/api';
@@ -13,8 +13,8 @@ import './Reports.css';
 import FilterControls from '../../components/FilterControls/FilterControls';
 import HorizontalBarChart from '../../components/HorizontalBarChart/HorizontalBarChart';
 
-import { useTheme } from '../../context/ThemeContext'; 
-import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/useTheme'; 
+import { useAuth } from '../../context/useAuth';
 
 // REMOVIDO: import * as XLSX from 'xlsx'; (Correção de Segurança/Build)
 
@@ -82,7 +82,6 @@ const TrendChart = ({ data, filterType, theme }) => {
     </ResponsiveContainer>
   );
 };
-
 
 function Reports() {
   
@@ -187,17 +186,42 @@ function Reports() {
   
   
   if (isAuthLoading) {
-    return <p className="loading-transactions">Carregando...</p>
+    return <p className="vazio">Carregando…</p>;
   }
 
+  /**
+   * Renderiza um painel de relatório com seus estados de carga e vazio.
+   *
+   * @param {string} titulo - O título do painel.
+   * @param {Array} dados - Os dados da série.
+   * @param {JSX.Element} grafico - O gráfico já montado.
+   * @returns {JSX.Element} O painel renderizado.
+   */
+  const renderPainel = (titulo, dados, grafico) => (
+    <section className="relatorio-painel">
+      <header>
+        <h3>{titulo}</h3>
+      </header>
+      <div className="relatorio-corpo">
+        {loading && <p className="vazio">Carregando…</p>}
+        {error && <p className="mensagem mensagem-erro">{error}</p>}
+        {!loading && !error && (
+          dados.length > 0 ? grafico : <p className="vazio">Sem dados no período.</p>
+        )}
+      </div>
+    </section>
+  );
+
   return (
-    <div className="reports-container">
-      <header className="reports-header">
-        <h2>Relatórios Visuais</h2>
-        {/* BOTÃO REMOVIDO TEMPORARIAMENTE */}
+    <>
+      <header className="cabecalho-pagina">
+        <div>
+          <h1>Relatórios</h1>
+          <p>Evolução e composição das suas finanças.</p>
+        </div>
       </header>
 
-      <FilterControls 
+      <FilterControls
         filterType={filterType}
         setFilterType={setFilterType}
         dataInicio={dataInicio}
@@ -206,48 +230,26 @@ function Reports() {
         setDataFim={setDataFim}
       />
 
-      <main className="reports-content">
+      <div className="relatorios">
+        {renderPainel(
+          'Saldo ao longo do tempo',
+          lineChartData,
+          <TrendChart data={lineChartData} filterType={filterType} theme={theme} />
+        )}
 
-        <div className="report-card">
-          <h3>Saldo ao Longo do Tempo</h3>
-          {loading && <p className="loading-transactions">Carregando gráfico...</p>}
-          {error && <p className="error-message">Não foi possível carregar os dados do relatório.</p>}
-          {!loading && !error && (
-            lineChartData.length > 0 ? (
-              <TrendChart data={lineChartData} filterType={filterType} theme={theme} /> 
-            ) : (
-              <p className="loading-transactions">Sem dados de tendência para exibir.</p>
-            )
-          )}
-        </div>
-        
-        <div className="report-card">
-          <h3>Gastos por Categoria - Detalhado</h3>
-          {loading && <p className="loading-transactions">Carregando gráfico...</p>}
-          {error && <p className="error-message">Não foi possível carregar os dados do relatório.</p>}
-          {!loading && !error && (
-            gastosBarData.length > 0 ? (
-              <HorizontalBarChart data={gastosBarData} theme={theme} />
-            ) : (
-              <p className="loading-transactions">Sem dados de gastos para exibir.</p>
-            )
-          )}
-        </div>
-        
-        <div className="report-card">
-          <h3>Receitas por Categoria - Detalhado</h3>
-          {loading && <p className="loading-transactions">Carregando gráfico...</p>}
-          {error && <p className="error-message">Não foi possível carregar os dados do relatório.</p>}
-          {!loading && !error && (
-            receitasBarData.length > 0 ? (
-              <HorizontalBarChart data={receitasBarData} theme={theme} />
-            ) : (
-              <p className="loading-transactions">Sem dados de receitas para exibir.</p>
-            )
-          )}
-        </div>
-      </main>
-    </div>
+        {renderPainel(
+          'Despesas por categoria',
+          gastosBarData,
+          <HorizontalBarChart data={gastosBarData} theme={theme} />
+        )}
+
+        {renderPainel(
+          'Receitas por categoria',
+          receitasBarData,
+          <HorizontalBarChart data={receitasBarData} theme={theme} />
+        )}
+      </div>
+    </>
   );
 }
 

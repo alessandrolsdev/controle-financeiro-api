@@ -4,7 +4,7 @@
  * @description Componente de formulário para criar, editar e gerenciar transações financeiras, com suporte a operação offline.
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import './TransactionModal.css';
 
@@ -209,71 +209,135 @@ function TransactionModal({
   };
   
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-modal"
+      >
         <div className="modal-header">
-          <h2>{isEditMode ? 'Editar Transação' : 'Registrar Nova Transação'}</h2>
-          <button onClick={onClose} className="close-button">&times;</button>
+          <h2 id="titulo-modal">
+            {isEditMode ? 'Editar transação' : 'Nova transação'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="close-button"
+            aria-label="Fechar"
+          >
+            &times;
+          </button>
         </div>
-        
-        <form className="modal-form" onSubmit={handleSubmit}>
-          {error && <p className="error-message">{error}</p>}
-          {success && <p className="success-message">{success}</p>}
 
-          <div className="input-group">
-            <label htmlFor="descricao">Descrição</label>
-            <input type="text" id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: Diesel para a Retro 2" required />
-          </div>
+        <form className="modal-form" onSubmit={handleSubmit} id="form-transacao">
+          {error && <p className="mensagem mensagem-erro">{error}</p>}
+          {success && <p className="mensagem mensagem-sucesso">{success}</p>}
 
-          <div className="input-group">
-            <label htmlFor="valor">Valor (R$)</label>
-            <input 
+          <div>
+            <label className="rotulo" htmlFor="descricao">
+              Descrição
+            </label>
+            <input
               type="text"
-              inputMode="decimal"
-              id="valor" 
-              value={valor} 
-              onChange={(e) => setValor(e.target.value)} 
-              placeholder="0,00" 
-              required 
+              id="descricao"
+              className="campo"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Mercado, combustível, salário…"
+              maxLength={255}
+              required
+              autoFocus
             />
           </div>
 
-          <div className="input-group">
-            <label htmlFor="data">Data e Hora da Transação</label>
-            <input 
-              type="datetime-local"
-              id="data" 
-              value={data} 
-              onChange={(e) => setData(e.target.value)} 
-              required 
-              max={formatToInput()}
-            />
+          <div className="modal-linha">
+            <div>
+              <label className="rotulo" htmlFor="valor">
+                Valor (R$)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                id="valor"
+                className="campo"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                placeholder="0,00"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="rotulo" htmlFor="data">
+                Data e hora
+              </label>
+              <input
+                type="datetime-local"
+                id="data"
+                className="campo"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                max={formatToInput()}
+                required
+              />
+            </div>
           </div>
 
-          <div className="input-group">
-            <label htmlFor="categoria">Categoria</label>
-            <select id="categoria" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} required disabled={loading}>
+          <div>
+            <label className="rotulo" htmlFor="categoria">
+              Categoria
+            </label>
+            <select
+              id="categoria"
+              className="campo"
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              required
+              disabled={loading}
+            >
               <option value="" disabled>
-                {loading ? "Carregando..." : "Selecione uma categoria"}
+                {loading ? 'Carregando…' : 'Selecione'}
               </option>
-              {!loading && categorias.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.nome} ({cat.tipo})
-                </option>
-              ))}
+              {!loading &&
+                categorias.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.nome} · {cat.tipo === 'Receita' ? 'Receita' : 'Despesa'}
+                  </option>
+                ))}
             </select>
           </div>
 
-          <div className="input-group">
-            <label htmlFor="observacoes">Observações (Opcional)</label>
-            <textarea id="observacoes" rows="3" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Ex: Placa do caminhão..."></textarea>
+          <div>
+            <label className="rotulo" htmlFor="observacoes">
+              Observações
+            </label>
+            <textarea
+              id="observacoes"
+              className="campo"
+              rows="3"
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              placeholder="Opcional"
+              maxLength={2000}
+            />
           </div>
-
-          <button type="submit" className="submit-button" disabled={loading || success}>
-            {isEditMode ? 'Salvar Alterações' : 'Salvar Transação'}
-          </button>
         </form>
+
+        <div className="modal-rodape">
+          <button type="button" className="botao botao-secundario" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="form-transacao"
+            className="botao botao-primario"
+            disabled={loading || Boolean(success)}
+          >
+            {isEditMode ? 'Salvar' : 'Adicionar'}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,120 +1,161 @@
 // Arquivo: frontend/src/pages/SignUp/SignUp.jsx
 /**
- * @file Página de Cadastro (SignUp).
- * @description Rota pública para registro de novos usuários.
+ * @file Tela de Cadastro.
+ * @description Criação de conta, com a política de senha visível desde o início.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios'; 
-import './SignUp.css';
-import logoNomad from '../../assets/logo.png';
+
+import logo from '../../assets/logo.png';
+import { useAuth } from '../../context/useAuth';
+import api from '../../services/api';
+import '../../styles/auth.css';
+
+/** Mínimo exigido pelo backend (`security.TAMANHO_MINIMO_SENHA`). */
+const TAMANHO_MINIMO_SENHA = 12;
 
 /**
- * Componente de Cadastro.
+ * Tela de cadastro.
  *
- * Permite que novos usuários criem uma conta fornecendo nome de usuário e senha.
- * Após o cadastro bem-sucedido, redireciona para a página de login.
+ * A política de senha é informada antes do envio, e não apenas como erro
+ * depois: o usuário não deveria descobrir a regra sendo recusado por ela.
  *
- * @returns {JSX.Element} A página de cadastro renderizada.
+ * @returns {JSX.Element} A tela de cadastro.
  */
 function SignUp() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  
-  const navigate = useNavigate();
+  const navegar = useNavigate();
+  const { login } = useAuth();
+
+  const [usuario, setUsuario] = useState('');
+  const [senha, setSenha] = useState('');
+  const [confirmacao, setConfirmacao] = useState('');
+  const [erro, setErro] = useState('');
+  const [enviando, setEnviando] = useState(false);
 
   /**
-   * Manipula o envio do formulário de cadastro.
+   * Cria a conta e já autentica o usuário.
    *
-   * Envia uma requisição POST para a API pública de criação de usuários.
-   * Exibe mensagens de sucesso ou erro conforme a resposta.
-   *
-   * @param {Event} event - O evento de submit do formulário.
+   * @param {React.FormEvent} evento - O evento de submit.
    */
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
+  const enviar = async (evento) => {
+    evento.preventDefault();
+    setErro('');
+
+    if (senha !== confirmacao) {
+      setErro('As senhas não coincidem.');
+      return;
+    }
+
+    if (senha.length < TAMANHO_MINIMO_SENHA) {
+      setErro(`A senha precisa ter ao menos ${TAMANHO_MINIMO_SENHA} caracteres.`);
+      return;
+    }
+
+    setEnviando(true);
 
     try {
-      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/usuarios/`, {
-        nome_usuario: username,
-        senha: password,
-      });
+      await api.post('/usuarios/', { nome_usuario: usuario, senha });
 
-      setLoading(false);
-      setSuccess('Conta criada com sucesso! Redirecionando para o login...');
-
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-
-    } catch (err) {
-      setLoading(false);
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(err.response.data.detail);
-      } else {
-        console.error('Erro ao criar conta:', err);
-        setError('Ocorreu um erro inesperado. Tente novamente.');
+      const resultado = await login(usuario, senha);
+      if (resultado.ok && !resultado.mfaRequerido) {
+        navegar('/', { replace: true });
       }
+    } catch (err) {
+      const detalhe = err.response?.data?.detail;
+
+      // O backend devolve a lista de problemas da política de senha; exibi-la
+      // é mais útil do que uma mensagem genérica.
+      if (detalhe?.problemas?.length) {
+        setErro(detalhe.problemas.join(' '));
+      } else if (typeof detalhe === 'string') {
+        setErro(detalhe);
+      } else {
+        setErro('Não foi possível criar a conta. Tente novamente.');
+      }
+    } finally {
+      setEnviando(false);
     }
   };
 
   return (
-    <div className="signup-page-wrapper">
-      <div className="signup-container">
-        
-        <img src={logoNomad} alt="Logo NOMAD" className="signup-logo" />
-        
-        <h1 className="signup-title">Crie sua Conta</h1>
-        <p className="signup-subtitle">Controle total, onde você estiver.</p>
-        
-        <form className="signup-form" onSubmit={handleSubmit}>
-          
-          {error && <p className="error-message">{error}</p>}
-          {success && <p className="success-message">{success}</p>}
+    <div className="auth-tela">
+      <div className="auth-card">
+        <div className="auth-marca">
+          <img src={logo} alt="" />
+          NOMAD
+        </div>
 
-          <div className="input-group">
+        <h1>Criar conta</h1>
+        <p>Comece a organizar suas finanças em poucos segundos.</p>
+
+        <form className="auth-form" onSubmit={enviar}>
+          {erro && <p className="mensagem mensagem-erro">{erro}</p>}
+
+          <div>
+            <label className="rotulo" htmlFor="usuario">
+              Usuário
+            </label>
             <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Nome de usuário (ex: 'alessandro')"
+              id="usuario"
+              className="campo"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+              autoComplete="username"
+              minLength={3}
+              maxLength={100}
+              pattern="[a-zA-Z0-9._\-]+"
+              title="Apenas letras, números, ponto, hífen e sublinhado."
               required
+              autoFocus
             />
           </div>
-          
-          <div className="input-group">
+
+          <div>
+            <label className="rotulo" htmlFor="senha">
+              Senha
+            </label>
             <input
+              id="senha"
               type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Senha"
+              className="campo"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              autoComplete="new-password"
+              minLength={TAMANHO_MINIMO_SENHA}
+              required
+            />
+            <p className="texto-secundario" style={{ fontSize: 'var(--t-xs)', marginTop: 'var(--e-2)' }}>
+              Mínimo de {TAMANHO_MINIMO_SENHA} caracteres.
+            </p>
+          </div>
+
+          <div>
+            <label className="rotulo" htmlFor="confirmacao">
+              Confirmar senha
+            </label>
+            <input
+              id="confirmacao"
+              type="password"
+              className="campo"
+              value={confirmacao}
+              onChange={(e) => setConfirmacao(e.target.value)}
+              autoComplete="new-password"
               required
             />
           </div>
-          
-          <button type="submit" className="signup-button" disabled={loading}>
-            {loading ? 'Criando...' : 'Criar Conta'}
-          </button>
 
-          <div className="signup-links">
-            <Link to="/login" className="signup-link">
-              Já tem uma conta? Faça o login
-            </Link>
-          </div>
+          <button type="submit" className="botao botao-primario" disabled={enviando}>
+            {enviando ? 'Criando…' : 'Criar conta'}
+          </button>
         </form>
+
+        <p className="auth-rodape">
+          Já tem conta? <Link to="/login">Entrar</Link>
+        </p>
       </div>
     </div>
   );
-} 
+}
 
 export default SignUp;

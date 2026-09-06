@@ -15,6 +15,7 @@ from backend.core.logging import redigir
 CHAVE_VAZADA = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 
 CHAVE_FORTE = "Xq7ZpL2mVn9RtKw4YbGc8HdJf5NsQe3AuIoPyTrEwZxCvBnMlKjHgFdSaQwErTyU"
+CHAVE_FORTE_2 = "Mb4KpXw9ZqTr2LnVc7YsGd5HfJ8NeQ3AuIoPyRtEwZxCvBnMlKjHgFdSaQwErTyU"
 
 
 def _config(**valores) -> Settings:
@@ -142,6 +143,7 @@ def test_configuracao_valida_de_producao_e_aceita():
     """Uma configuração correta de produção passa em todas as validações."""
     config = _config(
         SECRET_KEY=CHAVE_FORTE,
+        ENCRYPTION_KEY=CHAVE_FORTE_2,
         ENVIRONMENT="production",
         DATABASE_URL="postgresql://usuario:senha@host/banco",
         CORS_ORIGINS=["https://app.exemplo.com"],
@@ -154,6 +156,7 @@ def test_resumo_de_configuracao_nao_expoe_segredos():
     """O resumo registrado em log oculta a chave e as credenciais do banco."""
     config = _config(
         SECRET_KEY=CHAVE_FORTE,
+        ENCRYPTION_KEY=CHAVE_FORTE_2,
         DATABASE_URL="postgresql://usuario:senha_secreta@host/banco",
     )
 

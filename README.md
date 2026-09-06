@@ -95,6 +95,12 @@ graph LR
 *   **Design Responsivo:** Interface adaptável otimizada para mobile, tablet e desktop
 *   **Tema Dinâmico:** Suporte nativo a modos Claro e Escuro com persistência de preferência
 
+### 📥 Importação
+*   **Planilhas CSV e XLSX:** traga o histórico de um extrato bancário sem digitar nada
+*   **Reconhecimento de colunas:** aceita os nomes mais comuns em português e inglês
+*   **Categorização automática:** classifica por palavras-chave da descrição ("Posto Ipiranga" → Transporte)
+*   **Relatório por linha:** uma linha inválida não invalida o arquivo — ela é apontada com o motivo
+
 ### 💼 Gestão Financeira
 *   **Dashboard Interativo:** Visão geral de receitas, despesas e saldo em tempo real
 *   **Transações CRUD Completo:** Criar, visualizar, editar e excluir registros financeiros
@@ -104,6 +110,11 @@ graph LR
 *   **Exportação de Dados:** Suporte para exportação de relatórios (futuro: Excel, PDF)
 
 ### 🔐 Segurança e Autenticação
+*   **Sessão em cookies `httpOnly`:** o token fica fora do alcance de JavaScript — um XSS não consegue exfiltrá-lo
+*   **Proteção CSRF:** `SameSite=Strict` mais token de double-submit no cabeçalho `X-CSRF-Token`
+*   **Refresh token com rotação:** cada uso emite um sucessor; reapresentar um token já usado revoga a sessão inteira
+*   **Verificação em duas etapas:** TOTP (RFC 6238) com códigos de recuperação de uso único
+*   **Criptografia em repouso:** nome, e-mail, observações e segredo TOTP cifrados com AES-256-GCM
 *   **Autenticação JWT:** Tokens assinados com `iss`, `aud`, `iat`, `nbf`, `exp` e `jti`, com algoritmo fixado por allowlist
 *   **Revogação de sessões:** Trocar a senha invalida imediatamente todos os tokens já emitidos
 *   **Criptografia de Senhas:** Argon2id com parâmetros da RFC 9106 e política mínima de 12 caracteres
@@ -132,6 +143,8 @@ graph LR
 | Uvicorn | 0.38 | Servidor ASGI |
 | PyJWT | 2.13 | Geração e validação JWT |
 | argon2-cffi | 25.1 | Hashing de senhas (Argon2id) |
+| cryptography | 50.0 | AES-256-GCM para dados em repouso |
+| openpyxl | 3.1 | Leitura de planilhas na importação |
 | psycopg | 3.2 | Driver PostgreSQL |
 | PostgreSQL | 14+ | Banco de dados (produção) |
 
@@ -205,7 +218,8 @@ pip install -r requirements.txt
 
 # Configure as variáveis de ambiente locais
 cp .env.example .env
-# Preencha SECRET_KEY no .env antes de continuar
+# Preencha SECRET_KEY e ENCRYPTION_KEY no .env antes de continuar
+# (duas chaves DIFERENTES, geradas pelo comando acima)
 
 # Crie o esquema do banco (o schema é gerido por migrações, não por create_all)
 alembic upgrade head
@@ -251,6 +265,7 @@ controle-financeiro-api/
 │   ├── core/                  # Configurações centrais
 │   │   ├── __init__.py
 │   │   ├── config.py          # Settings validadas e variáveis de ambiente
+│   │   ├── cripto.py          # Cifragem de campos e índice cego
 │   │   ├── logging.py         # Log estruturado com redação de segredos
 │   │   ├── middleware.py      # Headers de segurança e log de requisições
 │   │   └── rate_limit.py      # Limitação de taxa (memória ou Redis)
@@ -259,7 +274,10 @@ controle-financeiro-api/
 │   ├── main.py                # Aplicação FastAPI e rotas
 │   ├── models.py              # Modelos ORM (Usuario, Categoria, Transacao)
 │   ├── schemas.py             # Schemas Pydantic (validação)
-│   ├── security.py            # Autenticação JWT e hashing de senhas
+│   ├── security.py            # JWT, hashing de senhas e refresh tokens
+│   ├── sessoes.py             # Cookies, CSRF e rotação de refresh token
+│   ├── mfa.py                 # TOTP e códigos de recuperação
+│   ├── importacao.py          # Leitura de planilhas CSV/XLSX
 │   └── dependencies.py        # Injeção de sessão, usuário atual e rate limit
 ├── alembic/                   # Migrações versionadas de banco
 │   └── versions/
@@ -336,8 +354,9 @@ npm run preview  # Preview do build
    - `DATABASE_URL` (PostgreSQL fornecido pelo Render)
    - `CORS_ORIGINS` (a URL exata do frontend, sem curinga)
    - `TRUSTED_HOSTS` (o host da API)
+   - `ENCRYPTION_KEY` (outra chave, **diferente** da `SECRET_KEY`)
    - `DOCS_ENABLED=false`
-   - `REDIS_URL` (necessário se rodar com mais de um worker)
+   - `REDIS_URL` (obrigatório se `WEB_CONCURRENCY > 1`)
 3. O Render detectará automaticamente o `requirements.txt`
 4. Defina o comando de start aplicando as migrações antes de subir:
    `alembic upgrade head && gunicorn backend.main:app -k uvicorn.workers.UvicornWorker`

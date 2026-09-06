@@ -23,6 +23,8 @@ Decisões de engenharia relevantes:
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -224,7 +226,129 @@ def precisa_reidratar_hash(senha_hashed: str) -> bool:
         return True
 
 
+# --- Códigos de Recuperação ---
+
+
+def hash_de_codigo(codigo: str) -> str:
+    """Gera o hash de um código de recuperação.
+
+    Args:
+        codigo (str): O código em texto claro.
+
+    Returns:
+        str: O hash Argon2id.
+    """
+    return _hasher.hash(codigo)
+
+
+def verificar_codigo(codigo: str, codigo_hashed: str) -> bool:
+    """Confere um código de recuperação contra seu hash.
+
+    Args:
+        codigo (str): O código informado pelo usuário.
+        codigo_hashed (str): O hash armazenado.
+
+    Returns:
+        bool: True se conferem.
+    """
+    try:
+        return _hasher.verify(codigo_hashed, codigo)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
+
+
+# --- Refresh Tokens ---
+
+# Um refresh token é um valor opaco aleatório, não um JWT. Ele não precisa
+# carregar claims (o estado vive no banco) e, sendo opaco, não revela nada
+# sobre o usuário caso vaze em um log de proxy.
+TAMANHO_REFRESH_TOKEN_BYTES = 32
+
+
+def gerar_refresh_token() -> str:
+    """Gera um refresh token opaco criptograficamente aleatório.
+
+    Returns:
+        str: O token em formato URL-safe.
+    """
+    return secrets.token_urlsafe(TAMANHO_REFRESH_TOKEN_BYTES)
+
+
+def hash_de_refresh_token(token: str) -> str:
+    """Calcula o hash de armazenamento de um refresh token.
+
+    Usa SHA-256, e não Argon2: o token já tem 256 bits de entropia, então não
+    há o que proteger contra força bruta — e a verificação precisa ser rápida
+    o bastante para uma busca indexada por igualdade.
+
+    Args:
+        token (str): O refresh token em texto claro.
+
+    Returns:
+        str: O digest hexadecimal SHA-256.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 # --- Funções de Token (JWT) ---
+
+
+def criar_token_de_desafio_mfa(usuario_id: int, nome_usuario: str) -> str:
+    """Cria o token de curta duração que representa o primeiro fator aprovado.
+
+    Emitido quando a senha confere mas o segundo fator ainda falta. O claim
+    `typ` o marca como token de desafio, de modo que ele **não** é aceito nos
+    endpoints de dados — sem isso, o primeiro fator sozinho daria acesso.
+
+    Args:
+        usuario_id (int): ID do usuário que passou pelo primeiro fator.
+        nome_usuario (str): Nome do usuário.
+
+    Returns:
+        str: O token de desafio, válido por cinco minutos.
+    """
+    agora = datetime.now(UTC)
+
+    payload: dict[str, Any] = {
+        "sub": nome_usuario,
+        "uid": usuario_id,
+        "typ": "mfa_desafio",
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "iat": agora,
+        "nbf": agora,
+        "exp": agora + timedelta(minutes=5),
+        "jti": str(uuid.uuid4()),
+    }
+
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decodificar_token_de_desafio_mfa(
+    token: str, credentials_exception: HTTPException
+) -> dict[str, Any]:
+    """Valida um token de desafio de MFA.
+
+    Args:
+        token (str): O token de desafio.
+        credentials_exception (HTTPException): Exceção lançada em caso de falha.
+
+    Raises:
+        credentials_exception: Se o token for inválido, expirado ou não for do
+            tipo de desafio.
+
+    Returns:
+        dict[str, Any]: O payload decodificado.
+    """
+    payload = decodificar_token(token, credentials_exception, exigir_versao=False)
+
+    if payload.get("typ") != "mfa_desafio":
+        raise credentials_exception
+
+    if not isinstance(payload.get("uid"), int):
+        raise credentials_exception
+
+    return payload
 
 
 def criar_token_de_acesso(
@@ -264,7 +388,11 @@ def criar_token_de_acesso(
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decodificar_token(token: str, credentials_exception: HTTPException) -> dict[str, Any]:
+def decodificar_token(
+    token: str,
+    credentials_exception: HTTPException,
+    exigir_versao: bool = True,
+) -> dict[str, Any]:
     """Valida a assinatura e os claims de um token JWT.
 
     O algoritmo é fixado por allowlist e `iss`/`aud` são verificados, de modo que
@@ -273,6 +401,8 @@ def decodificar_token(token: str, credentials_exception: HTTPException) -> dict[
     Args:
         token (str): O token JWT a ser validado.
         credentials_exception (HTTPException): Exceção lançada em caso de falha.
+        exigir_versao (bool): Se o claim `ver` é obrigatório. Tokens de desafio
+            de MFA não o carregam, pois ainda não representam uma sessão.
 
     Raises:
         credentials_exception: Se o token for inválido, expirado ou incompleto.
@@ -313,7 +443,7 @@ def decodificar_token(token: str, credentials_exception: HTTPException) -> dict[
     if not isinstance(payload.get("sub"), str) or not payload["sub"]:
         raise credentials_exception
 
-    if not isinstance(payload.get("ver"), int):
+    if exigir_versao and not isinstance(payload.get("ver"), int):
         raise credentials_exception
 
     return payload

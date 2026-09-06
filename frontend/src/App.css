@@ -1,32 +1,55 @@
 /* Arquivo: frontend/src/App.css */
-/*
- * Estilos para o Componente de Roteamento Principal (App.jsx).
- *
- * Este arquivo define o "chassi" de layout para toda a aplicação.
- * Ele garante que o aplicativo sempre ocupe 100% da altura
- * da tela e se comporte como um contêiner flexível.
- */
+/* Layout raiz da aplicação. */
 
-/* (Esta classe é aplicada no 'div' principal dentro do 'App.jsx',
-   embora não tenhamos adicionado 'className="App"' no JSX,
-   ela pode ter sido usada em versões anteriores ou ser um padrão) */
-
-/* Se a classe .App não estiver sendo usada no App.jsx,
-   estes estilos podem ser movidos para '#root' em 'index.css' */
-.App {
-  /* Garante que o contêiner principal do nosso app
-     ocupe pelo menos 100% da altura da tela (viewport height).
-     
-     Isso impede que páginas com pouco conteúdo (como 'Settings'
-     ou 'Login') façam o fundo terminar no meio da tela.
-   */
-  min-height: 100vh; 
-  
-  /* Define o App como um contêiner 'flex' em coluna.
-     Isso é crucial para o 'MainLayout.jsx', pois
-     permite que o <main> (conteúdo) cresça (flex-grow)
-     e empurre a <Navbar> (rodapé) para o final da tela.
-   */
+.app-shell {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--superficie-0);
+}
+
+.conteudo-principal {
+  flex: 1;
+  width: 100%;
+  max-width: var(--largura-maxima);
+  margin: 0 auto;
+  padding: var(--e-6) var(--e-4) var(--e-7);
+}
+
+/* Cabeçalho de página: título à esquerda, ações à direita. */
+.cabecalho-pagina {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--e-6);
+}
+
+.cabecalho-pagina p {
+  color: var(--texto-2);
+  font-size: var(--t-sm);
+  margin-top: var(--e-1);
+}
+
+.acoes-pagina {
+  display: flex;
+  gap: var(--e-2);
+  align-items: center;
+}
+
+/* Estado de carregamento centralizado. */
+.carregando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: var(--texto-2);
+  font-size: var(--t-sm);
+}
+
+@media (max-width: 640px) {
+  .conteudo-principal {
+    padding: var(--e-4) var(--e-3) var(--e-6);
+  }
 }
