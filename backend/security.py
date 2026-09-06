@@ -1,42 +1,151 @@
 # Arquivo: backend/security.py
 """Módulo de Segurança e Autenticação.
 
-Este módulo implementa as funções críticas de segurança da aplicação, incluindo
-hashing de senhas e gerenciamento de tokens JWT (JSON Web Tokens).
+Implementa as funções críticas de segurança da aplicação: hashing de senhas com
+Argon2id e emissão/validação de tokens JWT.
 
-Utiliza a biblioteca Passlib com Argon2 para hashing de senhas e a biblioteca
-Python-Jose para codificação e decodificação de tokens JWT.
+Decisões de engenharia relevantes:
 
-Functions:
-    verificar_senha: Confere se uma senha em texto plano corresponde a um hash.
-    get_hash_da_senha: Gera o hash seguro de uma senha.
-    criar_token_de_acesso: Gera um token JWT assinado.
-    verificar_token_de_acesso: Valida e decodifica um token JWT.
+- **PyJWT em vez de python-jose.** O `python-jose` está praticamente sem
+  manutenção e acumula vulnerabilidades conhecidas de confusão de algoritmo
+  (CVE-2024-33663) e negação de serviço por "JWT bomb" (CVE-2024-33664). O
+  PyJWT é mantido ativamente e valida o algoritmo de forma estrita.
+- **Claims completos.** Todo token carrega `iss`, `aud`, `iat`, `nbf`, `exp`,
+  `jti` e `ver`. O algoritmo aceito na decodificação é fixado por allowlist,
+  fechando a porta para tokens `alg: none` ou trocados para outra família.
+- **Revogação por versão.** O claim `ver` espelha o campo `token_version` do
+  usuário. Trocar a senha ou encerrar todas as sessões incrementa esse contador,
+  invalidando imediatamente todos os tokens já emitidos — algo que um JWT sem
+  estado não oferece por padrão.
+- **Argon2id explícito.** Parâmetros de custo definidos no código, e não
+  herdados de um padrão que pode mudar entre versões da biblioteca.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from __future__ import annotations
+
+import hashlib
+import secrets
+import unicodedata
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import jwt
+from argon2 import PasswordHasher, Type
+from argon2.exceptions import (
+    HashingError,
+    InvalidHashError,
+    VerificationError,
+    VerifyMismatchError,
+)
 from fastapi import HTTPException, status
 
-from . import schemas
 from .core.config import settings
+from .core.logging import obter_logger
+
+logger = obter_logger(__name__)
 
 # --- Configurações de Segurança ---
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
-# --- Contexto de Senha ---
+# --- Política de Senha ---
+# O mínimo de 12 caracteres segue a recomendação do NIST SP 800-63B para
+# segredos memorizados sem exigência de rotação periódica.
+TAMANHO_MINIMO_SENHA = 12
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# Argon2 processa a senha inteira; sem um teto, uma senha de vários megabytes
+# vira um vetor de negação de serviço por consumo de CPU e memória.
+TAMANHO_MAXIMO_SENHA = 1024
+
+# Senhas triviais mais comuns em vazamentos, normalizadas em minúsculas.
+SENHAS_PROIBIDAS = frozenset(
+    {
+        "123456789012", "senha123456", "password1234", "qwertyuiop12",
+        "111111111111", "123123123123", "abcdefghijkl", "senhasenha12",
+        "administrador", "controlefinanceiro", "nomadfinanceiro",
+    }
+)
+
+# --- Contexto de Senha (Argon2id) ---
+# Parâmetros alinhados ao perfil "segundo recomendado" da RFC 9106:
+# 64 MiB de memória, 3 iterações, paralelismo 4.
+_hasher = PasswordHasher(
+    time_cost=3,
+    memory_cost=65536,
+    parallelism=4,
+    hash_len=32,
+    salt_len=16,
+    type=Type.ID,
+)
+
+# Hash descartável usado para igualar o tempo de resposta quando o usuário não
+# existe. Sem isso, o login responde visivelmente mais rápido para usuários
+# inexistentes, permitindo enumerar contas válidas por medição de tempo.
+_HASH_DUMMY = _hasher.hash("senha-inexistente-para-equalizar-tempo-de-resposta")
 
 
 # --- Funções de Senha ---
 
+
+def normalizar_senha(senha: str) -> str:
+    """Normaliza a senha em NFKC antes de qualquer operação criptográfica.
+
+    Garante que a mesma senha digitada em teclados ou sistemas operacionais
+    diferentes (com acentos compostos de formas distintas) produza o mesmo hash.
+
+    Args:
+        senha (str): A senha em texto plano.
+
+    Returns:
+        str: A senha normalizada.
+    """
+    return unicodedata.normalize("NFKC", senha)
+
+
+def validar_forca_da_senha(senha: str) -> list[str]:
+    """Avalia se a senha atende à política mínima da aplicação.
+
+    Args:
+        senha (str): A senha em texto plano.
+
+    Returns:
+        list[str]: Lista de problemas encontrados. Vazia se a senha for válida.
+    """
+    problemas: list[str] = []
+    normalizada = normalizar_senha(senha)
+
+    if len(normalizada) < TAMANHO_MINIMO_SENHA:
+        problemas.append(
+            f"A senha precisa ter ao menos {TAMANHO_MINIMO_SENHA} caracteres."
+        )
+
+    if len(normalizada.encode("utf-8")) > TAMANHO_MAXIMO_SENHA:
+        problemas.append(
+            f"A senha excede o limite de {TAMANHO_MAXIMO_SENHA} bytes."
+        )
+
+    if normalizada.lower() in SENHAS_PROIBIDAS:
+        problemas.append("Esta senha é comum demais. Escolha outra.")
+
+    if len(set(normalizada)) < 5:
+        problemas.append("A senha tem pouca variedade de caracteres.")
+
+    # Sequências repetidas do mesmo caractere ('aaaaaaaaaaaa') passariam nos
+    # testes acima de comprimento mas não agregam entropia.
+    if normalizada and normalizada == normalizada[0] * len(normalizada):
+        problemas.append("A senha não pode ser um único caractere repetido.")
+
+    return problemas
+
+
 def verificar_senha(senha_plana: str, senha_hashed: str) -> bool:
     """Verifica se a senha fornecida corresponde ao hash armazenado.
+
+    A comparação é feita pela biblioteca Argon2, que é resistente a ataques de
+    tempo. Qualquer erro de verificação resulta em `False` — nunca em exceção
+    propagada, para não diferenciar "hash corrompido" de "senha errada".
 
     Args:
         senha_plana (str): A senha em texto plano fornecida pelo usuário.
@@ -45,67 +154,321 @@ def verificar_senha(senha_plana: str, senha_hashed: str) -> bool:
     Returns:
         bool: True se as senhas conferem, False caso contrário.
     """
-    return pwd_context.verify(senha_plana, senha_hashed)
+    if not senha_hashed:
+        return False
+
+    try:
+        return _hasher.verify(senha_hashed, normalizar_senha(senha_plana))
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
+
+
+def consumir_tempo_de_verificacao() -> None:
+    """Executa uma verificação descartável de senha.
+
+    Chamada no fluxo de login quando o usuário informado não existe, para que o
+    tempo de resposta seja indistinguível do caso "usuário existe, senha
+    errada". Sem essa equalização, o endpoint de login vira um oráculo de
+    enumeração de contas.
+    """
+    try:
+        _hasher.verify(_HASH_DUMMY, "senha-arbitraria-que-nao-confere")
+    except Exception:  # noqa: BLE001,S110 - nosec B110
+        # O descarte da exceção é intencional: esta função existe apenas para
+        # consumir o mesmo tempo de CPU de uma verificação real. O resultado é
+        # irrelevante por definição — tratá-lo criaria justamente a diferença
+        # de comportamento que se quer eliminar.
+        pass
+
 
 def get_hash_da_senha(senha: str) -> str:
-    """Gera um hash seguro para a senha fornecida usando Argon2.
+    """Gera um hash seguro para a senha fornecida usando Argon2id.
 
     Args:
         senha (str): A senha em texto plano.
 
+    Raises:
+        ValueError: Se a senha ultrapassar o limite de tamanho.
+
     Returns:
         str: O hash da senha gerado.
     """
-    return pwd_context.hash(senha)
+    normalizada = normalizar_senha(senha)
+
+    if len(normalizada.encode("utf-8")) > TAMANHO_MAXIMO_SENHA:
+        raise ValueError(
+            f"A senha excede o limite de {TAMANHO_MAXIMO_SENHA} bytes."
+        )
+
+    try:
+        return _hasher.hash(normalizada)
+    except HashingError as erro:
+        logger.error("Falha ao gerar hash de senha", extra={"erro": str(erro)})
+        raise
+
+
+def precisa_reidratar_hash(senha_hashed: str) -> bool:
+    """Indica se o hash foi gerado com parâmetros de custo desatualizados.
+
+    Permite migrar hashes antigos de forma transparente no próximo login bem
+    sucedido, sem exigir que o usuário troque a senha.
+
+    Args:
+        senha_hashed (str): O hash armazenado.
+
+    Returns:
+        bool: True se o hash deve ser regerado com os parâmetros atuais.
+    """
+    try:
+        return _hasher.check_needs_rehash(senha_hashed)
+    except (InvalidHashError, ValueError):
+        # Hash em formato desconhecido (ex.: bcrypt legado) também deve migrar.
+        return True
+
+
+# --- Códigos de Recuperação ---
+
+
+def hash_de_codigo(codigo: str) -> str:
+    """Gera o hash de um código de recuperação.
+
+    Args:
+        codigo (str): O código em texto claro.
+
+    Returns:
+        str: O hash Argon2id.
+    """
+    return _hasher.hash(codigo)
+
+
+def verificar_codigo(codigo: str, codigo_hashed: str) -> bool:
+    """Confere um código de recuperação contra seu hash.
+
+    Args:
+        codigo (str): O código informado pelo usuário.
+        codigo_hashed (str): O hash armazenado.
+
+    Returns:
+        bool: True se conferem.
+    """
+    try:
+        return _hasher.verify(codigo_hashed, codigo)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
+
+
+# --- Refresh Tokens ---
+
+# Um refresh token é um valor opaco aleatório, não um JWT. Ele não precisa
+# carregar claims (o estado vive no banco) e, sendo opaco, não revela nada
+# sobre o usuário caso vaze em um log de proxy.
+TAMANHO_REFRESH_TOKEN_BYTES = 32
+
+
+def gerar_refresh_token() -> str:
+    """Gera um refresh token opaco criptograficamente aleatório.
+
+    Returns:
+        str: O token em formato URL-safe.
+    """
+    return secrets.token_urlsafe(TAMANHO_REFRESH_TOKEN_BYTES)
+
+
+def hash_de_refresh_token(token: str) -> str:
+    """Calcula o hash de armazenamento de um refresh token.
+
+    Usa SHA-256, e não Argon2: o token já tem 256 bits de entropia, então não
+    há o que proteger contra força bruta — e a verificação precisa ser rápida
+    o bastante para uma busca indexada por igualdade.
+
+    Args:
+        token (str): O refresh token em texto claro.
+
+    Returns:
+        str: O digest hexadecimal SHA-256.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 # --- Funções de Token (JWT) ---
 
-def criar_token_de_acesso(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Cria um token de acesso JWT com tempo de expiração.
+
+def criar_token_de_desafio_mfa(usuario_id: int, nome_usuario: str) -> str:
+    """Cria o token de curta duração que representa o primeiro fator aprovado.
+
+    Emitido quando a senha confere mas o segundo fator ainda falta. O claim
+    `typ` o marca como token de desafio, de modo que ele **não** é aceito nos
+    endpoints de dados — sem isso, o primeiro fator sozinho daria acesso.
 
     Args:
-        data (dict): Dicionário com os dados (claims) a serem incluídos no token.
-        expires_delta (Optional[timedelta]): Tempo de expiração personalizado. Se None, usa o padrão.
+        usuario_id (int): ID do usuário que passou pelo primeiro fator.
+        nome_usuario (str): Nome do usuário.
+
+    Returns:
+        str: O token de desafio, válido por cinco minutos.
+    """
+    agora = datetime.now(UTC)
+
+    payload: dict[str, Any] = {
+        "sub": nome_usuario,
+        "uid": usuario_id,
+        "typ": "mfa_desafio",
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "iat": agora,
+        "nbf": agora,
+        "exp": agora + timedelta(minutes=5),
+        "jti": str(uuid.uuid4()),
+    }
+
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decodificar_token_de_desafio_mfa(
+    token: str, credentials_exception: HTTPException
+) -> dict[str, Any]:
+    """Valida um token de desafio de MFA.
+
+    Args:
+        token (str): O token de desafio.
+        credentials_exception (HTTPException): Exceção lançada em caso de falha.
+
+    Raises:
+        credentials_exception: Se o token for inválido, expirado ou não for do
+            tipo de desafio.
+
+    Returns:
+        dict[str, Any]: O payload decodificado.
+    """
+    payload = decodificar_token(token, credentials_exception, exigir_versao=False)
+
+    if payload.get("typ") != "mfa_desafio":
+        raise credentials_exception
+
+    if not isinstance(payload.get("uid"), int):
+        raise credentials_exception
+
+    return payload
+
+
+def criar_token_de_acesso(
+    nome_usuario: str,
+    usuario_id: int,
+    token_version: int,
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Cria um token de acesso JWT assinado com o conjunto completo de claims.
+
+    Args:
+        nome_usuario (str): Nome de usuário, gravado no claim `sub`.
+        usuario_id (int): ID numérico do usuário, gravado no claim `uid`.
+        token_version (int): Versão atual das credenciais, no claim `ver`.
+        expires_delta (Optional[timedelta]): Validade personalizada. Se None,
+            usa `ACCESS_TOKEN_EXPIRE_MINUTES`.
 
     Returns:
         str: O token JWT codificado.
     """
-    to_encode = data.copy()
-    
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-    
-    to_encode.update({"exp": expire})
-    
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    agora = datetime.now(UTC)
+    validade = expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-def verificar_token_de_acesso(token: str, credentials_exception: HTTPException) -> schemas.TokenData:
-    """Valida um token de acesso JWT e extrai as informações do usuário.
+    payload: dict[str, Any] = {
+        "sub": nome_usuario,
+        "uid": usuario_id,
+        "ver": token_version,
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "iat": agora,
+        "nbf": agora,
+        "exp": agora + validade,
+        # Identificador único do token: permite auditoria e revogação pontual.
+        "jti": str(uuid.uuid4()),
+    }
+
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decodificar_token(
+    token: str,
+    credentials_exception: HTTPException,
+    exigir_versao: bool = True,
+) -> dict[str, Any]:
+    """Valida a assinatura e os claims de um token JWT.
+
+    O algoritmo é fixado por allowlist e `iss`/`aud` são verificados, de modo que
+    um token assinado para outro serviço — ou com `alg` alterado — é rejeitado.
 
     Args:
         token (str): O token JWT a ser validado.
-        credentials_exception (HTTPException): Exceção a ser lançada em caso de falha na validação.
+        credentials_exception (HTTPException): Exceção lançada em caso de falha.
+        exigir_versao (bool): Se o claim `ver` é obrigatório. Tokens de desafio
+            de MFA não o carregam, pois ainda não representam uma sessão.
 
     Raises:
-        credentials_exception: Se o token for inválido, expirado ou não contiver o nome de usuário.
+        credentials_exception: Se o token for inválido, expirado ou incompleto.
 
     Returns:
-        schemas.TokenData: Objeto contendo os dados extraídos do token (ex: nome de usuário).
+        dict[str, Any]: O payload decodificado.
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        
-        nome_usuario: str = payload.get("sub")
-        if nome_usuario is None:
-            raise credentials_exception
-        
-        return schemas.TokenData(nome_usuario=nome_usuario)
-    
-    except JWTError:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            issuer=settings.JWT_ISSUER,
+            audience=settings.JWT_AUDIENCE,
+            options={
+                "require": ["exp", "iat", "nbf", "sub", "iss", "aud", "jti"],
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_nbf": True,
+                "verify_iat": True,
+                "verify_aud": True,
+                "verify_iss": True,
+            },
+        )
+    # `from None` corta a cadeia de exceções de propósito: encadear a causa
+    # original faria o motivo exato da rejeição (expirado, assinatura inválida,
+    # audience errada) aparecer no traceback. O motivo é registrado em log
+    # estruturado, onde só a operação o vê — nunca na resposta ao cliente.
+    except jwt.ExpiredSignatureError:
+        logger.info("Token rejeitado: expirado")
+        raise credentials_exception from None
+    except jwt.InvalidTokenError as erro:
+        # Cobre assinatura inválida, algoritmo divergente, claims ausentes,
+        # issuer/audience errados e payload malformado.
+        logger.warning("Token rejeitado", extra={"motivo": type(erro).__name__})
+        raise credentials_exception from None
+
+    if not isinstance(payload.get("sub"), str) or not payload["sub"]:
         raise credentials_exception
+
+    if exigir_versao and not isinstance(payload.get("ver"), int):
+        raise credentials_exception
+
+    return payload
+
+
+def gerar_chave_de_idempotencia() -> str:
+    """Gera uma chave de idempotência no formato usado pela API.
+
+    Returns:
+        str: Um UUID4 em formato canônico.
+    """
+    return str(uuid.uuid4())
+
+
+def criar_excecao_de_credenciais() -> HTTPException:
+    """Cria a exceção padrão de falha de autenticação.
+
+    A mensagem é deliberadamente genérica: distinguir "token expirado" de
+    "assinatura inválida" entrega informação útil a um atacante.
+
+    Returns:
+        HTTPException: Exceção 401 com o cabeçalho WWW-Authenticate.
+    """
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Não foi possível validar as credenciais",
+        headers={"WWW-Authenticate": "Bearer"},
+    )

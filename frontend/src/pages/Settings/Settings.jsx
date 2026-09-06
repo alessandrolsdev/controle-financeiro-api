@@ -4,11 +4,14 @@
  * @description Gerenciamento de categorias (CRUD) e configurações de aparência (tema).
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import './Settings.css';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../context/useTheme';
 import { IoPencil, IoTrash } from 'react-icons/io5';
+
+import ImportSection from '../../components/ImportSection/ImportSection';
+import SecuritySection from '../../components/SecuritySection/SecuritySection';
 
 /**
  * Componente de Configurações.
@@ -163,139 +166,168 @@ function Settings() {
   };
 
   return (
-    <div className="settings-container">
-      <header className="settings-header">
-        <h2>Ajustes e Configurações</h2>
+    <>
+      <header className="cabecalho-pagina">
+        <div>
+          <h1>Ajustes</h1>
+          <p>Categorias, importação, segurança e aparência.</p>
+        </div>
       </header>
 
-      <main className="settings-content">
-        
-        <div className="settings-card">
-          <h2>{isEditMode ? 'Editar Categoria' : 'Criar Nova Categoria'}</h2>
-          
-          <form onSubmit={handleSubmit}>
-            {error && <p className="error-message">{error}</p>}
-            {success && <p className="success-message">{success}</p>}
+      <div className="config">
+        {/* --- Categorias --- */}
+        <section className="config-secao">
+          <header>
+            <h2>{isEditMode ? 'Editar categoria' : 'Nova categoria'}</h2>
+            <p>Categorias definem se um lançamento é receita ou despesa.</p>
+          </header>
 
-            <div className="input-group">
-              <label htmlFor="nome">Nome da Categoria</label>
-              <input
-                type="text"
-                id="nome"
-                value={nomeCategoria}
-                onChange={(e) => setNomeCategoria(e.target.value)}
-                placeholder="Ex: Combustível, Peças, Almoço"
-              />
-            </div>
-            
-            <div className="input-group">
-              <label htmlFor="tipo">Tipo</label>
-              <select
-                id="tipo"
-                value={tipoCategoria}
-                onChange={(e) => setTipoCategoria(e.target.value)}
-              >
-                <option value="Gasto">Gasto (Despesa)</option>
-                <option value="Receita">Receita (Ganho)</option>
-              </select>
-            </div>
+          <div className="config-corpo">
+            {error && <p className="mensagem mensagem-erro">{error}</p>}
+            {success && <p className="mensagem mensagem-sucesso">{success}</p>}
 
-            <div className="input-group color-picker-group">
-              <label htmlFor="cor">Cor (Aparecerá nos gráficos)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <form onSubmit={handleSubmit} className="form-linha">
+              <div>
+                <label className="rotulo" htmlFor="nome">
+                  Nome
+                </label>
+                <input
+                  id="nome"
+                  className="campo"
+                  value={nomeCategoria}
+                  onChange={(e) => setNomeCategoria(e.target.value)}
+                  placeholder="Combustível, Almoço, Salário…"
+                  maxLength={100}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="rotulo" htmlFor="tipo">
+                  Tipo
+                </label>
+                <select
+                  id="tipo"
+                  className="campo"
+                  value={tipoCategoria}
+                  onChange={(e) => setTipoCategoria(e.target.value)}
+                >
+                  <option value="Gasto">Despesa</option>
+                  <option value="Receita">Receita</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="rotulo" htmlFor="cor">
+                  Cor
+                </label>
                 <input
                   type="color"
                   id="cor"
+                  className="seletor-cor"
                   value={corCategoria}
                   onChange={(e) => setCorCategoria(e.target.value)}
                 />
-                <span className="color-code-display" style={{ color: corCategoria }}>{corCategoria}</span>
               </div>
-            </div>
 
-            <div className="form-button-group">
-              <button type="submit" className="settings-button">
-                {isEditMode ? 'Salvar Alterações' : 'Criar Categoria'}
+              <button type="submit" className="botao botao-primario">
+                {isEditMode ? 'Salvar' : 'Adicionar'}
               </button>
-              
-              {isEditMode && (
-                <button 
-                  type="button" 
-                  className="cancel-button" 
-                  onClick={handleCancelEdit}
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
+            </form>
 
-        <div className="settings-card">
-          <h2>Categorias Existentes</h2>
-          <div className="categoria-list">
-            {loading ? (
-              <p>Carregando categorias...</p>
-            ) : (
-              <ul>
-                {categorias.length === 0 ? (
-                  <p>Nenhuma categoria encontrada.</p>
-                ) : (
-                  categorias.map((cat) => (
-                    <li key={cat.id}>
-                      <div className="categoria-info">
-                        <span 
-                          className="categoria-cor-preview" 
-                          style={{ backgroundColor: cat.cor }}
-                        ></span>
-                        <span>{cat.nome}</span>
-                        <span className={`tipo-badge-list tipo-${cat.tipo.toLowerCase()}`}>
-                          {cat.tipo}
-                        </span>
-                      </div>
-                      
-                      <div className="categoria-list-actions">
-                        <button className="edit-btn" title="Editar" onClick={() => handleEditClick(cat)}>
-                          <IoPencil size={18} />
-                        </button>
-                        <button className="delete-btn" title="Excluir" onClick={() => handleDeleteClick(cat)}>
-                          <IoTrash size={18} />
-                        </button>
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ul>
+            {isEditMode && (
+              <button
+                type="button"
+                className="botao botao-secundario"
+                onClick={handleCancelEdit}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                Cancelar edição
+              </button>
             )}
           </div>
-        </div>
+        </section>
 
-        <div className="settings-card">
-          <h2>Aparência</h2>
-          <div className="settings-item">
-            <span>Modo {theme === 'dark' ? 'Escuro' : 'Claro'}</span>
-            <label className="theme-toggle">
-              <input
-                type="checkbox"
-                onChange={toggleTheme}
-                checked={theme === 'light'}
-              />
-              <span className="slider"></span>
-            </label>
-          </div>
-        </div>
+        <section className="config-secao">
+          <header>
+            <h2>Suas categorias</h2>
+          </header>
 
-        <div className="settings-card">
-          <h2>Segurança e Backup (V2.0)</h2>
-          <div className="settings-item">
-            <span>Exportar Backup de Dados</span>
-            <button className="settings-button-disabled" disabled>
-              Em breve
-            </button>
+          {loading ? (
+            <p className="vazio">Carregando…</p>
+          ) : categorias.length === 0 ? (
+            <p className="vazio">Nenhuma categoria cadastrada.</p>
+          ) : (
+            <ul className="categorias">
+              {categorias.map((cat) => (
+                <li key={cat.id} className="categoria">
+                  <span
+                    className="categoria-cor"
+                    style={{ backgroundColor: cat.cor }}
+                    aria-hidden="true"
+                  />
+                  <span className="categoria-nome">{cat.nome}</span>
+                  <span
+                    className={
+                      cat.tipo === 'Receita'
+                        ? 'etiqueta etiqueta-receita'
+                        : 'etiqueta etiqueta-gasto'
+                    }
+                  >
+                    {cat.tipo === 'Receita' ? 'Receita' : 'Despesa'}
+                  </span>
+
+                  <div className="categoria-acoes">
+                    <button
+                      type="button"
+                      className="botao-discreto"
+                      onClick={() => handleEditClick(cat)}
+                      aria-label={`Editar ${cat.nome}`}
+                    >
+                      <IoPencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="botao-discreto"
+                      onClick={() => handleDeleteClick(cat)}
+                      aria-label={`Excluir ${cat.nome}`}
+                    >
+                      <IoTrash size={15} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* --- Importação de planilha (issue #2) --- */}
+        <ImportSection />
+
+        {/* --- Segundo fator e sessões --- */}
+        <SecuritySection />
+
+        {/* --- Aparência --- */}
+        <section className="config-secao">
+          <header>
+            <h2>Aparência</h2>
+          </header>
+
+          <div className="config-corpo">
+            <div className="mfa-status">
+              <span>Tema {theme === 'dark' ? 'escuro' : 'claro'}</span>
+              <button
+                type="button"
+                className="botao botao-secundario"
+                onClick={toggleTheme}
+              >
+                Usar tema {theme === 'dark' ? 'claro' : 'escuro'}
+              </button>
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </section>
+      </div>
+    </>
   );
 }
 

@@ -1,241 +1,164 @@
 /* Arquivo: frontend/src/pages/Dashboard/Dashboard.css */
-/*
- * Estilos para a Página Principal do Dashboard (V9.0).
- *
- * Este CSS estiliza todos os elementos do "hub" principal,
- * incluindo os cards de resumo, os gráficos e as
- * listas de transações.
- */
+/* Painel financeiro: números em primeiro plano, cromo em segundo. */
 
-/* --- 1. Layout Geral --- */
-.dashboard-container {
-  font-family: 'Montserrat', sans-serif;
-  color: var(--cor-texto-primario);
-  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
-}
+/* --- Cartões de resumo --- */
 
-/* --- 2. Cabeçalho da Página --- */
-.dashboard-header {
-  padding: 1.5rem 1.5rem 1rem 1.5rem;
-  border-bottom: 1px solid var(--cor-borda);
-}
-
-.dashboard-header h2 {
-  margin: 0;
-  font-weight: 700;
-  font-size: 1.8rem;
-  color: var(--cor-texto-primario);
-}
-.dashboard-subtitle {
-  margin: 0;
-  font-weight: 500;
-  font-size: 1rem;
-  color: var(--cor-texto-secundario);
-}
-
-/* --- 3. CONTAINER DOS FILTROS --- */
-/* (Os estilos dos filtros .tab-button, .date-picker-input, etc.,
-   NÃO estão aqui. Eles estão corretamente isolados em
-   'src/components/FilterControls/FilterControls.css') */
-
-/* --- 4. Conteúdo Principal (Cards) --- */
-.dashboard-content {
-  padding: 1.5rem;
-  padding-top: 0.5rem; /* Menor padding, pois os filtros já dão espaço */
-}
-
-/* Mensagens de feedback (Loading, Erro) */
-.dashboard-loading, .loading-transactions {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--cor-texto-secundario);
-}
-.error-message {
-  color: var(--cor-gasto);
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid var(--cor-gasto);
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-/* --- 5. Cards de Resumo (R$, Gastos, Lucro) --- */
-.dashboard-stats {
+.resumo {
   display: grid;
-  /* 2 colunas em telas de celular */
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--e-3);
+  margin-bottom: var(--e-6);
 }
 
-/* O estilo "Glassmorphism" (Fundo de Vidro Fosco) */
-.stat-card {
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  padding: 1.5rem;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: background-color 0.3s ease;
+.resumo-card {
+  padding: var(--e-4);
+  background-color: var(--superficie-1);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-lg);
 }
 
-/* O card de "Lucro Líquido" ocupa a largura total (as 2 colunas) */
-.stat-card:nth-child(3) {
-  grid-column: 1 / -1; 
-}
-
-.stat-card h3 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-  color: var(--cor-texto-secundario);
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-card span {
-  font-size: 1.8rem;
-  font-weight: 700;
+.resumo-rotulo {
   display: block;
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--texto-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--e-2);
 }
 
-/* Cores semânticas (dinâmicas do index.css) */
-.stat-card span.gasto { color: var(--cor-gasto); }
-.stat-card span.lucro { color: var(--cor-lucro); }
-.stat-card span.texto-primario { color: var(--cor-texto-primario); }
+.resumo-valor {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
 
-/* --- 6. O Grid dos Gráficos de Rosca --- */
-.dashboard-charts-grid {
+.resumo-detalhe {
+  display: block;
+  margin-top: var(--e-1);
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+}
+
+/* --- Grade de gráficos --- */
+
+.graficos {
   display: grid;
-  grid-template-columns: 1fr; /* 1 coluna em celular */
-  gap: 1.5rem; 
-  margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--e-4);
+  margin-bottom: var(--e-6);
 }
 
-/* (V2.10) Em telas maiores (tablets/desktops), vira 2 colunas */
-@media (min-width: 768px) {
-  .dashboard-charts-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+.painel {
+  background-color: var(--superficie-1);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-lg);
+  overflow: hidden;
 }
 
-/* O card "Glassmorphism" para os gráficos */
-.chart-container {
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  padding: 1.5rem;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: background-color 0.3s ease;
-}
-
-.chart-container h3 {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  color: var(--cor-texto-primario);
-  font-weight: 600;
-  text-align: center;
-}
-
-/* --- 7. Listas de Transações (Período e Recentes) --- */
-/* (Este card "Glassmorphism" é usado por AMBAS as listas) */
-.recent-transactions {
-  margin-top: 2rem;
-  grid-column: 1 / -1; 
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  padding: 1.5rem 2rem;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: background-color 0.3s ease;
-}
-
-.recent-transactions h2 {
-  margin-top: 0;
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--cor-texto-primario);
-  border-bottom: 1px solid var(--cor-borda);
-  padding-bottom: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.recent-transactions ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.recent-transactions li {
+.painel-cabecalho {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem 0.5rem;
-  border-bottom: 1px solid var(--cor-borda);
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  border-bottom: 1px solid var(--borda);
 }
 
-.recent-transactions li:last-child {
+.painel-cabecalho h3 {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+
+.painel-corpo {
+  padding: var(--e-4);
+}
+
+/* --- Lista de transações --- */
+
+.transacoes {
+  list-style: none;
+}
+
+.transacao {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--borda);
+}
+
+.transacao:last-child {
   border-bottom: none;
 }
 
-/* Lado esquerdo da lista (Descrição, Data) */
-.transaction-details {
-  display: flex;
-  flex-direction: column;
+.transacao:hover {
+  background-color: var(--superficie-2);
 }
 
-.transaction-details span:first-child {
-  color: var(--cor-texto-primario);
+/* Ponto colorido com a cor da categoria — o único uso de cor arbitrária na
+   interface, e mesmo assim reduzido a 8px. */
+.transacao-marcador {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+
+.transacao-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.transacao-descricao {
+  display: block;
   font-weight: 500;
-  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.transaction-date {
-  color: var(--cor-texto-secundario);
-  font-size: 0.85rem;
+.transacao-meta {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+  margin-top: 2px;
 }
 
-/* Lado direito da lista (Valor, Botões) */
-.transaction-actions {
+.transacao-valor {
+  font-weight: 600;
+  font-size: var(--t-base);
+  white-space: nowrap;
+}
+
+.transacao-acoes {
   display: flex;
-  align-items: center;
-  gap: 0.5rem; /* Espaço entre o valor e os botões */
+  gap: var(--e-1);
+  /* As ações só aparecem no hover: mostrar seis ícones por linha em uma lista
+     de trinta lançamentos transforma a tela em ruído. */
+  opacity: 0;
+  transition: opacity var(--transicao);
 }
 
-.transaction-amount {
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-.transaction-amount.gasto {
-  color: var(--cor-gasto);
-}
-.transaction-amount.lucro {
-  color: var(--cor-lucro);
+.transacao:hover .transacao-acoes,
+.transacao:focus-within .transacao-acoes {
+  opacity: 1;
 }
 
-/* --- 8. Botões de Ação (Editar/Deletar) (V9.0) --- */
-.edit-button, .delete-button {
-  background: none;
-  border: none;
-  color: var(--cor-texto-secundario);
-  cursor: pointer;
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.3s ease;
+/* Em toque não existe hover; as ações ficam sempre visíveis. */
+@media (hover: none) {
+  .transacao-acoes {
+    opacity: 1;
+  }
 }
 
-.edit-button:hover {
-  background-color: var(--cor-borda);
-  color: var(--cor-texto-primario);
-}
+@media (max-width: 640px) {
+  .resumo {
+    grid-template-columns: 1fr;
+  }
 
-.delete-button:hover {
-  background-color: var(--cor-gasto); /* Cor de Alerta */
-  color: var(--cor-branco-foco);
+  .resumo-valor {
+    font-size: var(--t-lg);
+  }
 }

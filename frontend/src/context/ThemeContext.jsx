@@ -4,12 +4,13 @@
  * @description Gerencia o tema da aplicação (Claro/Escuro), persistindo a preferência do usuário e aplicando as classes CSS globais.
  */
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+import { ThemeContext } from './useTheme';
 
 /**
  * Contexto que armazena o estado do tema.
  */
-const ThemeContext = createContext();
 
 /**
  * Provedor de Tema.
@@ -65,6 +66,4 @@ export const ThemeProvider = ({ children }) => {
  *
  * @returns {object} O contexto de tema (theme, toggleTheme).
  */
-export const useTheme = () => {
-  return useContext(ThemeContext);
-};
+

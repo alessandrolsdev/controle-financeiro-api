@@ -1,0 +1,20 @@
+# Dependências de desenvolvimento e verificação de segurança.
+# Instale com: pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+# --- Testes ---
+# 9.0.3 corrige a criação previsível de diretórios temporários (PYSEC-2026-1845).
+pytest==9.0.3
+pytest-cov==6.0.0
+httpx==0.28.1
+
+# --- Análise estática de segurança ---
+# bandit encontra padrões inseguros no código Python.
+bandit==1.8.0
+# pip-audit confere as dependências instaladas contra a base de vulnerabilidades
+# da Python Packaging Advisory Database.
+pip-audit==2.7.3
+
+# --- Qualidade de código ---
+ruff==0.8.6

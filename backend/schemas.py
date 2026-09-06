@@ -1,108 +1,286 @@
 # Arquivo: backend/schemas.py
 """Módulo de Schemas Pydantic.
 
-Este módulo define os modelos Pydantic utilizados para validação de dados
-de entrada (requests) e serialização de dados de saída (responses) da API.
+Define os modelos de validação de entrada (requests) e serialização de saída
+(responses) da API.
 
-Garante a integridade e consistência dos dados que transitam entre o frontend
-e o backend.
-
-Classes:
-    CategoriaDetalhada: Schema auxiliar para agregação de dados de categorias.
-    DashboardData: Schema de resposta com resumo financeiro para o dashboard.
-    Token: Schema de resposta contendo o token de acesso JWT.
-    TokenData: Schema com dados decodificados do token JWT.
-    UsuarioCreate: Schema de entrada para criação de usuário.
-    Usuario: Schema de resposta para detalhes do usuário.
-    UsuarioUpdate: Schema de entrada para atualização de perfil de usuário.
-    UsuarioChangePassword: Schema de entrada para alteração de senha.
-    CategoriaCreate: Schema de entrada para criação de categoria.
-    Categoria: Schema de resposta para detalhes da categoria.
-    CategoriaUpdate: Schema de entrada para atualização de categoria.
-    TransacaoCreate: Schema de entrada para criação de transação.
-    Transacao: Schema de resposta para detalhes da transação.
-    PontoDeTendencia: Schema para pontos de dados em gráficos.
-    DadosDeTendencia: Schema de resposta para dados de gráficos de tendência.
+Esta camada é a primeira linha de defesa: tudo que chega da rede é considerado
+hostil até ser validado aqui. As regras são deliberadamente restritivas —
+`extra="forbid"` rejeita campos desconhecidos (impedindo mass assignment), os
+valores monetários têm domínio fechado e os campos de texto têm limite de
+tamanho para conter abuso de armazenamento.
 """
 
-from pydantic import BaseModel, EmailStr
-from datetime import datetime, date
+from __future__ import annotations
+
 import decimal
-from typing import Optional, List
+import re
+from datetime import UTC, date, datetime, timedelta
+from typing import Annotated, Literal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
+
+# --- Tipos reutilizáveis com restrição ---
+
+TipoCategoria = Literal["Gasto", "Receita"]
+
+NomeUsuario = Annotated[
+    str,
+    StringConstraints(min_length=3, max_length=100, strip_whitespace=True),
+]
+
+TextoCurto = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=255, strip_whitespace=True),
+]
+
+TextoLongo = Annotated[str, StringConstraints(max_length=2000)]
+
+# Valor monetário: sempre positivo, com teto coerente com Numeric(14, 2) no
+# banco. Sem o teto, um valor maior que a coluna gera erro 500 no driver em vez
+# de uma resposta 422 clara.
+ValorMonetario = Annotated[
+    decimal.Decimal,
+    Field(gt=decimal.Decimal("0"), le=decimal.Decimal("999999999999.99")),
+]
+
+# Nome de usuário aceita apenas caracteres seguros. Isso elimina de saída uma
+# classe inteira de problemas: homoglifos, espaços invisíveis, caracteres de
+# controle e tentativas de spoofing visual entre contas.
+PADRAO_NOME_USUARIO = re.compile(r"^[a-zA-Z0-9._-]+$")
+PADRAO_COR_HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+# Limite superior do intervalo consultável. Sem ele, um pedido de 200 anos
+# obriga o banco a varrer e agregar a tabela inteira.
+MAXIMO_DIAS_POR_CONSULTA = 1830  # ~5 anos
+
+
+class SchemaBase(BaseModel):
+    """Base comum a todos os schemas de entrada.
+
+    `extra="forbid"` faz a API rejeitar campos desconhecidos em vez de ignorá-los.
+    Isso transforma uma tentativa de mass assignment (ex.: enviar `usuario_id`
+    ou `token_version` em um payload de perfil) em um erro 422 explícito.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
 
 # --- SCHEMAS PARA O DASHBOARD ---
+
 
 class CategoriaDetalhada(BaseModel):
     """Schema auxiliar para dados agregados por categoria.
 
-    Usado em respostas de dashboard e relatórios para apresentar totais
-    por categoria.
-
     Attributes:
         nome_categoria (str): Nome da categoria.
-        valor_total (decimal.Decimal): Soma dos valores das transações da categoria.
+        valor_total (decimal.Decimal): Soma dos valores das transações.
         total_compras (int): Contagem de transações na categoria.
         cor (str): Cor associada à categoria para visualização.
     """
+
     nome_categoria: str
     valor_total: decimal.Decimal
-    total_compras: int # (Para receitas, isso é 'total_registros')
+    total_compras: int  # (Para receitas, isso é 'total_registros')
     cor: str
+
 
 class DashboardData(BaseModel):
     """Schema de resposta para o endpoint de dashboard.
-
-    Contém o resumo financeiro consolidado.
 
     Attributes:
         total_receitas (decimal.Decimal): Soma total de receitas.
         total_gastos (decimal.Decimal): Soma total de despesas.
         lucro_liquido (decimal.Decimal): Resultado (receitas - despesas).
-        gastos_por_categoria (List[CategoriaDetalhada]): Lista de gastos agrupados por categoria.
-        receitas_por_categoria (List[CategoriaDetalhada]): Lista de receitas agrupadas por categoria.
+        gastos_por_categoria (List[CategoriaDetalhada]): Gastos agrupados.
+        receitas_por_categoria (List[CategoriaDetalhada]): Receitas agrupadas.
     """
+
     total_receitas: decimal.Decimal
     total_gastos: decimal.Decimal
     lucro_liquido: decimal.Decimal
-    gastos_por_categoria: List[CategoriaDetalhada] 
-    receitas_por_categoria: List[CategoriaDetalhada]
+    gastos_por_categoria: list[CategoriaDetalhada]
+    receitas_por_categoria: list[CategoriaDetalhada]
 
 
 # --- SCHEMAS PARA AUTENTICAÇÃO ---
+
 
 class Token(BaseModel):
     """Schema de resposta contendo o token de acesso.
 
     Attributes:
         access_token (str): O token JWT gerado.
-        token_type (str): Tipo do token (geralmente "bearer").
+        token_type (str): Tipo do token (sempre "bearer").
+        expires_in (int): Validade do token em segundos.
     """
+
     access_token: str
-    token_type: str
+    # noqa S105: "bearer" é o nome do esquema de autenticação definido pela
+    # RFC 6750, não uma senha embutida no código.
+    token_type: str = "bearer"  # noqa: S105
+    expires_in: int
+
+
+class RespostaDeLogin(BaseModel):
+    """Resposta do endpoint de login.
+
+    Quando o usuário tem MFA ativo, `mfa_requerido` vem `True` e nenhum token de
+    sessão é emitido: o cliente precisa completar o segundo fator apresentando o
+    `token_de_desafio`.
+
+    Attributes:
+        mfa_requerido (bool): Se o segundo fator ainda precisa ser verificado.
+        token_de_desafio (str | None): Token de curta duração para o segundo fator.
+        expires_in (int | None): Validade do token de acesso, em segundos.
+        csrf_token (str | None): Token CSRF a ser ecoado no cabeçalho.
+    """
+
+    mfa_requerido: bool = False
+    token_de_desafio: str | None = None
+    expires_in: int | None = None
+    csrf_token: str | None = None
+
+
+class VerificacaoDeMFA(SchemaBase):
+    """Entrada para concluir o login com o segundo fator.
+
+    Attributes:
+        token_de_desafio (str): Token recebido na primeira etapa do login.
+        codigo (str): Código TOTP de 6 dígitos ou código de recuperação.
+    """
+
+    token_de_desafio: Annotated[str, StringConstraints(min_length=1, max_length=2048)]
+    codigo: Annotated[str, StringConstraints(min_length=6, max_length=32)]
+
+
+class InicioDeMFA(BaseModel):
+    """Dados de provisionamento do segundo fator.
+
+    O segredo aparece apenas nesta resposta, uma única vez, para que o usuário
+    o registre no aplicativo autenticador.
+
+    Attributes:
+        segredo (str): O segredo TOTP em base32.
+        uri_de_provisionamento (str): URI `otpauth://` para gerar o QR Code.
+    """
+
+    segredo: str
+    uri_de_provisionamento: str
+
+
+class ConfirmacaoDeMFA(SchemaBase):
+    """Entrada para ativar o segundo fator após o provisionamento.
+
+    Attributes:
+        codigo (str): Código TOTP gerado pelo aplicativo, provando que o
+            usuário registrou o segredo corretamente.
+    """
+
+    codigo: Annotated[str, StringConstraints(min_length=6, max_length=6)]
+
+
+class DesativacaoDeMFA(SchemaBase):
+    """Entrada para desativar o segundo fator.
+
+    Attributes:
+        senha (str): A senha atual, exigida para que um invasor com a sessão
+            aberta não consiga remover o segundo fator sozinho.
+    """
+
+    senha: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+
+
+class CodigosDeRecuperacao(BaseModel):
+    """Lote de códigos de recuperação em texto claro.
+
+    Attributes:
+        codigos (List[str]): Os códigos, exibidos uma única vez.
+    """
+
+    codigos: list[str]
+
+
+class StatusDeMFA(BaseModel):
+    """Situação atual do segundo fator de uma conta.
+
+    Attributes:
+        ativado (bool): Se o segundo fator está em uso.
+        codigos_restantes (int): Códigos de recuperação ainda não consumidos.
+    """
+
+    ativado: bool
+    codigos_restantes: int
+
 
 class TokenData(BaseModel):
     """Dados extraídos do payload do token JWT.
 
     Attributes:
-        nome_usuario (Optional[str]): O nome de usuário (subject) contido no token.
+        nome_usuario (str): O nome de usuário contido no claim `sub`.
+        usuario_id (Optional[int]): O ID contido no claim `uid`.
+        token_version (int): A versão de credenciais do claim `ver`.
+        jti (Optional[str]): O identificador único do token.
     """
-    nome_usuario: Optional[str] = None
+
+    nome_usuario: str
+    usuario_id: int | None = None
+    token_version: int = 0
+    jti: str | None = None
 
 
 # --- SCHEMAS PARA USUÁRIO ---
 
-class UsuarioCreate(BaseModel):
+
+class UsuarioCreate(SchemaBase):
     """Schema de entrada para criação de um novo usuário.
 
     Attributes:
         nome_usuario (str): Nome de usuário desejado.
-        senha (str): Senha em texto plano.
+        senha (str): Senha em texto plano, validada contra a política de força.
     """
-    nome_usuario: str
-    senha: str
+
+    nome_usuario: NomeUsuario
+    # O tamanho mínimo espelha a política em `security.TAMANHO_MINIMO_SENHA`;
+    # a validação completa (senhas comuns, variedade) roda no endpoint.
+    senha: Annotated[str, StringConstraints(min_length=12, max_length=1024)]
+
+    @field_validator("nome_usuario")
+    @classmethod
+    def _validar_nome_usuario(cls, valor: str) -> str:
+        """Restringe o nome de usuário a caracteres seguros.
+
+        Args:
+            valor (str): O nome informado.
+
+        Raises:
+            ValueError: Se contiver caracteres fora do conjunto permitido.
+
+        Returns:
+            str: O nome validado.
+        """
+        if not PADRAO_NOME_USUARIO.match(valor):
+            raise ValueError(
+                "O nome de usuário deve conter apenas letras, números, "
+                "ponto, hífen e sublinhado."
+            )
+        return valor
+
 
 class Usuario(BaseModel):
     """Schema de resposta com detalhes do usuário.
+
+    Note que `senha_hash` e `token_version` não estão declarados: campos
+    ausentes do schema de resposta nunca são serializados, mesmo que existam
+    no objeto ORM de origem.
 
     Attributes:
         id (int): ID do usuário.
@@ -113,21 +291,22 @@ class Usuario(BaseModel):
         avatar_url (Optional[str]): URL do avatar.
         email (Optional[EmailStr]): Endereço de email.
     """
+
     id: int
     nome_usuario: str
     criado_em: datetime
-    
+
     # Campos de Perfil
-    nome_completo: Optional[str] = None
-    data_nascimento: Optional[date] = None
-    avatar_url: Optional[str] = None
-    email: Optional[EmailStr] = None 
+    nome_completo: str | None = None
+    data_nascimento: date | None = None
+    avatar_url: str | None = None
+    email: EmailStr | None = None
 
-    model_config = {'from_attributes': True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class UsuarioUpdate(BaseModel):
-    """Schema de entrada para atualização de dados do usuário (PATCH).
+class UsuarioUpdate(SchemaBase):
+    """Schema de entrada para atualização de dados do usuário.
 
     Attributes:
         nome_usuario (Optional[str]): Novo nome de usuário.
@@ -136,94 +315,329 @@ class UsuarioUpdate(BaseModel):
         avatar_url (Optional[str]): Nova URL de avatar.
         email (Optional[EmailStr]): Novo email.
     """
-    nome_usuario: Optional[str] = None 
-    nome_completo: Optional[str] = None
-    data_nascimento: Optional[date] = None
-    avatar_url: Optional[str] = None
-    email: Optional[EmailStr] = None
 
-class UsuarioChangePassword(BaseModel):
+    nome_usuario: NomeUsuario | None = None
+    nome_completo: Annotated[str, StringConstraints(max_length=255)] | None = None
+    data_nascimento: date | None = None
+    avatar_url: Annotated[str, StringConstraints(max_length=2000)] | None = None
+    email: EmailStr | None = None
+
+    @field_validator("nome_usuario")
+    @classmethod
+    def _validar_nome_usuario(cls, valor: str | None) -> str | None:
+        """Aplica a mesma restrição de caracteres do cadastro.
+
+        Args:
+            valor (Optional[str]): O nome informado.
+
+        Raises:
+            ValueError: Se contiver caracteres fora do conjunto permitido.
+
+        Returns:
+            Optional[str]: O nome validado.
+        """
+        if valor is not None and not PADRAO_NOME_USUARIO.match(valor):
+            raise ValueError(
+                "O nome de usuário deve conter apenas letras, números, "
+                "ponto, hífen e sublinhado."
+            )
+        return valor
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def _validar_data_nascimento(cls, valor: date | None) -> date | None:
+        """Rejeita datas de nascimento impossíveis.
+
+        Args:
+            valor (Optional[date]): A data informada.
+
+        Raises:
+            ValueError: Se a data estiver no futuro ou for absurdamente antiga.
+
+        Returns:
+            Optional[date]: A data validada.
+        """
+        if valor is None:
+            return None
+        hoje = datetime.now(UTC).date()
+        if valor > hoje:
+            raise ValueError("A data de nascimento não pode estar no futuro.")
+        if valor.year < 1900:
+            raise ValueError("A data de nascimento é inválida.")
+        return valor
+
+    @field_validator("avatar_url")
+    @classmethod
+    def _validar_avatar_url(cls, valor: str | None) -> str | None:
+        """Restringe a URL de avatar a esquemas seguros.
+
+        O campo é renderizado pelo frontend em um atributo `src`. Sem esta
+        checagem, um valor `javascript:` ou `data:text/html` vira um vetor de
+        XSS armazenado.
+
+        Args:
+            valor (Optional[str]): A URL informada.
+
+        Raises:
+            ValueError: Se o esquema não for https, ou data:image.
+
+        Returns:
+            Optional[str]: A URL validada.
+        """
+        if valor is None or valor == "":
+            return valor
+
+        normalizada = valor.strip().lower()
+
+        if normalizada.startswith("https://"):
+            return valor
+        if normalizada.startswith("data:image/"):
+            return valor
+
+        raise ValueError(
+            "A URL do avatar deve usar https:// ou ser uma imagem embutida "
+            "(data:image/...)."
+        )
+
+
+class UsuarioChangePassword(SchemaBase):
     """Schema de entrada para alteração de senha.
 
     Attributes:
         senha_antiga (str): A senha atual do usuário.
         senha_nova (str): A nova senha desejada.
     """
-    senha_antiga: str
-    senha_nova: str
+
+    senha_antiga: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+    senha_nova: Annotated[str, StringConstraints(min_length=12, max_length=1024)]
+
+    @model_validator(mode="after")
+    def _senhas_devem_diferir(self) -> UsuarioChangePassword:
+        """Impede que a "nova" senha seja idêntica à atual.
+
+        Raises:
+            ValueError: Se as senhas forem iguais.
+
+        Returns:
+            UsuarioChangePassword: A própria instância validada.
+        """
+        if self.senha_antiga == self.senha_nova:
+            raise ValueError("A nova senha deve ser diferente da senha atual.")
+        return self
+
 
 # --- SCHEMAS PARA CATEGORIA ---
 
-class CategoriaCreate(BaseModel):
+
+class CategoriaCreate(SchemaBase):
     """Schema de entrada para criação de categoria.
 
     Attributes:
         nome (str): Nome da categoria.
-        tipo (str): Tipo da categoria ("Despesa" ou "Receita").
-        cor (str): Cor em formato hexadecimal. Padrão: "#CCCCCC".
+        tipo (TipoCategoria): "Gasto" ou "Receita".
+        cor (str): Cor em formato hexadecimal #RRGGBB.
     """
-    nome: str
-    tipo: str
+
+    nome: Annotated[
+        str, StringConstraints(min_length=1, max_length=100, strip_whitespace=True)
+    ]
+    # Domínio fechado. Antes era `str` livre: uma categoria criada como
+    # "Despesa" era aceita mas nunca somada pelo dashboard, que só reconhece
+    # "Gasto" e "Receita" — os valores sumiam do relatório sem qualquer erro.
+    tipo: TipoCategoria
     cor: str = "#CCCCCC"
 
-class Categoria(CategoriaCreate):
+    @field_validator("cor")
+    @classmethod
+    def _validar_cor(cls, valor: str) -> str:
+        """Garante que a cor está no formato hexadecimal #RRGGBB.
+
+        Args:
+            valor (str): A cor informada.
+
+        Raises:
+            ValueError: Se o formato for inválido.
+
+        Returns:
+            str: A cor validada.
+        """
+        if not PADRAO_COR_HEX.match(valor):
+            raise ValueError("A cor deve estar no formato hexadecimal #RRGGBB.")
+        return valor
+
+
+class Categoria(BaseModel):
     """Schema de resposta para detalhes da categoria.
 
     Attributes:
         id (int): ID da categoria.
         nome (str): Nome da categoria.
-        tipo (str): Tipo da categoria.
+        tipo (TipoCategoria): Tipo da categoria.
         cor (str): Cor da categoria.
     """
-    id: int
-    model_config = {'from_attributes': True}
 
-class CategoriaUpdate(BaseModel):
+    id: int
+    nome: str
+    tipo: TipoCategoria
+    cor: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CategoriaUpdate(SchemaBase):
     """Schema de entrada para atualização de categoria.
 
     Attributes:
         nome (Optional[str]): Novo nome.
-        tipo (Optional[str]): Novo tipo.
+        tipo (Optional[TipoCategoria]): Novo tipo.
         cor (Optional[str]): Nova cor.
     """
-    nome: Optional[str] = None
-    tipo: Optional[str] = None
-    cor: Optional[str] = None
+
+    nome: Annotated[str, StringConstraints(min_length=1, max_length=100, strip_whitespace=True)] | None = None
+    tipo: TipoCategoria | None = None
+    cor: str | None = None
+
+    @field_validator("cor")
+    @classmethod
+    def _validar_cor(cls, valor: str | None) -> str | None:
+        """Garante o formato hexadecimal quando a cor é informada.
+
+        Args:
+            valor (Optional[str]): A cor informada.
+
+        Raises:
+            ValueError: Se o formato for inválido.
+
+        Returns:
+            Optional[str]: A cor validada.
+        """
+        if valor is not None and not PADRAO_COR_HEX.match(valor):
+            raise ValueError("A cor deve estar no formato hexadecimal #RRGGBB.")
+        return valor
+
+    @model_validator(mode="after")
+    def _exigir_ao_menos_um_campo(self) -> CategoriaUpdate:
+        """Rejeita um payload de atualização inteiramente vazio.
+
+        Raises:
+            ValueError: Se nenhum campo tiver sido informado.
+
+        Returns:
+            CategoriaUpdate: A própria instância validada.
+        """
+        if self.nome is None and self.tipo is None and self.cor is None:
+            raise ValueError("Informe ao menos um campo para atualizar.")
+        return self
+
 
 # --- SCHEMAS PARA TRANSAÇÃO ---
 
-class TransacaoCreate(BaseModel):
+
+class TransacaoCreate(SchemaBase):
     """Schema de entrada para criação ou atualização de transação.
 
     Attributes:
         descricao (str): Descrição da transação.
-        valor (decimal.Decimal): Valor da transação.
-        categoria_id (int): ID da categoria associada.
+        valor (decimal.Decimal): Valor da transação, sempre positivo.
+        categoria_id (int): ID da categoria associada (deve pertencer ao usuário).
         data (datetime): Data e hora da transação.
         observacoes (Optional[str]): Observações adicionais.
     """
-    descricao: str
-    valor: decimal.Decimal
-    categoria_id: int
-    data: datetime
-    observacoes: str | None = None
 
-class Transacao(TransacaoCreate):
+    descricao: TextoCurto
+    valor: ValorMonetario
+    categoria_id: int = Field(gt=0)
+    data: datetime
+    observacoes: TextoLongo | None = None
+
+    @field_validator("valor")
+    @classmethod
+    def _normalizar_valor(cls, valor: decimal.Decimal) -> decimal.Decimal:
+        """Quantiza o valor para duas casas decimais.
+
+        A coluna é `Numeric(14, 2)`. Sem a quantização explícita, um valor com
+        mais casas seria arredondado pelo banco de forma dependente do dialeto —
+        um comportamento inaceitável para dinheiro.
+
+        Args:
+            valor (decimal.Decimal): O valor informado.
+
+        Raises:
+            ValueError: Se o valor não for finito.
+
+        Returns:
+            decimal.Decimal: O valor com exatamente duas casas decimais.
+        """
+        if not valor.is_finite():
+            raise ValueError("O valor precisa ser um número finito.")
+        # ROUND_HALF_UP é a convenção contábil usual no Brasil.
+        return valor.quantize(
+            decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP
+        )
+
+    @field_validator("data")
+    @classmethod
+    def _validar_data(cls, valor: datetime) -> datetime:
+        """Normaliza a data para UTC e rejeita datas implausíveis.
+
+        Args:
+            valor (datetime): A data informada.
+
+        Raises:
+            ValueError: Se a data for muito antiga ou muito no futuro.
+
+        Returns:
+            datetime: A data normalizada em UTC.
+        """
+        # Datas sem fuso são interpretadas como UTC para manter os relatórios
+        # consistentes independentemente do fuso do cliente.
+        if valor.tzinfo is None:
+            valor = valor.replace(tzinfo=UTC)
+        else:
+            valor = valor.astimezone(UTC)
+
+        agora = datetime.now(UTC)
+
+        # Uma folga de um dia acomoda clientes com relógio adiantado e fusos
+        # à frente do UTC, sem permitir lançamentos em datas arbitrárias.
+        if valor > agora + timedelta(days=1):
+            raise ValueError("A data da transação não pode estar no futuro.")
+
+        if valor.year < 1970:
+            raise ValueError("A data da transação é anterior ao limite suportado.")
+
+        return valor
+
+
+class Transacao(BaseModel):
     """Schema de resposta para detalhes da transação.
 
     Attributes:
         id (int): ID da transação.
+        descricao (str): Descrição da transação.
+        valor (decimal.Decimal): Valor da transação.
+        data (datetime): Data e hora da transação.
+        observacoes (Optional[str]): Observações adicionais.
+        categoria_id (int): ID da categoria associada.
         usuario_id (int): ID do usuário proprietário.
         categoria (Categoria): Objeto com detalhes da categoria associada.
     """
+
     id: int
+    descricao: str
+    valor: decimal.Decimal
+    data: datetime
+    observacoes: str | None = None
+    categoria_id: int
     usuario_id: int
-    
-    categoria: Categoria 
-    
-    model_config = {'from_attributes': True}
-    
+
+    categoria: Categoria
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- SCHEMAS PARA RELATÓRIOS ---
+
 
 class PontoDeTendencia(BaseModel):
     """Representa um ponto de dados em um gráfico de tendência.
@@ -232,15 +646,58 @@ class PontoDeTendencia(BaseModel):
         data (date | str): Data ou hora do ponto.
         valor (decimal.Decimal): Valor acumulado no ponto.
     """
+
     data: date | str
     valor: decimal.Decimal
 
+
 class DadosDeTendencia(BaseModel):
-    """Schema de resposta para dados consolidados de gráficos de tendência.
+    """Schema de resposta para dados de gráficos de tendência.
 
     Attributes:
         receitas (List[PontoDeTendencia]): Série de dados para receitas.
         despesas (List[PontoDeTendencia]): Série de dados para despesas.
     """
-    receitas: List[PontoDeTendencia]
-    despesas: List[PontoDeTendencia]
+
+    receitas: list[PontoDeTendencia]
+    despesas: list[PontoDeTendencia]
+
+
+class ErroDeImportacao(BaseModel):
+    """Uma linha da planilha que não pôde ser importada.
+
+    Attributes:
+        linha (int): Número da linha na planilha original.
+        motivo (str): Explicação legível do problema.
+    """
+
+    linha: int
+    motivo: str
+
+
+class ResultadoDaImportacao(BaseModel):
+    """Relatório de uma importação de planilha.
+
+    Attributes:
+        importadas (int): Quantidade de transações gravadas.
+        ignoradas (int): Linhas rejeitadas por conterem dados inválidos.
+        erros (List[ErroDeImportacao]): Detalhamento por linha.
+        colunas_detectadas (dict): Mapeamento entre campo e cabeçalho da planilha.
+        dashboard (DashboardData | None): Dados atualizados após a importação.
+    """
+
+    importadas: int
+    ignoradas: int
+    erros: list[ErroDeImportacao]
+    colunas_detectadas: dict[str, str]
+    dashboard: DashboardData | None = None
+
+
+class MensagemDeSucesso(BaseModel):
+    """Resposta genérica de confirmação de operação.
+
+    Attributes:
+        message (str): Descrição do resultado.
+    """
+
+    message: str

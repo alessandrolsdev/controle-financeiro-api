@@ -1,314 +1,266 @@
 /* Arquivo: frontend/src/pages/Settings/Settings.css */
-/*
- * Estilos para a Página de Ajustes e Configurações (V8.1).
- *
- * Este CSS estiliza o CRUD (Criar, Ler, Atualizar, Deletar)
- * completo de Categorias, bem como o toggle de Tema.
- */
+/* Configurações: seções empilhadas, cada uma com um propósito só. */
 
-/* --- 1. Layout Principal --- */
-.settings-container {
-  font-family: 'Montserrat', sans-serif;
-  color: var(--cor-texto-primario);
-  padding-bottom: 90px;
-}
-
-/* --- 2. Cabeçalho da Página --- */
-.settings-header {
+.config {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--cor-borda);
+  flex-direction: column;
+  gap: var(--e-4);
+  max-width: 44rem;
 }
 
-.settings-header h2 {
-  margin: 0;
+.config-secao {
+  background-color: var(--superficie-1);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.config-secao > header {
+  padding: var(--e-4);
+  border-bottom: 1px solid var(--borda);
+}
+
+.config-secao > header h2 {
+  font-size: var(--t-base);
   font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--cor-texto-primario);
 }
 
-/* --- 3. Conteúdo (Cards) --- */
-.settings-content {
-  padding: 1.5rem;
-  max-width: 800px; /* Limita a largura em desktops */
-  margin: 0 auto;
+.config-secao > header p {
+  margin-top: var(--e-1);
+  font-size: var(--t-sm);
+  color: var(--texto-2);
 }
 
-.settings-card {
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  padding: 1.5rem 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  transition: background-color 0.3s ease;
-}
-
-.settings-card h2 {
-  margin-top: 0;
-  border-bottom: 1px solid var(--cor-borda);
-  padding-bottom: 1rem;
-  font-weight: 600;
-  color: var(--cor-texto-primario);
-}
-
-/* --- 4. Estilos do Formulário (Padrão "Underline") --- */
-.input-group { 
-  margin-bottom: 1.5rem; 
-}
-
-.input-group label { 
-  display: block; 
-  margin-bottom: 0.5rem; 
-  color: var(--cor-texto-secundario);
-  font-weight: 500; 
-}
-
-.input-group input, 
-.input-group select {
-  width: 100%;
-  padding: 0.75rem 0.25rem;
-  border: none;
-  border-bottom: 2px solid var(--cor-texto-secundario);
-  background-color: transparent;
-  color: var(--cor-texto-primario); 
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  border-radius: 0;
-  transition: border-color 0.3s ease;
-}
-
-.input-group input:focus, 
-.input-group select:focus {
-  outline: none;
-  border-color: var(--cor-laranja-voo);
-}
-
-/* Correção do Bug de Contraste (V4.8) */
-.input-group select option {
-  background-color: #ffffff; 
-  color: #0B1A33 !important; /* Força o texto escuro */
-}
-
-/* Estilo para o Seletor de Cores (V5.0) */
-.color-picker-group input[type="color"] {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    width: 40px; 
-    height: 40px;
-    background: none;
-    border: 1px solid var(--cor-borda);
-    padding: 0;
-    cursor: pointer;
-    border-radius: 4px;
-}
-.color-picker-group input[type="color"]::-webkit-color-swatch-wrapper {
-    padding: 0;
-}
-.color-picker-group input[type="color"]::-webkit-color-swatch {
-    border: none;
-    border-radius: 4px;
-}
-.color-picker-group .color-code-display {
-    color: var(--cor-texto-secundario);
-    font-weight: 500;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-}
-
-/* --- 5. Botões de Formulário (ATUALIZADO V8.0) --- */
-.form-button-group {
+.config-corpo {
+  padding: var(--e-4);
   display: flex;
-  gap: 1rem; /* Espaço entre "Salvar" e "Cancelar" */
-  align-items: center;
+  flex-direction: column;
+  gap: var(--e-4);
 }
 
-/* Botão "Salvar" / "Criar" */
-.settings-button {
-  width: auto;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--cor-laranja-voo); 
-  color: var(--cor-branco-foco);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-.settings-button:hover {
-  background-color: #e66e00;
-  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.3);
-}
+/* --- Lista de categorias --- */
 
-/* Botão "Cancelar" (só aparece no modo de edição) */
-.cancel-button {
-  background: none;
-  border: 1px solid var(--cor-texto-secundario);
-  color: var(--cor-texto-secundario);
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.cancel-button:hover {
-  background-color: var(--cor-borda);
-  color: var(--cor-texto-primario);
-}
-
-/* --- 6. Lista de Categorias (ATUALIZADO V8.0) --- */
-.categoria-list ul {
+.categorias {
   list-style: none;
-  padding: 0;
 }
-.categoria-list li {
+
+.categoria {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem 0.5rem;
-  border-bottom: 1px solid var(--cor-borda);
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--borda);
 }
-.categoria-list li:last-child {
+
+.categoria:last-child {
   border-bottom: none;
 }
 
-/* Lado Esquerdo (Info) */
-.categoria-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem; /* Espaço entre a cor, nome e tipo */
+.categoria:hover {
+  background-color: var(--superficie-2);
 }
 
-/* O "quadradinho" de cor (V5.0) */
-.categoria-cor-preview {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid var(--cor-borda);
+.categoria-cor {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
 }
 
-/* O badge (etiqueta) de tipo */
-.tipo-badge-list {
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: bold;
-}
-/* (V4.5) Cores semânticas dinâmicas */
-.tipo-badge-list.tipo-gasto {
-  background-color: var(--cor-gasto);
-  color: var(--cor-branco-foco);
-}
-.tipo-badge-list.tipo-receita {
-  background-color: var(--cor-lucro);
-  color: var(--cor-branco-foco);
-}
-
-/* Lado Direito (Botões de Ação V8.0) */
-.categoria-list-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.edit-btn, .delete-btn {
-  background: none;
-  border: none;
-  color: var(--cor-texto-secundario);
-  cursor: pointer;
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-}
-.edit-btn:hover {
-  background-color: var(--cor-borda);
-  color: var(--cor-texto-primario);
-}
-.delete-btn:hover {
-  background-color: var(--cor-gasto); /* Cor de Alerta */
-  color: var(--cor-branco-foco);
-}
-
-/* --- 7. Estilos de Itens de Menu (Tema, Backup) --- */
-.settings-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 0.5rem;
-  border-bottom: 1px solid var(--cor-borda);
-}
-.settings-item:last-child {
-  border-bottom: none;
-}
-.settings-item span {
+.categoria-nome {
+  flex: 1;
   font-weight: 500;
-  color: var(--cor-texto-primario);
 }
 
-.settings-button-disabled {
-  width: auto;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--cor-texto-secundario);
-  color: var(--cor-fundo-card);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: not-allowed;
-  opacity: 0.5;
+/* Etiqueta de tipo: contorno em vez de preenchimento, para não competir com
+   os valores monetários. */
+.etiqueta {
+  padding: 2px var(--e-2);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  border: 1px solid currentcolor;
 }
 
-/* --- 8. O "Interruptor" (Toggle) de Tema (V4.5) --- */
-.theme-toggle input {
+.etiqueta-receita {
+  color: var(--receita);
+}
+
+.etiqueta-gasto {
+  color: var(--despesa);
+}
+
+.categoria-acoes {
+  display: flex;
+  gap: var(--e-1);
   opacity: 0;
-  width: 0;
-  height: 0;
+  transition: opacity var(--transicao);
 }
-.theme-toggle {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 28px;
+
+.categoria:hover .categoria-acoes,
+.categoria:focus-within .categoria-acoes {
+  opacity: 1;
 }
-.slider {
-  position: absolute;
+
+@media (hover: none) {
+  .categoria-acoes {
+    opacity: 1;
+  }
+}
+
+/* --- Formulário em linha --- */
+
+.form-linha {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto auto;
+  gap: var(--e-2);
+  align-items: end;
+}
+
+.seletor-cor {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 2px;
+  background-color: var(--superficie-0);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-md);
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--cor-fundo-secundario); 
-  transition: .4s;
-  border-radius: 28px;
 }
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  bottom: 4px;
-  background-color: var(--cor-texto-secundario); 
-  transition: .4s;
-  border-radius: 50%;
+
+/* --- Importação de planilha --- */
+
+.importar-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-6) var(--e-4);
+  text-align: center;
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--r-md);
+  transition: border-color var(--transicao), background-color var(--transicao);
 }
-input:checked + .slider {
-  background-color: var(--cor-laranja-voo);
+
+.importar-area.arrastando {
+  border-color: var(--acao);
+  background-color: var(--acao-suave);
 }
-input:focus + .slider {
-  box-shadow: 0 0 1px var(--cor-laranja-voo);
+
+.importar-area p {
+  font-size: var(--t-sm);
+  color: var(--texto-2);
 }
-input:checked + .slider:before {
-  transform: translateX(22px);
-  background-color: var(--cor-branco-foco); 
+
+.importar-dica {
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+}
+
+.importar-relatorio {
+  font-size: var(--t-sm);
+}
+
+.importar-erros {
+  margin-top: var(--e-3);
+  max-height: 12rem;
+  overflow-y: auto;
+  border: 1px solid var(--borda);
+  border-radius: var(--r-md);
+}
+
+.importar-erros li {
+  display: flex;
+  gap: var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  font-size: var(--t-xs);
+  border-bottom: 1px solid var(--borda);
+  list-style: none;
+}
+
+.importar-erros li:last-child {
+  border-bottom: none;
+}
+
+.importar-erros .linha {
+  color: var(--texto-3);
+  white-space: nowrap;
+}
+
+/* --- Segundo fator --- */
+
+.mfa-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  flex-wrap: wrap;
+}
+
+.mfa-indicador {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  font-size: var(--t-sm);
+  font-weight: 500;
+}
+
+.mfa-indicador::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background-color: var(--texto-3);
+}
+
+.mfa-indicador.ativo::before {
+  background-color: var(--receita);
+}
+
+.mfa-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  background-color: var(--superficie-0);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-md);
+}
+
+/* O QR Code precisa de fundo branco mesmo no tema escuro: leitores ópticos
+   dependem do contraste entre módulos escuros e fundo claro. */
+.mfa-qr canvas,
+.mfa-qr svg,
+.mfa-qr img {
+  background-color: #fff;
+  padding: var(--e-3);
+  border-radius: var(--r-sm);
+}
+
+.mfa-segredo {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+  word-break: break-all;
+  text-align: center;
+}
+
+.codigos-recuperacao {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--e-2);
+  padding: var(--e-4);
+  background-color: var(--superficie-0);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-md);
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+  font-size: var(--t-sm);
+  list-style: none;
+}
+
+@media (max-width: 640px) {
+  .form-linha {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 }

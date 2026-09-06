@@ -4,8 +4,8 @@
  * @description Exibe o resumo financeiro, gráficos de receita/despesa e listas de transações. Permite filtragem por data.
  */
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/useAuth';
 import { useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
 import './Dashboard.css';
@@ -113,7 +113,6 @@ function Dashboard() {
     
   }, [dataInicioStr, dataFimStr]);
 
-
   /**
    * Prepara os dados para o gráfico de gastos.
    */
@@ -214,52 +213,84 @@ function Dashboard() {
    */
   const renderTransactionList = (title, transactions, loadingState, showActions) => {
     let content;
+
     if (loadingState) {
-      content = <p className="loading-transactions">Buscando transações...</p>;
+      content = <p className="vazio">Carregando…</p>;
     } else if (transactions.length === 0) {
-      content = <p className="loading-transactions">Nenhuma transação encontrada.</p>;
+      content = <p className="vazio">Nenhuma transação neste período.</p>;
     } else {
       content = (
-        <ul>
-          {transactions.map((tx) => (
-            <li key={tx.id}>
-              <div className="transaction-details">
-                <span>{tx.descricao}</span>
-                <span className="transaction-date">
-                  {new Date(tx.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  , {new Date(tx.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              
-              <div className="transaction-actions">
-                <span className={`transaction-amount ${tx.categoria.tipo === 'Gasto' ? 'gasto' : 'lucro'}`}>
-                  {tx.categoria.tipo === 'Gasto' ? '-' : '+'}
+        <ul className="transacoes">
+          {transactions.map((tx) => {
+            const ehGasto = tx.categoria.tipo === 'Gasto';
+
+            return (
+              <li key={tx.id} className="transacao">
+                <span
+                  className="transacao-marcador"
+                  style={{ backgroundColor: tx.categoria.cor }}
+                  aria-hidden="true"
+                />
+
+                <div className="transacao-info">
+                  <span className="transacao-descricao">{tx.descricao}</span>
+                  <span className="transacao-meta">
+                    {tx.categoria.nome} ·{' '}
+                    {new Date(tx.data).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'short',
+                    })}
+                  </span>
+                </div>
+
+                <span
+                  className={
+                    ehGasto ? 'transacao-valor valor-despesa' : 'transacao-valor valor-receita'
+                  }
+                >
+                  {ehGasto ? '−' : '+'}
                   {formatCurrency(tx.valor)}
                 </span>
-                
+
                 {showActions && (
-                  <>
-                    <button className="edit-button" onClick={() => handleEditClick(tx)}>
-                      <IoPencil size={16} />
+                  <div className="transacao-acoes">
+                    <button
+                      type="button"
+                      className="botao-discreto"
+                      onClick={() => handleEditClick(tx)}
+                      aria-label={`Editar ${tx.descricao}`}
+                    >
+                      <IoPencil size={15} />
                     </button>
-                    <button className="delete-button" onClick={() => handleDeleteTransaction(tx)}>
-                      <IoTrash size={16} />
+                    <button
+                      type="button"
+                      className="botao-discreto"
+                      onClick={() => handleDeleteTransaction(tx)}
+                      aria-label={`Excluir ${tx.descricao}`}
+                    >
+                      <IoTrash size={15} />
                     </button>
-                  </>
+                  </div>
                 )}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       );
     }
+
     return (
-      <div className="recent-transactions">
-        <h2>{title}</h2>
-        {title === "Transações no Período" && deleteError && 
-          <p className="error-message">{deleteError}</p>}
+      <section className="painel">
+        <div className="painel-cabecalho">
+          <h3>{title}</h3>
+        </div>
+        {deleteError && (
+          <div style={{ padding: 'var(--e-4)' }}>
+            <p className="mensagem mensagem-erro">{deleteError}</p>
+          </div>
+        )}
         {content}
-      </div>
+      </section>
     );
   };
 
@@ -267,8 +298,8 @@ function Dashboard() {
    * Renderiza o conteúdo principal do dashboard quando os dados estão carregados.
    */
   const renderContent = () => {
-    if (loading) { return <p className="dashboard-loading">Carregando dados...</p>; }
-    if (error) { return <p className="error-message">{error}</p>; }
+    if (loading) return <p className="vazio">Carregando dados…</p>;
+    if (error) return <p className="mensagem mensagem-erro">{error}</p>;
     
     if (data) {
       const gastosChartData = getGastosChartData();
@@ -276,54 +307,76 @@ function Dashboard() {
       
       return (
         <>
-          <div className="dashboard-stats">
-             <div className="stat-card">
-              <h3>Total Receitas</h3>
-              <span className="lucro">{formatCurrency(data.total_receitas)}</span>
-            </div>
-            <div className="stat-card">
-              <h3>Total Gastos</h3>
-              <span className="gasto">{formatCurrency(data.total_gastos)}</span>
-            </div>
-            <div className="stat-card">
-              <h3>Lucro Líquido</h3>
-              <span className={data.lucro_liquido >= 0 ? 'lucro' : 'gasto'}>
-                {formatCurrency(data.lucro_liquido)}
+          <div className="resumo">
+            <div className="resumo-card">
+              <span className="resumo-rotulo">Receitas</span>
+              <span className="resumo-valor valor-receita">
+                {formatCurrency(data.total_receitas)}
               </span>
             </div>
-          </div>
-          
-          <div className="dashboard-charts-grid">
-            <div className="chart-container">
-              <h3>Receitas por Categoria</h3>
-              <DoughnutChart 
-                chartData={receitasChartData}
-                totalValue={parseFloat(data.total_receitas)}
-                centerLabel="Total Receita"
-              />
+            <div className="resumo-card">
+              <span className="resumo-rotulo">Despesas</span>
+              <span className="resumo-valor valor-despesa">
+                {formatCurrency(data.total_gastos)}
+              </span>
             </div>
-            <div className="chart-container">
-              <h3>Gastos por Categoria</h3>
-              <DoughnutChart 
-                chartData={gastosChartData}
-                totalValue={parseFloat(data.total_gastos)}
-                centerLabel="Total Gasto"
-              />
+            <div className="resumo-card">
+              <span className="resumo-rotulo">Saldo</span>
+              <span
+                className={
+                  Number(data.lucro_liquido) >= 0
+                    ? 'resumo-valor valor-receita'
+                    : 'resumo-valor valor-despesa'
+                }
+              >
+                {formatCurrency(data.lucro_liquido)}
+              </span>
+              <span className="resumo-detalhe">Receitas menos despesas</span>
             </div>
           </div>
 
-          {renderTransactionList(
-            "Transações no Período", 
-            periodTransactions, 
-            loadingPeriod,
-            true
-          )}
-          {renderTransactionList(
-            "Últimas 5 Transações", 
-            recentTransactions, 
-            loadingRecent,
-            true
-          )}
+          <div className="graficos">
+            <section className="painel">
+              <div className="painel-cabecalho">
+                <h3>Receitas por categoria</h3>
+              </div>
+              <div className="painel-corpo">
+                <DoughnutChart
+                  chartData={receitasChartData}
+                  totalValue={parseFloat(data.total_receitas)}
+                  centerLabel="Receitas"
+                />
+              </div>
+            </section>
+
+            <section className="painel">
+              <div className="painel-cabecalho">
+                <h3>Despesas por categoria</h3>
+              </div>
+              <div className="painel-corpo">
+                <DoughnutChart
+                  chartData={gastosChartData}
+                  totalValue={parseFloat(data.total_gastos)}
+                  centerLabel="Despesas"
+                />
+              </div>
+            </section>
+          </div>
+
+          <div className="graficos">
+            {renderTransactionList(
+              'Transações no período',
+              periodTransactions,
+              loadingPeriod,
+              true
+            )}
+            {renderTransactionList(
+              'Mais recentes',
+              recentTransactions,
+              loadingRecent,
+              true
+            )}
+          </div>
         </>
       );
     }
@@ -331,10 +384,12 @@ function Dashboard() {
   };
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h2>Olá, {user ? (user.nome_completo || user.nome_usuario) : '...'}!</h2>
-        <span className="dashboard-subtitle">{getSubtituloFiltro()}</span>
+    <>
+      <header className="cabecalho-pagina">
+        <div>
+          <h1>Olá, {user ? user.nome_completo || user.nome_usuario : '…'}</h1>
+          <p>{getSubtituloFiltro()}</p>
+        </div>
       </header>
 
       <FilterControls 
@@ -346,10 +401,8 @@ function Dashboard() {
         setDataFim={setDataFim}
       />
 
-      <main className="dashboard-content">
-        {renderContent()}
-      </main>
-    </div>
+      {renderContent()}
+    </>
   );
 }
 

@@ -4,8 +4,8 @@
  * @description Permite visualização e edição de dados do usuário, alteração de senha e logout.
  */
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/useAuth';
 import api from '../../services/api';
 import './Profile.css';
 
@@ -71,7 +71,6 @@ function Profile() {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-
   /**
    * Efeito colateral que preenche o formulário com dados do usuário logado.
    */
@@ -89,7 +88,6 @@ function Profile() {
       }
     }
   }, [user]);
-
 
   /**
    * Manipula a atualização dos dados do perfil.
@@ -187,148 +185,210 @@ function Profile() {
     logout();
   };
 
+  /** Iniciais exibidas quando não há foto de avatar. */
+  const iniciais = (user?.nome_completo || user?.nome_usuario || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join('');
+
   return (
-    <div className="profile-container">
-      <header className="profile-header">
-        <h2>Perfil e Ajustes</h2>
+    <>
+      <header className="cabecalho-pagina">
+        <div>
+          <h1>Perfil</h1>
+          <p>Seus dados de acesso e informações pessoais.</p>
+        </div>
+        <div className="acoes-pagina">
+          <button type="button" className="botao botao-secundario" onClick={handleLogout}>
+            Sair
+          </button>
+        </div>
       </header>
 
-      <main className="profile-content">
-        
-        <div className="profile-card avatar-card">
+      <div className="perfil">
+        <div className="perfil-identidade">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="Avatar" className="avatar-image" />
+            <img src={avatarUrl} alt="" className="perfil-avatar" />
           ) : (
-            <div className="avatar-placeholder">
-              <span>(Sem foto)</span>
+            <div className="perfil-avatar" aria-hidden="true">
+              {iniciais}
             </div>
           )}
-          <h3>Olá, {user ? (user.nome_completo || user.nome_usuario) : 'Usuário'}!</h3>
+          <div>
+            <div className="perfil-nome">
+              {user?.nome_completo || user?.nome_usuario || 'Usuário'}
+            </div>
+            <div className="perfil-usuario">@{user?.nome_usuario}</div>
+          </div>
         </div>
 
-        <form className="profile-card" onSubmit={handleProfileSubmit}>
-          <h2>Informações Pessoais e Login</h2>
-          
-          {profileSuccess && <p className="success-message">{profileSuccess}</p>}
-          {profileError && <p className="error-message">{profileError}</p>}
-          
-          <>
-            <div className="input-group">
-              <label htmlFor="nome_usuario">Nome de Usuário (Login)</label>
-              <input
-                type="text"
-                id="nome_usuario"
-                placeholder="Seu nome de login"
-                value={nomeUsuario}
-                onChange={(e) => setNomeUsuario(e.target.value)}
-                required
-              />
-            </div>
-          
-            <div className="input-group">
-              <label htmlFor="nome_completo">Nome Completo (Para o "Olá, [Nome]")</label>
-              <input
-                type="text"
-                id="nome_completo"
-                placeholder="Seu Nome Completo"
-                value={nomeCompleto}
-                onChange={(e) => setNomeCompleto(e.target.value)}
-              />
+        {/* --- Dados pessoais --- */}
+        <section className="config-secao">
+          <header>
+            <h2>Informações pessoais</h2>
+            <p>Nome, e-mail e data de nascimento ficam cifrados no servidor.</p>
+          </header>
+
+          <form className="config-corpo" onSubmit={handleProfileSubmit}>
+            {profileSuccess && (
+              <p className="mensagem mensagem-sucesso">{profileSuccess}</p>
+            )}
+            {profileError && <p className="mensagem mensagem-erro">{profileError}</p>}
+
+            <div className="perfil-form">
+              <div>
+                <label className="rotulo" htmlFor="nome_usuario">
+                  Usuário
+                </label>
+                <input
+                  id="nome_usuario"
+                  className="campo"
+                  value={nomeUsuario}
+                  onChange={(e) => setNomeUsuario(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="rotulo" htmlFor="nome_completo">
+                  Nome completo
+                </label>
+                <input
+                  id="nome_completo"
+                  className="campo"
+                  value={nomeCompleto}
+                  onChange={(e) => setNomeCompleto(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="rotulo" htmlFor="email">
+                  E-mail
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  className="campo"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="rotulo" htmlFor="data_nascimento">
+                  Data de nascimento
+                </label>
+                <input
+                  id="data_nascimento"
+                  type="date"
+                  className="campo"
+                  value={dataNascimento ? formatISODate(dataNascimento) : ''}
+                  onChange={(e) => handleDateChange(e, setDataNascimento)}
+                  max={formatISODate(new Date())}
+                />
+              </div>
+
+              <div className="largura-total">
+                <label className="rotulo" htmlFor="avatar_url">
+                  URL da foto
+                </label>
+                <input
+                  id="avatar_url"
+                  type="url"
+                  className="campo"
+                  placeholder="https://…"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                />
+              </div>
             </div>
 
-            <div className="input-group">
-              <label htmlFor="email">E-mail (Para futura recuperação)</label>
-              <input
-                type="email"
-                id="email"
-                placeholder="seu.email@exemplo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            
-            <div className="input-group">
-              <label htmlFor="data_nascimento">Data de Nascimento</label>
-              <input
-                type="date"
-                id="data_nascimento"
-                value={dataNascimento ? formatISODate(dataNascimento) : ''}
-                onChange={(e) => handleDateChange(e, setDataNascimento)}
-                max={formatISODate(new Date())}
-              />
-            </div>
-            
-            <div className="input-group">
-              <label htmlFor="avatar_url">URL da Foto (Avatar)</label>
-              <input
-                type="url"
-                id="avatar_url"
-                placeholder="https://i.imgur.com/seu-link.jpg"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-              />
-            </div>
-            
-            <button type="submit" className="profile-button-save" disabled={profileLoading}>
-              {profileLoading ? 'Salvando...' : 'Salvar Alterações do Perfil'}
+            <button
+              type="submit"
+              className="botao botao-primario"
+              style={{ alignSelf: 'flex-start' }}
+              disabled={profileLoading}
+            >
+              {profileLoading ? 'Salvando…' : 'Salvar'}
             </button>
-          </>
-        </form>
+          </form>
+        </section>
 
-        <form className="profile-card" onSubmit={handlePasswordSubmit}>
-          <h2>Alterar Senha</h2>
+        {/* --- Senha --- */}
+        <section className="config-secao">
+          <header>
+            <h2>Alterar senha</h2>
+            <p>Trocar a senha encerra todas as sessões abertas.</p>
+          </header>
 
-          {passwordSuccess && <p className="success-message">{passwordSuccess}</p>}
-          {passwordError && <p className="error-message">{passwordError}</p>}
-          
-          <div className="input-group">
-            <label htmlFor="senha_antiga">Senha Antiga</label>
-            <input
-              type="password"
-              id="senha_antiga"
-              placeholder="Sua senha atual"
-              value={senhaAntiga}
-              onChange={(e) => setSenhaAntiga(e.target.value)}
-              required
-            />
-          </div>
-          <div className="input-group">
-            <label htmlFor="senha_nova">Nova Senha</label>
-            <input
-              type="password"
-              id="senha_nova"
-              placeholder="Mínimo 4 caracteres"
-              value={senhaNova}
-              onChange={(e) => setSenhaNova(e.target.value)}
-              required
-            />
-          </div>
-          <div className="input-group">
-            <label htmlFor="senha_confirmar">Confirmar Nova Senha</label>
-            <input
-              type="password"
-              id="senha_confirmar"
-              placeholder="Repita a nova senha"
-              value={senhaConfirmar}
-              onChange={(e) => setSenhaConfirmar(e.target.value)}
-              required
-            />
-          </div>
-          
-          <button type="submit" className="profile-button-save" disabled={passwordLoading}>
-            {passwordLoading ? 'Alterando...' : 'Alterar Senha'}
-          </button>
-        </form>
+          <form className="config-corpo" onSubmit={handlePasswordSubmit}>
+            {passwordSuccess && (
+              <p className="mensagem mensagem-sucesso">{passwordSuccess}</p>
+            )}
+            {passwordError && <p className="mensagem mensagem-erro">{passwordError}</p>}
 
-        <div className="profile-card">
-          <h2>Sessão</h2>
-          <button onClick={handleLogout} className="logout-button-profile">
-            Sair da Conta (Logout)
-          </button>
-        </div>
+            <div className="perfil-form">
+              <div>
+                <label className="rotulo" htmlFor="senha_antiga">
+                  Senha atual
+                </label>
+                <input
+                  id="senha_antiga"
+                  type="password"
+                  className="campo"
+                  value={senhaAntiga}
+                  onChange={(e) => setSenhaAntiga(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
 
-      </main>
-    </div>
+              <div>
+                <label className="rotulo" htmlFor="senha_nova">
+                  Nova senha
+                </label>
+                <input
+                  id="senha_nova"
+                  type="password"
+                  className="campo"
+                  value={senhaNova}
+                  onChange={(e) => setSenhaNova(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={12}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="rotulo" htmlFor="senha_confirmar">
+                  Confirmar nova senha
+                </label>
+                <input
+                  id="senha_confirmar"
+                  type="password"
+                  className="campo"
+                  value={senhaConfirmar}
+                  onChange={(e) => setSenhaConfirmar(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="botao botao-primario"
+              style={{ alignSelf: 'flex-start' }}
+              disabled={passwordLoading}
+            >
+              {passwordLoading ? 'Alterando…' : 'Alterar senha'}
+            </button>
+          </form>
+        </section>
+      </div>
+    </>
   );
 }
 

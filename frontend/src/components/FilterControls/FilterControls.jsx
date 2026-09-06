@@ -4,7 +4,6 @@
  * @description Componente para seleção de intervalos de data (Diário, Semanal, Mensal, Anual, Personalizado).
  */
 
-import React from 'react';
 import './FilterControls.css';
 
 /**
@@ -34,7 +33,6 @@ const formatISODate = (dateObject) => {
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
 
 /**
  * Componente de Controles de Filtro.
@@ -74,11 +72,16 @@ function FilterControls({
     let novaDataInicio;
 
     switch (newFilterType) {
-      case 'weekly':
+      case 'weekly': {
+        // O bloco isola as declarações: sem ele, `const` dentro de um `case`
+        // vaza para os outros ramos do switch e pode ser lido antes da
+        // inicialização.
         const diaDaSemana = dataBase.getDay();
-        const diff = dataBase.getDate() - diaDaSemana + (diaDaSemana === 0 ? -6 : 1);
+        const diff =
+          dataBase.getDate() - diaDaSemana + (diaDaSemana === 0 ? -6 : 1);
         novaDataInicio = new Date(dataBase.setDate(diff));
         break;
+      }
       case 'monthly':
         novaDataInicio = new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
         break;
@@ -98,69 +101,53 @@ function FilterControls({
     setDataInicio(novaDataInicio);
   };
 
+  /** Opções de período, na ordem em que aparecem. */
+  const OPCOES = [
+    { valor: 'daily', rotulo: 'Dia' },
+    { valor: 'weekly', rotulo: 'Semana' },
+    { valor: 'monthly', rotulo: 'Mês' },
+    { valor: 'yearly', rotulo: 'Ano' },
+    { valor: 'personalizado', rotulo: 'Período' },
+  ];
 
   return (
-    <div className="filter-tabs-container">
-      <div className="filter-tabs">
-        <button 
-          className={`tab-button ${filterType === 'daily' ? 'active' : ''}`}
-          onClick={() => handleFilterChange('daily')}
-        >
-          Diário
-        </button>
-        <button 
-          className={`tab-button ${filterType === 'weekly' ? 'active' : ''}`}
-          onClick={() => handleFilterChange('weekly')}
-        >
-          Semanal
-        </button>
-        <button 
-          className={`tab-button ${filterType === 'monthly' ? 'active' : ''}`}
-          onClick={() => handleFilterChange('monthly')}
-        >
-          Mensal
-        </button>
-        <button 
-          className={`tab-button ${filterType === 'yearly' ? 'active' : ''}`}
-          onClick={() => handleFilterChange('yearly')}
-        >
-          Anual
-        </button>
-        <button 
-          className={`tab-button ${filterType === 'personalizado' ? 'active' : ''}`}
-          onClick={() => handleFilterChange('personalizado')}
-        >
-          Personalizado
-        </button>
+    <div className="filtros">
+      <div className="filtros-periodo" role="group" aria-label="Período">
+        {OPCOES.map(({ valor, rotulo }) => (
+          <button
+            key={valor}
+            type="button"
+            className={
+              filterType === valor ? 'filtro-opcao ativo' : 'filtro-opcao'
+            }
+            aria-pressed={filterType === valor}
+            onClick={() => handleFilterChange(valor)}
+          >
+            {rotulo}
+          </button>
+        ))}
       </div>
-      
-      <div className="date-picker-container">
-        {filterType === 'personalizado' ? (
-          <div className="date-range-wrapper">
+
+      <div className="filtros-datas">
+        <input
+          type="date"
+          value={formatISODate(dataInicio)}
+          onChange={(e) => handleDateChange(e, setDataInicio)}
+          max={maxDateForPicker}
+          aria-label="Data inicial"
+        />
+
+        {filterType === 'personalizado' && (
+          <>
+            <span className="filtros-separador">até</span>
             <input
               type="date"
-              className="date-picker-input"
-              value={formatISODate(dataInicio)}
-              onChange={(e) => handleDateChange(e, setDataInicio)}
-              max={maxDateForPicker}
-            />
-            <span>até</span>
-            <input
-              type="date"
-              className="date-picker-input"
               value={formatISODate(dataFim)}
               onChange={(e) => handleDateChange(e, setDataFim)}
               max={maxDateForPicker}
+              aria-label="Data final"
             />
-          </div>
-        ) : (
-          <input
-            type="date"
-            className="date-picker-input"
-            value={formatISODate(dataInicio)}
-            onChange={(e) => handleDateChange(e, setDataInicio)}
-            max={maxDateForPicker}
-          />
+          </>
         )}
       </div>
     </div>

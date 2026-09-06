@@ -1,21 +1,40 @@
 # Arquivo: .gitignore
 
-# Ignora o ambiente virtual. Cada desenvolvedor cria o seu.
+# Ambiente virtual. Cada desenvolvedor cria o seu.
 venv/
+.venv/
+env/
 
-# Ignora os arquivos de cache do Python. Eles são gerados automaticamente.
+# Cache do Python.
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
 
-# Ignora o banco de dados. Nunca enviamos dados para o repositório.
-# O banco é criado automaticamente pela aplicação na primeira vez que roda.
+# Banco de dados local. Nunca enviamos dados para o repositório.
 *.db
 *.db-journal*
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
 
-# Ignora arquivos de configuração de IDEs (como o VS Code)
+# Arquivos de configuração de IDEs.
 .vscode/
+.idea/
+# Artefatos do Visual Studio: contêm caminhos locais, estado de sessão e um
+# índice SQLite do conteúdo dos arquivos — nada disso pertence ao repositório.
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
-# Environment files
+# Arquivos de ambiente. NUNCA versione segredos.
 .env
 .env.*
 !.env.example
@@ -23,3 +42,17 @@ __pycache__/
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
+
+# Artefatos de build do frontend.
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Sistema operacional.
+.DS_Store
+Thumbs.db
+
+# Relatórios de ferramentas de segurança.
+bandit-report.json
+pip-audit-report.json

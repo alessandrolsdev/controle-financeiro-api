@@ -4,7 +4,7 @@
  * @description Define a configuração para compilação do React, geração do PWA e estratégias de cache offline.
  */
 
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -12,10 +12,7 @@ import { VitePWA } from 'vite-plugin-pwa';
  * Exporta a configuração do Vite.
  * Utiliza o modo (desenvolvimento/produção) para carregar as variáveis de ambiente corretas.
  */
-export default defineConfig(({ mode }) => {
-  
-  const env = loadEnv(mode, process.cwd(), '');
-
+export default defineConfig(() => {
   return {
     plugins: [
       react(),
@@ -53,30 +50,36 @@ export default defineConfig(({ mode }) => {
         },
 
         workbox: {
-          runtimeCaching: [
-            {
-              // Intercepta requisições para a API base
-              urlPattern: new RegExp(`^${env.VITE_API_BASE_URL}`),
-              
-              // Estratégia StaleWhileRevalidate: retorna do cache e atualiza em segundo plano
-              handler: 'StaleWhileRevalidate',
-              
-              method: 'GET',
-              
-              options: {
-                cacheName: 'api-cache-v1',
-                
-                cacheableResponse: {
-                  statuses: [200],
-                },
-                
-                expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 60 * 60 * 24 * 7,
-                },
-              },
-            },
-          ],
+          /*
+           * O cache em tempo de execução da API foi REMOVIDO deliberadamente.
+           *
+           * A configuração anterior guardava as respostas autenticadas da API
+           * (saldos, extrato, transações) no Cache Storage por 7 dias, em disco
+           * e em texto claro. Isso significava que:
+           *
+           *  - os dados financeiros sobreviviam ao logout, ficando acessíveis a
+           *    qualquer pessoa com acesso ao dispositivo ou ao perfil do
+           *    navegador;
+           *  - em um computador compartilhado, o próximo usuário podia ver o
+           *    extrato do anterior;
+           *  - a estratégia StaleWhileRevalidate podia exibir saldos
+           *    desatualizados como se fossem atuais.
+           *
+           * O app continua instalável e funcionando offline para o "casco"
+           * (HTML, JS, CSS, ícones), que é o que o precache abaixo cobre. Os
+           * lançamentos feitos offline continuam indo para a fila local e são
+           * sincronizados quando a conexão volta.
+           */
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+
+          // Nunca intercepta chamadas à API, nem para responder do cache.
+          navigateFallbackDenylist: [/^\/api\//],
+
+          // Remove caches de versões anteriores do app — inclusive o
+          // 'api-cache-v1' com dados financeiros de instalações antigas.
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
         },
       }),
     ],
