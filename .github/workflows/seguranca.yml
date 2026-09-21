@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -37,16 +37,29 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Instalar gitleaks
+        # Os testes de tests/test_varredura_de_segredos.py verificam que a
+        # allowlist dispensa os literais conhecidos sem esconder segredos
+        # reais. Sem o binário no PATH eles são pulados em silêncio, e a
+        # configuração deixaria de ser validada.
+        run: |
+          VERSAO=8.24.3
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSAO}/gitleaks_${VERSAO}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
       - name: Testes
         env:
           # Chave descartável só para a execução dos testes.
           SECRET_KEY: ${{ github.run_id }}-CIzQx7mVn9RtKw4YbGc8HdJf5NsQe3AuIoPy
+          ENCRYPTION_KEY: ${{ github.run_id }}-CIrTkWb4YgGc8HdJf5NsQe3AuIoPyXq7Z
           ENVIRONMENT: development
         run: pytest -v
 
       - name: Validar migrações (upgrade e downgrade)
         env:
           SECRET_KEY: ${{ github.run_id }}-CIzQx7mVn9RtKw4YbGc8HdJf5NsQe3AuIoPy
+          ENCRYPTION_KEY: ${{ github.run_id }}-CIrTkWb4YgGc8HdJf5NsQe3AuIoPyXq7Z
           DATABASE_URL: sqlite:///./ci-migracao.db
         run: |
           alembic upgrade head
@@ -70,7 +83,7 @@ jobs:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configurar Node
         uses: actions/setup-node@v4
@@ -110,8 +123,13 @@ jobs:
     name: Varredura de segredos
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      # Necessária para o gitleaks publicar o resumo dos achados no PR.
+      pull-requests: write
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Histórico completo: o gitleaks precisa varrer todos os commits,
           # não apenas o estado atual da árvore.

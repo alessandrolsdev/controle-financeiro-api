@@ -54,6 +54,7 @@ from .core.middleware import (
     MiddlewareDeTamanhoDeCorpo,
     obter_ip_do_cliente,
 )
+from .database import SessionLocal
 from .dependencies import (
     Auditoria,
     SessaoDB,
@@ -87,9 +88,46 @@ async def ciclo_de_vida(app: FastAPI):
     # Criar tabelas a partir do código em tempo de execução deixaria produção e
     # migrações fora de sincronia, sem histórico nem caminho de rollback.
 
+    _limpar_refresh_tokens_antigos()
+
     yield
 
     logger.info("Encerrando a API de Controle Financeiro")
+
+
+def _limpar_refresh_tokens_antigos() -> None:
+    """Remove refresh tokens expirados há mais de 30 dias.
+
+    A tabela `refresh_tokens` só cresce: cada login e cada rotação inserem uma
+    linha, e nada as apaga. Em uma implantação de vida longa isso vira um
+    acúmulo sem teto — não é uma falha de segurança, mas degrada as consultas
+    indexadas por hash e infla os backups.
+
+    A limpeza roda na inicialização por ser o gancho mais previsível que a
+    aplicação já tem. Um agendamento externo (cron, worker) seria melhor para
+    processos de vida muito longa, que raramente reiniciam; a operação é
+    idempotente, então rodá-la de vários workers ao mesmo tempo é inofensivo.
+
+    Uma falha aqui é registrada e engolida: não conseguir podar linhas antigas
+    não é motivo para impedir a aplicação de subir.
+    """
+    db = SessionLocal()
+    try:
+        removidos = sessoes.limpar_tokens_expirados(db)
+        db.commit()
+        if removidos:
+            logger.info(
+                "Refresh tokens expirados removidos",
+                extra={"quantidade": removidos},
+            )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.warning(
+            "Não foi possível limpar refresh tokens expirados na inicialização",
+            exc_info=True,
+        )
+    finally:
+        db.close()
 
 
 # --- Configuração Inicial ---

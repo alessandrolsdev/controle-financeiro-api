@@ -28,6 +28,8 @@ from pydantic import (
     model_validator,
 )
 
+from .models import VALOR_MAXIMO_TRANSACAO
+
 # --- Tipos reutilizáveis com restrição ---
 
 TipoCategoria = Literal["Gasto", "Receita"]
@@ -44,12 +46,13 @@ TextoCurto = Annotated[
 
 TextoLongo = Annotated[str, StringConstraints(max_length=2000)]
 
-# Valor monetário: sempre positivo, com teto coerente com Numeric(14, 2) no
-# banco. Sem o teto, um valor maior que a coluna gera erro 500 no driver em vez
-# de uma resposta 422 clara.
+# Valor monetário: sempre positivo, com teto vindo de `models` — a mesma
+# constante que define a precisão da coluna. Sem o teto, um valor maior que a
+# coluna gera erro 500 no driver em vez de uma resposta 422 clara; com o teto
+# duplicado aqui, ele divergiria em silêncio no dia em que a coluna mudasse.
 ValorMonetario = Annotated[
     decimal.Decimal,
-    Field(gt=decimal.Decimal("0"), le=decimal.Decimal("999999999999.99")),
+    Field(gt=decimal.Decimal("0"), le=VALOR_MAXIMO_TRANSACAO),
 ]
 
 # Nome de usuário aceita apenas caracteres seguros. Isso elimina de saída uma
@@ -112,22 +115,6 @@ class DashboardData(BaseModel):
 
 
 # --- SCHEMAS PARA AUTENTICAÇÃO ---
-
-
-class Token(BaseModel):
-    """Schema de resposta contendo o token de acesso.
-
-    Attributes:
-        access_token (str): O token JWT gerado.
-        token_type (str): Tipo do token (sempre "bearer").
-        expires_in (int): Validade do token em segundos.
-    """
-
-    access_token: str
-    # noqa S105: "bearer" é o nome do esquema de autenticação definido pela
-    # RFC 6750, não uma senha embutida no código.
-    token_type: str = "bearer"  # noqa: S105
-    expires_in: int
 
 
 class RespostaDeLogin(BaseModel):
@@ -219,22 +206,6 @@ class StatusDeMFA(BaseModel):
 
     ativado: bool
     codigos_restantes: int
-
-
-class TokenData(BaseModel):
-    """Dados extraídos do payload do token JWT.
-
-    Attributes:
-        nome_usuario (str): O nome de usuário contido no claim `sub`.
-        usuario_id (Optional[int]): O ID contido no claim `uid`.
-        token_version (int): A versão de credenciais do claim `ver`.
-        jti (Optional[str]): O identificador único do token.
-    """
-
-    nome_usuario: str
-    usuario_id: int | None = None
-    token_version: int = 0
-    jti: str | None = None
 
 
 # --- SCHEMAS PARA USUÁRIO ---

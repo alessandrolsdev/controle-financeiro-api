@@ -18,3 +18,9 @@ pip-audit==2.7.3
 
 # --- Qualidade de código ---
 ruff==0.8.6
+
+# --- Ferramentas de build do ambiente ---
+# O pip-audit audita o ambiente inteiro, inclusive o setuptools que o venv
+# instala sozinho. Fixar um piso evita que uma CVE nele deixe a CI vermelha
+# sem que nenhuma dependência do projeto tenha mudado.
+setuptools>=83.0.0

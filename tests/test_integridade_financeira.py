@@ -292,3 +292,53 @@ def test_edicao_registra_valores_anterior_e_novo(cliente, usuario_com_token):
     )
     assert resposta.status_code == 200
     assert Decimal(resposta.json()["total_gastos"]) == Decimal("175.50")
+
+
+# --- Coerência entre as camadas ---
+
+
+def test_dominio_de_tipo_coincide_entre_schema_e_banco():
+    """O domínio de `tipo` precisa ser o mesmo no Pydantic e no modelo ORM.
+
+    O bug original foi exatamente uma divergência dessas: a documentação e os
+    schemas falavam em 'Despesa', o dashboard somava 'Gasto', e os lançamentos
+    da categoria errada sumiam dos totais sem erro. Como `Literal` não aceita
+    variáveis, os dois lugares repetem as strings — e este teste é o que
+    impede que voltem a divergir.
+    """
+    from typing import get_args
+
+    from backend import models
+    from backend.schemas import TipoCategoria
+
+    assert set(get_args(TipoCategoria)) == set(models.TIPOS_DE_CATEGORIA)
+
+
+def test_teto_de_valor_vem_do_modelo():
+    """O teto aceito pelo schema é o mesmo que a coluna comporta.
+
+    `Numeric(14, 2)` suporta até 999.999.999.999,99. Um teto de schema maior
+    faria o driver estourar com erro 500; um menor recusaria valores que o
+    banco aceitaria.
+    """
+    from decimal import Decimal
+
+    from backend import models, schemas
+
+    assert models.VALOR_MAXIMO_TRANSACAO == Decimal("999999999999.99")
+
+    # O valor exatamente no teto é aceito; um centavo acima, não.
+    schemas.TransacaoCreate(
+        descricao="No limite",
+        valor=models.VALOR_MAXIMO_TRANSACAO,
+        categoria_id=1,
+        data="2026-03-01T10:00:00Z",
+    )
+
+    with pytest.raises(ValueError):
+        schemas.TransacaoCreate(
+            descricao="Acima do limite",
+            valor=models.VALOR_MAXIMO_TRANSACAO + Decimal("0.01"),
+            categoria_id=1,
+            data="2026-03-01T10:00:00Z",
+        )

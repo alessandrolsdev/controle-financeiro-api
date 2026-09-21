@@ -449,15 +449,6 @@ def decodificar_token(
     return payload
 
 
-def gerar_chave_de_idempotencia() -> str:
-    """Gera uma chave de idempotência no formato usado pela API.
-
-    Returns:
-        str: Um UUID4 em formato canônico.
-    """
-    return str(uuid.uuid4())
-
-
 def criar_excecao_de_credenciais() -> HTTPException:
     """Cria a exceção padrão de falha de autenticação.
 
