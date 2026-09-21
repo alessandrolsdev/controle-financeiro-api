@@ -73,7 +73,7 @@ jobs:
         run: bandit -r backend/ -ll
 
       - name: Lint
-        run: ruff check backend/ tests/
+        run: ruff check backend/ tests/ alembic/
 
   frontend:
     name: Frontend (build e CVEs)

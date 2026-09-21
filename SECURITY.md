@@ -223,7 +223,39 @@ testes:
 3. **`App.css` nunca importado**, deixando o layout sem o contêiner de largura
    máxima.
 
-## 6. Limitações conhecidas
+## 6. Terceira rodada (21/09/2026)
+
+Correções da revisão do próprio PR.
+
+**Varredura de segredos.** O job estava vermelho por dois falsos positivos: a
+denylist de senhas fracas (senhas que a aplicação *rejeita*, públicas por
+definição) e os fixtures do teste de redação, cujas strings existem para provar
+que **não** sobrevivem à redação.
+
+A primeira tentativa de allowlist usava `paths` — e, ao verificar, dispensava os
+arquivos inteiros: uma chave AWS plantada em `backend/security.py` passava
+batida com a CI verde. Nesta versão do gitleaks, `paths` ignora
+`condition = "AND"`. A versão final dispensa apenas literais exatos, e
+`tests/test_varredura_de_segredos.py` prova que um segredo real nos mesmos
+arquivos continua sendo detectado.
+
+> Detalhe que custa tempo: a allowlist global é a tabela singular
+> `[allowlist]`. A forma plural `[[allowlists]]` é aceita pelo parser e
+> silenciosamente ignorada com `[extend] useDefault` — a configuração parece
+> correta e não filtra nada.
+
+**Importação idempotente.** Reenviar o mesmo arquivo duplicava todos os
+lançamentos. Cada linha passa a receber uma chave derivada do conteúdo do
+arquivo mais o número da linha, reaproveitando a restrição única que já existia.
+Não é falha de segurança, mas em um app financeiro é o erro mais fácil de
+cometer e o mais caro de desfazer.
+
+**Poda de refresh tokens.** `limpar_tokens_expirados` existia e nunca era
+chamada: a tabela crescia sem limite, já que cada login e cada rotação inserem
+uma linha. Agora roda na inicialização. Para processos de vida muito longa, um
+agendamento externo é preferível — a operação é idempotente.
+
+## 7. Limitações conhecidas
 
 - **Trilha de auditoria no mesmo banco da aplicação.** É uma escolha, não uma
   omissão: gravá-la na mesma transação da operação auditada garante que as duas

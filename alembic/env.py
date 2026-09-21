@@ -10,13 +10,14 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, event, pool
 
-from backend.database import DATABASE_URL, Base
+from alembic import context
+
 # Importar os modelos registra todas as tabelas no metadata, o que permite ao
 # Alembic detectar diferenças automaticamente (`--autogenerate`).
 from backend import models  # noqa: F401
+from backend.database import DATABASE_URL, Base
 
 config = context.config
 

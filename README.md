@@ -100,6 +100,7 @@ graph LR
 *   **Reconhecimento de colunas:** aceita os nomes mais comuns em português e inglês
 *   **Categorização automática:** classifica por palavras-chave da descrição ("Posto Ipiranga" → Transporte)
 *   **Relatório por linha:** uma linha inválida não invalida o arquivo — ela é apontada com o motivo
+*   **Reenvio seguro:** subir o mesmo extrato duas vezes não duplica lançamentos
 
 ### 💼 Gestão Financeira
 *   **Dashboard Interativo:** Visão geral de receitas, despesas e saldo em tempo real

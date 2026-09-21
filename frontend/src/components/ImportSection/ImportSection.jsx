@@ -129,6 +129,7 @@ function ImportSection() {
 
           <span className="importar-dica">
             CSV ou XLSX, até 5 MB. Colunas necessárias: data, descrição e valor.
+            Reenviar o mesmo arquivo não duplica lançamentos.
           </span>
         </div>
 
@@ -136,12 +137,14 @@ function ImportSection() {
           <div className="importar-relatorio">
             <p
               className={
-                relatorio.importadas > 0
+                relatorio.importadas > 0 || relatorio.ja_existentes > 0
                   ? 'mensagem mensagem-sucesso'
                   : 'mensagem mensagem-erro'
               }
             >
               {relatorio.importadas} transação(ões) importada(s)
+              {relatorio.ja_existentes > 0 &&
+                `, ${relatorio.ja_existentes} já estava(m) no sistema`}
               {relatorio.ignoradas > 0 && `, ${relatorio.ignoradas} ignorada(s)`}.
             </p>
 

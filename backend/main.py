@@ -21,6 +21,7 @@ Pontos de segurança implementados neste módulo:
 
 from __future__ import annotations
 
+import hashlib
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from typing import Annotated
@@ -1321,6 +1322,9 @@ async def importar_transacoes(
     Linhas inválidas não invalidam o arquivo: elas voltam no relatório com o
     número da linha e o motivo, e as demais são gravadas.
 
+    Reenviar o mesmo arquivo é seguro: as linhas já gravadas em uma importação
+    anterior são reconhecidas e contadas em `ja_existentes`, sem duplicar nada.
+
     Args:
         db (Session): Sessão do banco de dados.
         usuario_atual (models.Usuario): Usuário autenticado.
@@ -1355,8 +1359,12 @@ async def importar_transacoes(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(erro)
         ) from None
 
-    importadas, erros_de_gravacao = crud.importar_transacoes(
-        db, leitura.linhas, usuario_atual.id, contexto
+    # A impressão do conteúdo identifica o arquivo: reenviar o mesmo extrato
+    # não duplica os lançamentos já gravados.
+    impressao = hashlib.sha256(conteudo).hexdigest()[:32]
+
+    importadas, ja_existentes, erros_de_gravacao = crud.importar_transacoes(
+        db, leitura.linhas, usuario_atual.id, impressao, contexto
     )
 
     erros = [
@@ -1366,6 +1374,7 @@ async def importar_transacoes(
 
     return {
         "importadas": importadas,
+        "ja_existentes": ja_existentes,
         "ignoradas": len(erros),
         "erros": erros,
         "colunas_detectadas": leitura.colunas_detectadas,

@@ -1225,8 +1225,9 @@ def importar_transacoes(
     db: Session,
     linhas: list,
     usuario_id: int,
+    impressao_do_arquivo: str,
     contexto: ContextoDeAuditoria | None = None,
-) -> tuple[int, list]:
+) -> tuple[int, int, list]:
     """Grava em lote as transações lidas de uma planilha.
 
     Categorias mencionadas na planilha que ainda não existem são criadas para o
@@ -1237,14 +1238,22 @@ def importar_transacoes(
     ou nada entra. Uma importação parcial deixaria o usuário sem saber quais
     lançamentos precisam ser reenviados.
 
+    **Reenviar o mesmo arquivo não duplica nada.** Cada linha recebe uma chave
+    de idempotência derivada do conteúdo do arquivo mais o número da linha, e a
+    restrição única `(usuario_id, chave_idempotencia)` cuida do resto. Sem isso,
+    subir o mesmo extrato duas vezes — um erro trivial de cometer — dobraria
+    silenciosamente meses de lançamentos.
+
     Args:
         db (Session): Sessão ativa do banco de dados.
         linhas (list): Linhas já validadas por `importacao.ler_planilha`.
         usuario_id (int): Dono das transações.
+        impressao_do_arquivo (str): Hash do conteúdo, que identifica o arquivo.
         contexto (ContextoDeAuditoria | None): Metadados da requisição.
 
     Returns:
-        tuple[int, list]: Quantidade importada e os erros ocorridos na gravação.
+        tuple[int, int, list]: Quantidade importada, quantidade já existente
+        (ignorada por idempotência) e os erros ocorridos na gravação.
     """
     from .importacao import ErroDeLinha
 
@@ -1253,10 +1262,31 @@ def importar_transacoes(
     for categoria in listar_categorias(db, usuario_id):
         existentes[(categoria.nome.strip().lower(), categoria.tipo)] = categoria
 
+    # Chaves deste arquivo já gravadas em uma importação anterior. Buscadas de
+    # uma vez só: uma consulta por linha transformaria um arquivo de 5000
+    # linhas em 5000 idas ao banco.
+    prefixo = f"imp:{impressao_do_arquivo}:"
+    ja_importadas = set(
+        db.scalars(
+            select(models.Transacao.chave_idempotencia).where(
+                models.Transacao.usuario_id == usuario_id,
+                models.Transacao.chave_idempotencia.like(f"{prefixo}%"),
+            )
+        )
+    )
+
     erros: list = []
     importadas = 0
+    duplicadas = 0
 
     for linha in linhas:
+        # Nome distinto de `chave`, que mais abaixo identifica a categoria.
+        chave_da_linha = f"{prefixo}{linha.numero}"
+
+        if chave_da_linha in ja_importadas:
+            duplicadas += 1
+            continue
+
         nome_categoria = linha.categoria_sugerida or (
             "Outros Gastos" if linha.tipo == models.TIPO_GASTO else "Outras Receitas"
         )
@@ -1277,15 +1307,19 @@ def importar_transacoes(
                 # O mesmo nome já existe com o outro tipo. A restrição de
                 # unicidade é por (usuario, nome), então desambiguamos.
                 db.rollback()
-                return importadas, [
-                    ErroDeLinha(
-                        numero=linha.numero,
-                        motivo=(
-                            f"Já existe uma categoria chamada '{nome_categoria}' "
-                            "com outro tipo. Renomeie-a ou ajuste a planilha."
-                        ),
-                    )
-                ]
+                return (
+                    0,
+                    0,
+                    [
+                        ErroDeLinha(
+                            numero=linha.numero,
+                            motivo=(
+                                f"Já existe uma categoria chamada '{nome_categoria}' "
+                                "com outro tipo. Renomeie-a ou ajuste a planilha."
+                            ),
+                        )
+                    ],
+                )
             existentes[chave] = categoria
 
         db.add(
@@ -1296,6 +1330,7 @@ def importar_transacoes(
                 observacoes=linha.observacoes,
                 categoria_id=categoria.id,
                 usuario_id=usuario_id,
+                chave_idempotencia=chave_da_linha,
             )
         )
         importadas += 1
@@ -1306,11 +1341,15 @@ def importar_transacoes(
         usuario_id=usuario_id,
         entidade="transacao",
         contexto=contexto,
-        detalhes={"quantidade": importadas},
+        detalhes={
+            "quantidade": importadas,
+            "ja_existentes": duplicadas,
+            "arquivo": impressao_do_arquivo,
+        },
     )
 
     db.commit()
-    return importadas, erros
+    return importadas, duplicadas, erros
 
 
 # --- FUNÇÕES ANALÍTICAS (DASHBOARD) ---

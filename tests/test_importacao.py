@@ -331,3 +331,77 @@ def test_importacao_de_arquivo_invalido_retorna_400(cliente, usuario_com_token):
 
     assert resposta.status_code == 400
     assert "colunas" in resposta.json()["detail"]
+
+
+def test_reimportar_o_mesmo_arquivo_nao_duplica(cliente, usuario_com_token):
+    """Subir o mesmo extrato duas vezes não dobra os lançamentos.
+
+    É o erro mais fácil de cometer com importação em lote, e o mais caro: sem
+    esta proteção, um clique a mais duplicaria meses de histórico financeiro.
+    """
+    _, csrf = usuario_com_token
+
+    csv = (
+        "Data;Descrição;Valor\n"
+        "03/04/2026;MERCADO EXTRA;-250,00\n"
+        "04/04/2026;UBER TRIP;-30,00\n"
+    ).encode()
+
+    def _enviar():
+        """Envia o arquivo e devolve o corpo do relatório.
+
+        Returns:
+            dict: O relatório da importação.
+        """
+        resposta = cliente.post(
+            "/transacoes/importar",
+            params=PERIODO,
+            files={"arquivo": ("extrato.csv", csv, "text/csv")},
+            headers=cabecalho(csrf),
+        )
+        assert resposta.status_code == 200, resposta.text
+        return resposta.json()
+
+    primeiro = _enviar()
+    assert primeiro["importadas"] == 2
+    assert primeiro["ja_existentes"] == 0
+
+    segundo = _enviar()
+    assert segundo["importadas"] == 0
+    assert segundo["ja_existentes"] == 2
+
+    # O banco continua com dois lançamentos, e o total não dobrou.
+    assert len(cliente.get("/transacoes/").json()) == 2
+    assert Decimal(segundo["dashboard"]["total_gastos"]) == Decimal("280.00")
+
+
+def test_arquivo_diferente_importa_normalmente(cliente, usuario_com_token):
+    """A idempotência é por arquivo, não bloqueia importações distintas."""
+    _, csrf = usuario_com_token
+
+    def _enviar(conteudo: bytes, nome: str):
+        """Envia um arquivo e devolve o relatório.
+
+        Args:
+            conteudo (bytes): O CSV a enviar.
+            nome (str): Nome do arquivo.
+
+        Returns:
+            dict: O relatório da importação.
+        """
+        resposta = cliente.post(
+            "/transacoes/importar",
+            params=PERIODO,
+            files={"arquivo": (nome, conteudo, "text/csv")},
+            headers=cabecalho(csrf),
+        )
+        assert resposta.status_code == 200, resposta.text
+        return resposta.json()
+
+    abril = _enviar(b"Data,Descricao,Valor\n03/04/2026,MERCADO,100.00\n", "abril.csv")
+    maio = _enviar(b"Data,Descricao,Valor\n03/05/2026,MERCADO,200.00\n", "maio.csv")
+
+    assert abril["importadas"] == 1
+    assert maio["importadas"] == 1
+    assert maio["ja_existentes"] == 0
+    assert len(cliente.get("/transacoes/").json()) == 2

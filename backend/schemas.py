@@ -651,6 +651,8 @@ class ResultadoDaImportacao(BaseModel):
 
     Attributes:
         importadas (int): Quantidade de transações gravadas.
+        ja_existentes (int): Linhas que já haviam sido importadas deste mesmo
+            arquivo e foram ignoradas, sem duplicar nada.
         ignoradas (int): Linhas rejeitadas por conterem dados inválidos.
         erros (List[ErroDeImportacao]): Detalhamento por linha.
         colunas_detectadas (dict): Mapeamento entre campo e cabeçalho da planilha.
@@ -658,6 +660,7 @@ class ResultadoDaImportacao(BaseModel):
     """
 
     importadas: int
+    ja_existentes: int = 0
     ignoradas: int
     erros: list[ErroDeImportacao]
     colunas_detectadas: dict[str, str]
