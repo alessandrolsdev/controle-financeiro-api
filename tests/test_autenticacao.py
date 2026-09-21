@@ -110,8 +110,13 @@ def test_token_com_assinatura_invalida_e_rejeitado(cliente, usuario_com_token):
     """Um token assinado com outra chave não é aceito."""
     usuario, _ = usuario_com_token
 
+    # A chave do atacante tem os 32 bytes que o HS256 exige: uma chave curta
+    # faria o PyJWT emitir InsecureKeyLengthWarning e o teste passaria pelo
+    # motivo errado — por chave fraca, não por assinatura divergente.
     token_forjado = jwt.encode(
-        _claims(usuario), "chave-do-atacante", algorithm="HS256"
+        _claims(usuario),
+        "chave-do-atacante-com-32-bytes!!",
+        algorithm="HS256",
     )
 
     assert _tentar_com_token(cliente, token_forjado).status_code == 401

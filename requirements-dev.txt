@@ -7,7 +7,11 @@
 # 9.0.3 corrige a criação previsível de diretórios temporários (PYSEC-2026-1845).
 pytest==9.0.3
 pytest-cov==6.0.0
-httpx==0.28.1
+# O TestClient do Starlette 1.6 depreciou o httpx 0.x em favor do httpx2; com
+# o httpx antigo instalado, cada execução da suíte emite
+# StarletteDeprecationWarning e o cliente roda por um caminho que será
+# removido.
+httpx2==2.13.0
 
 # --- Análise estática de segurança ---
 # bandit encontra padrões inseguros no código Python.
