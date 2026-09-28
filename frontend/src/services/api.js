@@ -1,63 +1,170 @@
 // Arquivo: frontend/src/services/api.js
 /**
  * @file Cliente HTTP Centralizado (Axios).
- * @description Configuração de uma instância Axios com interceptadores para autenticação e tratamento global de erros.
+ * @description Instância configurada para autenticação por cookie httpOnly,
+ * com proteção CSRF e renovação automática de sessão.
+ *
+ * Mudança em relação à versão anterior: o token deixou de ficar em
+ * `localStorage`, onde qualquer script na página — inclusive o injetado por um
+ * XSS — conseguia lê-lo e exfiltrá-lo. Agora ele viaja em um cookie httpOnly
+ * que o JavaScript não alcança.
+ *
+ * Como o navegador envia cookies automaticamente, isso reintroduz o risco de
+ * CSRF. A defesa é o padrão double-submit: o servidor grava um token CSRF em um
+ * cookie legível, e este cliente o ecoa no cabeçalho `X-CSRF-Token`. Um site
+ * atacante consegue disparar a requisição, mas não consegue ler o cookie de
+ * outro domínio para preencher o cabeçalho.
  */
 
 import axios from 'axios';
 
-/**
- * Instância do Axios pré-configurada com a URL base da API.
- * A URL é obtida das variáveis de ambiente (VITE_API_BASE_URL).
- */
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
+  // Necessário para que os cookies de sessão sejam enviados em requisições
+  // de origem cruzada (frontend e API em domínios distintos).
+  withCredentials: true,
 });
 
 /**
- * Interceptador de Requisição.
+ * Lê um cookie pelo nome.
  *
- * Antes de cada requisição ser enviada, verifica se existe um token JWT no localStorage.
- * Se existir, adiciona o token ao cabeçalho Authorization da requisição.
+ * @param {string} nome - O nome do cookie.
+ * @returns {string | null} O valor, ou null se ausente.
  */
+const lerCookie = (nome) => {
+  const encontrado = document.cookie
+    .split('; ')
+    .find((linha) => linha.startsWith(`${nome}=`));
+
+  return encontrado ? decodeURIComponent(encontrado.split('=')[1]) : null;
+};
+
+/**
+ * Localiza o cookie CSRF, com ou sem o prefixo `__Host-`.
+ *
+ * O backend usa o prefixo `__Host-` em produção (onde há HTTPS) e o omite em
+ * desenvolvimento, então o cliente precisa aceitar as duas formas.
+ *
+ * @returns {string | null} O token CSRF atual.
+ */
+const obterTokenCsrf = () =>
+  lerCookie('__Host-nomad_csrf') ?? lerCookie('nomad_csrf');
+
+const METODOS_INSEGUROS = ['post', 'put', 'patch', 'delete'];
+
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+    if (METODOS_INSEGUROS.includes((config.method || '').toLowerCase())) {
+      const csrf = obterTokenCsrf();
+      if (csrf) {
+        config.headers['X-CSRF-Token'] = csrf;
+      }
     }
-    
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 /**
- * Interceptador de Resposta.
+ * Remove os caches de resposta da API gravados por versões antigas do PWA.
  *
- * Processa as respostas da API. Em caso de erro 401 (Não Autorizado), realiza logout automático:
- * limpa o token armazenado e redireciona o usuário para a página de login.
+ * Versões anteriores armazenavam saldos e extrato no Cache Storage por até
+ * sete dias. A configuração foi removida, mas as entradas já gravadas
+ * permanecem no disco de quem tem o app instalado até serem apagadas.
+ *
+ * @returns {Promise<void>} Conclui quando os caches tiverem sido removidos.
  */
+export const limparCachesDaApi = async () => {
+  if (typeof caches === 'undefined') return;
+
+  try {
+    const nomes = await caches.keys();
+    await Promise.all(
+      nomes
+        .filter((nome) => nome.startsWith('api-cache'))
+        .map((nome) => caches.delete(nome))
+    );
+  } catch (err) {
+    console.warn('Falha ao limpar caches da API:', err);
+  }
+};
+
+/*
+ * Renovação automática de sessão.
+ *
+ * O token de acesso dura 15 minutos. Em vez de deslogar o usuário no meio de
+ * uma tarefa, uma resposta 401 dispara uma tentativa de renovação e a
+ * requisição original é repetida.
+ *
+ * A promessa de renovação é compartilhada: se cinco requisições receberem 401
+ * ao mesmo tempo, uma única chamada a /auth/refresh é feita. Sem isso, as
+ * cinco rotacionariam o refresh token em paralelo e quatro delas seriam
+ * interpretadas pelo servidor como reuso — derrubando a sessão inteira.
+ */
+let renovacaoEmAndamento = null;
+
+/**
+ * Renova a sessão, reaproveitando a chamada já em andamento se houver.
+ *
+ * @returns {Promise<boolean>} True se a sessão foi renovada.
+ */
+const renovarSessao = () => {
+  if (!renovacaoEmAndamento) {
+    renovacaoEmAndamento = api
+      .post('/auth/refresh')
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        renovacaoEmAndamento = null;
+      });
+  }
+
+  return renovacaoEmAndamento;
+};
+
+/** Rotas cujo 401 é a resposta esperada e não deve disparar renovação. */
+const ROTAS_DE_AUTENTICACAO = ['/auth/login', '/auth/refresh', '/auth/mfa/verificar'];
+
+/** Páginas onde estar deslogado é o estado normal. */
+const PAGINAS_PUBLICAS = ['/login', '/signup'];
+
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   async (error) => {
-    if (error.response && error.response.status === 401) {
-      console.error("Interceptador 401: Token vencido ou inválido. Deslogando...");
-      
-      localStorage.removeItem('token');
-      
-      // Força um recarregamento da página para garantir limpeza de estado
-      window.location.href = '/login'; 
+    const requisicao = error.config;
+    const status = error.response?.status;
+
+    const podeRenovar =
+      status === 401 &&
+      requisicao &&
+      !requisicao._jaTentouRenovar &&
+      // Uma sondagem de sessão (a checagem inicial de "existe alguém logado?")
+      // recebe 401 como resposta legítima. Sem esta exceção, abrir a tela de
+      // login dispara renovação, falha e redireciona para /login de novo —
+      // um laço infinito de navegação.
+      !requisicao._sondagemDeSessao &&
+      !ROTAS_DE_AUTENTICACAO.some((rota) => requisicao.url?.includes(rota));
+
+    if (podeRenovar) {
+      requisicao._jaTentouRenovar = true;
+
+      if (await renovarSessao()) {
+        return api(requisicao);
+      }
+
+      // A renovação falhou: a sessão acabou de fato.
+      await limparCachesDaApi();
+
+      // Redirecionar estando já em uma página pública recarregaria a tela em
+      // laço.
+      if (!PAGINAS_PUBLICAS.includes(window.location.pathname)) {
+        window.location.href = '/login';
+      }
     }
-    
+
     return Promise.reject(error);
   }
 );
-
 
 export default api;

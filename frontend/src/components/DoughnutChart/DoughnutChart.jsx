@@ -4,9 +4,8 @@
  * @description Componente para visualização de dados financeiros em formato de gráfico de rosca, com cores dinâmicas e tooltip personalizado.
  */
 
-import React from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import './DoughnutChart.css';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import "./DoughnutChart.css";
 
 /**
  * Componente de Gráfico de Rosca.
@@ -21,12 +20,14 @@ import './DoughnutChart.css';
  * @returns {JSX.Element} O gráfico renderizado.
  */
 function DoughnutChart({ chartData, totalValue, centerLabel }) {
-
   /**
    * Formata valor numérico para moeda brasileira (BRL).
    */
   const formatCurrency = (value) => {
-    return (parseFloat(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (parseFloat(value) || 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
   };
 
   const formattedTotal = formatCurrency(totalValue);
@@ -37,7 +38,7 @@ function DoughnutChart({ chartData, totalValue, centerLabel }) {
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      const plural = data.count > 1 ? 'ões' : 'ão';
+      const plural = data.count > 1 ? "ões" : "ão";
 
       return (
         <div className="custom-tooltip">
@@ -51,63 +52,55 @@ function DoughnutChart({ chartData, totalValue, centerLabel }) {
 
   return (
     <div className="doughnut-chart-container">
-      <div className="doughnut-chart-wrapper">
+      {!chartData || chartData.length === 0 ? (
+        <p className="vazio">Sem dados no período.</p>
+      ) : (
+        <>
+          <div className="rosca">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip
+                  coordinate={{ x: 0, y: 0 }}
+                  offset={40}
+                  cursor={false}
+                  wrapperStyle={{ zIndex: 1100, pointerEvents: "none" }}
+                  content={<CustomTooltip />}
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="valor"
+                  nameKey="nome"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="70%"
+                  outerRadius="100%"
+                  paddingAngle={2}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.nome} fill={entry.cor} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
 
-        <ResponsiveContainer width="100%" height="100%">
-          {chartData && chartData.length > 0 ? (
-            <PieChart>
-              <Tooltip
-                coordinate={{ x: 0, y: 0 }} 
-                offset={40} 
-                cursor={false}
-                wrapperStyle={{ zIndex: 1100, pointerEvents: 'none' }}
-                content={<CustomTooltip />}
-              />
-              <Pie
-                data={chartData}
-                dataKey="valor"
-                nameKey="nome"
-                cx="50%"
-                cy="50%"
-                innerRadius="70%"
-                outerRadius="100%"
-                fill="#8884d8"
-                paddingAngle={2}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.cor} />
-                ))}
-              </Pie>
-            </PieChart>
-          ) : (
-            <div className="no-chart-data">
-              <p>Sem dados para exibir.</p>
+            <div className="rosca-centro">
+              <span className="rosca-rotulo">{centerLabel}</span>
+              <span className="rosca-valor">{formattedTotal}</span>
             </div>
-          )}
-        </ResponsiveContainer>
-
-        {chartData && chartData.length > 0 && (
-          <div className="doughnut-center-text">
-            <span className="total-amount">{formattedTotal}</span>
-            <span className="label">{centerLabel}</span>
           </div>
-        )}
-      </div>
 
-      {chartData && chartData.length > 0 && (
-        <div className="chart-legend">
-          {chartData.map((item) => (
-            <div key={item.nome} className="legend-item">
-              <span
-                className="legend-color"
-                style={{ backgroundColor: item.cor }}
-              ></span>
-              <span className="legend-label" style={{ color: item.cor }}>
+          <ul className="rosca-legenda">
+            {chartData.map((item) => (
+              <li key={item.nome}>
+                <span
+                  style={{ backgroundColor: item.cor }}
+                  aria-hidden="true"
+                />
                 {item.nome}
-              </span>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

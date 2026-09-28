@@ -1,64 +1,55 @@
 // Arquivo: frontend/src/App.jsx
 /**
- * @file Componente Principal da Aplicação e Roteamento.
- * @description Gerencia a navegação da aplicação utilizando o React Router, definindo rotas públicas e protegidas.
+ * @file Componente Principal e Roteamento.
+ * @description Define as rotas públicas e protegidas da aplicação.
  */
 
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+
+import { useAuth } from './context/useAuth';
 import MainLayout from './layouts/MainLayout';
-import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
-import Settings from './pages/Settings/Settings';
-import SignUp from './pages/SignUp/SignUp';
+import Login from './pages/Login/Login';
 import Profile from './pages/Profile/Profile';
 import Reports from './pages/Reports/Reports';
+import Settings from './pages/Settings/Settings';
+import SignUp from './pages/SignUp/SignUp';
 
 /**
- * Componente raiz que define a estrutura de rotas da aplicação.
+ * Componente raiz da aplicação.
  *
- * Implementa verificação de autenticação:
- * - Redireciona usuários não autenticados para a tela de login.
- * - Redireciona usuários autenticados para o dashboard ao tentarem acessar login/signup.
- * - Exibe uma tela de carregamento enquanto verifica o estado da autenticação.
+ * A autenticação é decidida pela presença de um perfil carregado — e não por
+ * um token em `localStorage`, já que a sessão agora vive em cookies httpOnly
+ * inacessíveis ao JavaScript.
  *
- * @returns {JSX.Element} A árvore de rotas da aplicação.
+ * @returns {JSX.Element} A árvore de rotas.
  */
 function App() {
-  const { token, isAuthLoading } = useAuth();
+  const { user, isAuthLoading } = useAuth();
 
   if (isAuthLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#0B1A33', color: 'white', fontFamily: 'Montserrat' }}>
-        Carregando aplicação...
-      </div>
-    );
+    return <div className="carregando">Carregando…</div>;
   }
+
+  const autenticado = Boolean(user);
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* --- Rotas Públicas --- */}
+        {/* --- Rotas públicas --- */}
         <Route
           path="/login"
-          element={
-            !token ? <Login /> : <Navigate to="/" replace />
-          }
+          element={!autenticado ? <Login /> : <Navigate to="/" replace />}
         />
         <Route
           path="/signup"
-          element={
-            !token ? <SignUp /> : <Navigate to="/" replace />
-          }
+          element={!autenticado ? <SignUp /> : <Navigate to="/" replace />}
         />
 
-        {/* --- Rotas Protegidas --- */}
+        {/* --- Rotas protegidas --- */}
         <Route
           path="/"
-          element={
-            token ? <MainLayout /> : <Navigate to="/login" replace />
-          }
+          element={autenticado ? <MainLayout /> : <Navigate to="/login" replace />}
         >
           <Route index element={<Dashboard />} />
           <Route path="reports" element={<Reports />} />
@@ -66,7 +57,10 @@ function App() {
           <Route path="profile" element={<Profile />} />
         </Route>
 
-        <Route path="*" element={<Navigate to={token ? "/" : "/login"} replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={autenticado ? '/' : '/login'} replace />}
+        />
       </Routes>
     </BrowserRouter>
   );

@@ -1,108 +1,88 @@
 /* Arquivo: frontend/src/pages/Reports/Reports.css */
-/*
- * Estilos para a Página de Relatórios Visuais (V4.2).
- *
- * Este CSS estiliza os cards "Glassmorphism" que contêm
- * os gráficos (Linha, Barras) e o botão de exportação.
- */
+/* Relatórios: um gráfico por painel, com respiro entre eles. */
 
-/* --- 1. Layout Principal --- */
-.reports-container {
-  font-family: 'Montserrat', sans-serif;
-  color: var(--cor-texto-primario);
-  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
-}
-
-/* --- 2. Cabeçalho da Página --- */
-.reports-header {
+.relatorios {
   display: flex;
-  justify-content: space-between; /* Alinha o título (esquerda) e o botão (direita) */
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+.relatorio-painel {
+  background-color: var(--superficie-1);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.relatorio-painel > header {
+  display: flex;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--cor-borda);
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  border-bottom: 1px solid var(--borda);
 }
 
-.reports-header h2 {
-  margin: 0;
+.relatorio-painel > header h3 {
+  font-size: var(--t-base);
   font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--cor-texto-primario);
 }
 
-/* --- 3. Botão de Exportar (V4.2) --- */
-.export-button {
-  /* Cor verde-esmeralda (do 'index.css') */
-  background-color: var(--cor-verde-esmeralda);
-  /* Texto escuro para contraste (definido no 'index.css' .light-mode) */
-  color: #0B1A33;
-  border: none;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 700;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.export-button:hover {
-  opacity: 0.8;
-  box-shadow: 0 4px 10px rgba(0, 224, 143, 0.3); /* Brilho sutil */
+.relatorio-corpo {
+  padding: var(--e-4);
+  /* Gráficos largos rolam dentro do próprio painel, nunca empurrando a página
+     para os lados. */
+  overflow-x: auto;
 }
 
-/* (V9.6) Estilo para o botão quando desabilitado */
-.export-button-disabled {
-  background-color: var(--cor-texto-secundario);
-  color: var(--cor-fundo-card);
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.export-button-disabled:hover {
-  opacity: 0.5;
-  box-shadow: none;
+/* --- Tabela de detalhamento --- */
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
 }
 
-
-/* --- 4. Conteúdo (Cards) --- */
-.reports-content {
-  padding: 1.5rem;
-  max-width: 900px;
-  margin: 0 auto;
+.tabela th {
+  text-align: left;
+  font-size: var(--t-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-2);
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--borda);
 }
 
-/* --- 5. Card do Gráfico (Glassmorphism) --- */
-.report-card {
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  padding: 1.5rem 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  transition: background-color 0.3s ease;
-  overflow-x: auto; /* Garante que o gráfico não quebre em telas pequenas */
+.tabela td {
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--borda);
 }
 
-.report-card h3 {
-  margin-top: 0;
-  margin-bottom: 2rem;
-  font-weight: 600;
-  color: var(--cor-texto-primario);
+.tabela tr:last-child td {
+  border-bottom: none;
 }
 
-/* --- 6. ESTILOS DE FEEDBACK --- */
-/* (Usado para "Carregando gráfico..." e "Sem dados para exibir") */
-.loading-transactions {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--cor-texto-secundario);
+.tabela tbody tr:hover {
+  background-color: var(--superficie-2);
 }
 
-/* (Usado para "Não foi possível carregar os dados...") */
-.error-message {
-  color: var(--cor-gasto);
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid var(--cor-gasto);
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin-bottom: 1rem;
+/* Valores alinhados à direita: com números tabulares, as casas decimais se
+   alinham em coluna e a comparação vertical fica imediata. */
+.tabela .numerico {
+  text-align: right;
+  font-weight: 500;
+}
+
+.celula-categoria {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.celula-categoria span:first-child {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
 }

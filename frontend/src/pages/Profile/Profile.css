@@ -1,199 +1,56 @@
 /* Arquivo: frontend/src/pages/Profile/Profile.css */
-/*
- * Estilos para a Página de Perfil e Gerenciamento de Conta (V7.2).
- *
- * Este CSS estiliza os cards "Glassmorphism" e os formulários
- * de atualização de perfil e mudança de senha.
- */
+/* Perfil: reaproveita as seções de configurações, com um cabeçalho próprio. */
 
-/* --- 1. Layout Principal --- */
-.profile-container {
-  font-family: 'Montserrat', sans-serif;
-  color: var(--cor-texto-primario);
-  padding-bottom: 90px; /* (Espaço para a Navbar inferior) */
-}
-
-/* --- 2. Cabeçalho da Página --- */
-/* (Padrão de todas as páginas internas) */
-.profile-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--cor-borda);
-}
-
-.profile-header h2 {
-  margin: 0;
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--cor-texto-primario);
-}
-
-/* --- 3. Conteúdo (Cards) --- */
-.profile-content {
-  padding: 1.5rem;
-  max-width: 800px; /* Limita a largura em desktops */
-  margin: 0 auto; /* Centraliza */
-}
-
-/* O card "Glassmorphism" (usado por todos os 4 cards) */
-.profile-card {
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda);
-  padding: 1.5rem 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  transition: background-color 0.3s ease;
-}
-
-.profile-card h2 {
-  margin-top: 0;
-  border-bottom: 1px solid var(--cor-borda);
-  padding-bottom: 1rem;
-  font-weight: 600;
-  color: var(--cor-texto-primario);
-}
-
-/* --- 4. Card de Avatar (V7.0) --- */
-.avatar-card {
+.perfil {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding-top: 2rem;
+  gap: var(--e-4);
+  max-width: 44rem;
 }
 
-/* O "círculo" pontilhado (se não houver foto) */
-.avatar-placeholder {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background-color: var(--cor-fundo-principal); /* Fundo da página */
-  border: 2px dashed var(--cor-texto-secundario);
+.perfil-identidade {
   display: flex;
-  justify-content: center;
   align-items: center;
-  color: var(--cor-texto-secundario);
-  font-size: 0.8rem;
-  margin-bottom: 1rem;
+  gap: var(--e-4);
+  padding: var(--e-5) var(--e-4);
+  background-color: var(--superficie-1);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-lg);
 }
 
-/* A imagem real (se 'avatar_url' existir) */
-.avatar-image {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover; /* Garante que a imagem preencha o círculo */
-  border: 2px solid var(--cor-borda);
-  margin-bottom: 1rem;
+.perfil-avatar {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--texto-2);
+  background-color: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--r-full);
+  overflow: hidden;
+  object-fit: cover;
 }
 
-.avatar-card h3 {
-  color: var(--cor-branco-foco);
-  font-weight: 700;
-  font-size: 1.5rem;
-  margin: 0;
+.perfil-nome {
+  font-size: var(--t-md);
+  font-weight: 600;
 }
 
-/* --- 5. Inputs (Estilo "Underline") --- */
-/* (Estilos reutilizados do 'Settings.css') */
-.input-group { 
-  margin-bottom: 1.5rem; 
+.perfil-usuario {
+  font-size: var(--t-sm);
+  color: var(--texto-2);
 }
 
-.input-group label { 
-  display: block; 
-  margin-bottom: 0.5rem; 
-  color: var(--cor-texto-secundario);
-  font-weight: 500; 
+.perfil-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--e-4);
 }
 
-.input-group input {
-  width: 100%;
-  padding: 0.75rem 0.25rem;
-  border: none;
-  border-bottom: 2px solid var(--cor-texto-secundario);
-  background-color: transparent;
-  color: var(--cor-texto-primario);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  border-radius: 0;
-}
-
-.input-group input:focus {
-  outline: none;
-  border-color: var(--cor-laranja-voo);
-}
-
-.input-group input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* --- 6. Botões (Salvar e Logout) --- */
-
-/* Botão de Salvar (Laranja) */
-.profile-button-save {
-  width: 100%;
-  padding: 0.85rem;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--cor-laranja-voo); /* Cor de "Ação" */
-  color: var(--cor-branco-foco);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 1rem;
-}
-.profile-button-save:hover {
-  background-color: #e66e00;
-}
-.profile-button-save:disabled {
-  background-color: #555;
-  cursor: not-allowed;
-}
-
-/* Botão de Logout (Vermelho/Gasto) */
-.logout-button-profile {
-  width: 100%;
-  padding: 0.85rem;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--cor-gasto); /* Cor Semântica "Perigo" */
-  color: var(--cor-branco-foco);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  margin-top: 1rem;
-}
-
-.logout-button-profile:hover {
-  opacity: 0.8;
-}
-
-/* --- 7. Mensagens de Feedback (Erro/Sucesso) --- */
-/* (Reutilizadas do 'Dashboard.css' e 'Settings.css') */
-.error-message {
-  color: var(--cor-gasto);
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid var(--cor-gasto);
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-.success-message {
-  color: var(--cor-lucro);
-  background-color: rgba(25, 135, 84, 0.1);
-  border: 1px solid var(--cor-lucro);
-  border-radius: 4px;
-  padding: 0.75rem;
-  text-align: center;
-  margin-bottom: 1rem;
+.perfil-form .largura-total {
+  grid-column: 1 / -1;
 }

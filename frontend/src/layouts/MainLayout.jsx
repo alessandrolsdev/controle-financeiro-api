@@ -4,11 +4,11 @@
  * @description Gerencia a estrutura das páginas protegidas, controla filtros globais, estado do modal de transações e busca de dados do dashboard.
  */
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
 import TransactionModal from '../components/TransactionModal/TransactionModal';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../services/api';
 
 /**
@@ -88,7 +88,6 @@ function MainLayout() {
 
   }, [filterType, dataInicio]);
 
-
   /**
    * Efeito colateral que converte as datas para o formato de string da API.
    */
@@ -97,12 +96,11 @@ function MainLayout() {
     setDataFimStr(formatDateForAPI(dataFim));
   }, [dataInicio, dataFim]); 
 
-
   /**
    * Busca os dados consolidados do dashboard na API.
    * Utiliza os parâmetros de data inicial e final convertidos.
    */
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!dataInicioStr || !dataFimStr) return;
     
     try {
@@ -120,7 +118,7 @@ function MainLayout() {
       setError('Não foi possível carregar os dados.');
       setLoading(false);
     }
-  };
+  }, [dataInicioStr, dataFimStr]);
   
   /**
    * Efeito colateral que dispara a busca de dados.
@@ -130,7 +128,7 @@ function MainLayout() {
     if (!dataInicioStr || !dataFimStr || isAuthLoading) return;
     
     fetchDashboardData();
-  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading]);
+  }, [dataInicioStr, dataFimStr, syncTrigger, isAuthLoading, fetchDashboardData]);
   
   // --- FUNÇÕES DE CONTROLE DO MODAL ---
 
@@ -180,16 +178,14 @@ function MainLayout() {
   };
 
   if (isAuthLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', fontFamily: 'Montserrat', backgroundColor: '#0B1A33' }}>
-        Carregando aplicação...
-      </div>
-    );
+    return <div className="carregando">Carregando…</div>;
   }
 
   return (
-    <div className="layout-container">
-      <main className="layout-content">
+    <div className="app-shell">
+      <Navbar onAddTransaction={handleAddTransactionClick} />
+
+      <main className="conteudo-principal">
         <Outlet context={{ 
           data, 
           loading, 
@@ -203,11 +199,10 @@ function MainLayout() {
           dataInicioStr,  
           dataFimStr,
           handleEditClick,
-          handleDeleteSuccess
+          handleDeleteSuccess,
+          recarregarDashboard: fetchDashboardData
         }} />
       </main>
-
-      <Navbar onAddTransaction={handleAddTransactionClick} />
 
       {isModalOpen && (
         <TransactionModal 

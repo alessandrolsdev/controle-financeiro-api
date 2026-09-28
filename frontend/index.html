@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NOMAD - Controle Financeiro</title>
 
-    <link rel="icon" type="image/svg+xml" href="frontend/public/logo-512.png" />
+    <!--
+      Os caminhos precisam ser absolutos a partir da raiz servida. Referenciar
+      'frontend/public/...' funciona apenas na estrutura de pastas do
+      repositório; no build o diretório public/ vira a própria raiz, então os
+      ícones quebravam em produção.
+    -->
+    <link rel="icon" type="image/png" href="/logo-512.png" />
 
-    <meta name="theme-color" content="#0B1A33" /> 
+    <meta name="theme-color" content="#0B1A33" />
 
-    <link rel="apple-touch-icon" href="frontend/public/logo-512.png" />
+    <link rel="apple-touch-icon" href="/logo-512.png" />
     
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

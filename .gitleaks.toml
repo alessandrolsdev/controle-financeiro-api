@@ -1,0 +1,68 @@
+# Arquivo: .gitleaks.toml
+# Configuração da varredura de segredos.
+#
+# O conjunto de regras padrão do gitleaks é mantido integralmente
+# (`useDefault = true`); esta allowlist apenas dispensa ocorrências que são
+# comprovadamente literais de código, nunca credenciais.
+#
+# A dispensa é feita SÓ por padrão de conteúdo, deliberadamente sem `paths`.
+# Duas razões:
+#
+# 1. Cada padrão abaixo é um literal exato. Um segredo real não casa com
+#    nenhum deles, então continua sendo detectado — inclusive dentro dos
+#    mesmos arquivos. Verificado plantando uma chave AWS em
+#    `backend/security.py` e uma chave genérica em `tests/conftest.py`: as
+#    duas são pegas com esta configuração ativa.
+#
+# 2. Filtrar por `paths` seria mais frouxo, não mais estrito: nesta versão do
+#    gitleaks, `paths` dispensa o ARQUIVO INTEIRO e o `condition = "AND"` não
+#    é honrado junto com ele. Uma allowlist por caminho em `tests/` esconderia
+#    um segredo real colado num teste — justamente o acidente que a varredura
+#    existe para pegar.
+#
+# Nota de sintaxe: a allowlist global é a tabela singular `[allowlist]`. A
+# forma plural `[[allowlists]]` é aceita pelo parser mas ignorada quando
+# combinada com `[extend] useDefault`, produzindo uma configuração que parece
+# correta e não filtra nada.
+
+title = "NOMAD Controle Financeiro"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+Literais de código que se parecem com segredos.
+
+1. A denylist de senhas fracas em backend/security.py: são as senhas que a
+   aplicação REJEITA no cadastro. Precisam estar em texto claro para serem
+   comparadas, e são públicas por definição — saíram de listas de vazamentos
+   conhecidos. Inclui o hash descartável que equaliza o tempo de resposta do
+   login.
+
+2. Entradas dos testes. O teste do filtro de redação precisa de strings que se
+   pareçam com segredos: a asserção é justamente que elas NÃO sobrevivem à
+   redação. As senhas são de contas fictícias criadas dentro de cada teste, e
+   as chaves fortes exercitam a validação de configuração. A chave pública do
+   FastAPI (09d25e09…) aparece no teste que prova que a aplicação a recusa.
+"""
+
+regexTarget = "line"
+
+regexes = [
+  # 1. Denylist de senhas fracas e hash descartável.
+  '''"(123456789012|senha123456|password1234|qwertyuiop12|111111111111|123123123123|abcdefghijkl|senhasenha12|administrador|controlefinanceiro|nomadfinanceiro)"''',
+  '''senha-inexistente-para-equalizar-tempo-de-resposta''',
+
+  # 2. Entradas do teste de redação de log.
+  '''(MinhaSenhaSecreta123|hunter2xyz|senhadobanco|SegredoDoUsuario)''',
+
+  # 3. Chaves fortes fictícias da validação de configuração.
+  '''(Xq7ZpL2mVn9RtKw4YbGc8HdJf5NsQe3AuIoPyTrEwZxCvBnMlKjHgFdSaQwErTyU|Mb4KpXw9ZqTr2LnVc7YsGd5HfJ8NeQ3AuIoPyRtEwZxCvBnMlKjHgFdSaQwErTyU)''',
+
+  # 4. A chave pública do FastAPI, no teste que prova que ela é recusada.
+  '''09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7''',
+
+  # 5. Senhas das contas fictícias da suíte.
+  '''(SenhaForte#2026|OutraSenhaForte#2026|NovaSenhaForte#2026|SenhaErrada#|QualquerCoisa#123|SenhaErradaN)''',
+]

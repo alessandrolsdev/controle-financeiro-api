@@ -4,7 +4,6 @@
  * @description Componente para visualização de dados em formato de barras horizontais, adaptado para tema claro/escuro e cores dinâmicas.
  */
 
-import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import './HorizontalBarChart.css';
 

@@ -1,76 +1,85 @@
 // Arquivo: frontend/src/components/Navbar/Navbar.jsx
 /**
- * @file Barra de Navegação Inferior (Navbar).
- * @description Componente de navegação principal da aplicação, contendo links e o botão de ação flutuante (FAB).
+ * @file Barra de Navegação.
+ * @description Navegação principal em uma única linha no topo.
  */
 
-import React from 'react';
+import { IoAdd, IoMoonOutline, IoSunnyOutline } from 'react-icons/io5';
 import { NavLink } from 'react-router-dom';
+
+import logo from '../../assets/logo.png';
+import { useTheme } from '../../context/useTheme';
 import './Navbar.css';
 
-import { 
-  IoHomeOutline, 
-  IoPieChartOutline, 
-  IoSettingsOutline, 
-  IoPersonOutline, 
-  IoAdd 
-} from 'react-icons/io5';
+/** Itens de navegação, na ordem em que aparecem. */
+const LINKS = [
+  { para: '/', rotulo: 'Painel', exato: true },
+  { para: '/reports', rotulo: 'Relatórios' },
+  { para: '/settings', rotulo: 'Ajustes' },
+  { para: '/profile', rotulo: 'Perfil' },
+];
 
 /**
- * Componente Navbar.
- *
- * Exibe a barra de navegação no rodapé da página.
- * Contém links para as rotas principais e um botão central para adicionar transações.
+ * Barra de navegação superior.
  *
  * @param {object} props - Propriedades do componente.
- * @param {function} props.onAddTransaction - Função executada ao clicar no botão de adicionar (FAB).
- * @returns {JSX.Element} A navbar renderizada.
+ * @param {function} props.onAddTransaction - Abre o modal de nova transação.
+ * @returns {JSX.Element} A barra de navegação.
  */
 function Navbar({ onAddTransaction }) {
-  
-  /**
-   * Determina a classe CSS para o link de navegação com base no estado ativo.
-   * @param {object} navState - Estado de navegação fornecido pelo NavLink.
-   * @param {boolean} navState.isActive - Indica se a rota atual corresponde ao link.
-   * @returns {string} A string de classes CSS.
-   */
-  const getNavLinkClass = ({ isActive }) => {
-    return isActive ? 'nav-item active' : 'nav-item';
-  };
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <nav className="navbar-container">
-      <div className="navbar-links">
-        
-        <NavLink to="/" className={getNavLinkClass}>
-          <IoHomeOutline size={24} />
-          <span>Início</span>
-        </NavLink>
-        
-        <NavLink to="/reports" className={getNavLinkClass}>
-          <IoPieChartOutline size={24} />
-          <span>Relatórios</span>
-        </NavLink>
-        
-        <div className="nav-fab-container">
-          <button className="nav-fab" onClick={onAddTransaction} aria-label="Adicionar nova transação">
-            <IoAdd size={32} />
-          </button>
-        </div>
-        
-        <NavLink to="/settings" className={getNavLinkClass}>
-          <IoSettingsOutline size={24} />
-          <span>Ajustes</span>
-        </NavLink>
-        
-        <NavLink to="/profile" className={getNavLinkClass}>
-          <IoPersonOutline size={24} />
-          <span>Perfil</span>
+    <nav className="navbar">
+      <div className="navbar-conteudo">
+        <NavLink to="/" className="navbar-marca">
+          <img src={logo} alt="" />
+          NOMAD
         </NavLink>
 
+        <div className="navbar-links">
+          {LINKS.map(({ para, rotulo, exato }) => (
+            <NavLink
+              key={para}
+              to={para}
+              end={exato}
+              className={({ isActive }) =>
+                isActive ? 'navbar-link ativo' : 'navbar-link'
+              }
+            >
+              <span>{rotulo}</span>
+            </NavLink>
+          ))}
+
+          <div className="navbar-acoes">
+            <button
+              type="button"
+              className="botao-discreto"
+              onClick={toggleTheme}
+              aria-label={
+                theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'
+              }
+            >
+              {theme === 'dark' ? (
+                <IoSunnyOutline size={18} />
+              ) : (
+                <IoMoonOutline size={18} />
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="botao botao-primario"
+              onClick={onAddTransaction}
+            >
+              <IoAdd size={18} />
+              <span>Novo</span>
+            </button>
+          </div>
+        </div>
       </div>
     </nav>
   );
-} 
+}
 
 export default Navbar;

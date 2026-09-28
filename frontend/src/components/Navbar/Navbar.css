@@ -1,106 +1,97 @@
 /* Arquivo: frontend/src/components/Navbar/Navbar.css */
-/*
- * Estilos para o Componente da Barra de Navegação (Navbar).
- *
- * Este CSS implementa o design "mobile-first" da barra de navegação
- * inferior, incluindo o Botão de Ação Flutuante (FAB).
- */
+/* Barra de navegação: uma linha, sem ornamento, separada por uma borda. */
 
-/* --- 1. O Contêiner Principal (A Barra) --- */
-.navbar-container {
-  /* 1.1. Posicionamento:
-     Fica "grudado" no rodapé da tela (mobile-first). */
-  position: fixed; 
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 70px; /* Altura da barra */
-
-  /* 1.2. Estilo (Glassmorphism):
-     Usa as variáveis do 'index.css' para tema dinâmico. */
-  background-color: var(--cor-fundo-card);
-  border-top: 1px solid var(--cor-borda);
-  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
-  z-index: 100; /* Garante que fique acima de todo o conteúdo */
-  border-radius: 20px 20px 0 0; /* Bordas arredondadas no topo */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--altura-navbar);
+  background-color: var(--superficie-1);
+  border-bottom: 1px solid var(--borda);
 }
 
-/* --- 2. O Wrapper dos Links Internos --- */
+.navbar-conteudo {
+  height: 100%;
+  max-width: var(--largura-maxima);
+  margin: 0 auto;
+  padding: 0 var(--e-4);
+  display: flex;
+  align-items: center;
+  gap: var(--e-5);
+}
+
+.navbar-marca {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  font-weight: 600;
+  font-size: var(--t-md);
+  color: var(--texto-1);
+  letter-spacing: -0.02em;
+}
+
+.navbar-marca:hover {
+  text-decoration: none;
+}
+
+.navbar-marca img {
+  height: 1.25rem;
+  width: auto;
+}
+
 .navbar-links {
   display: flex;
-  justify-content: space-around; /* Espaça os itens igualmente */
   align-items: center;
-  height: 100%;
-  max-width: 600px; /* Limita a largura em desktops */
-  margin: 0 auto; /* Centraliza a barra no meio da tela */
+  gap: var(--e-1);
+  margin-left: auto;
 }
 
-/* --- 3. Cada Item de Navegação (Link) --- */
-.nav-item {
-  /* 3.1. Layout:
-     Um ícone em cima do texto (flex-direction: column). */
+.navbar-link {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  
-  /* 3.2. Estilo (Padrão/Inativo): */
-  text-decoration: none;
-  color: var(--cor-texto-secundario); /* Cor "inativa" (Cinza Suporte) */
-  font-family: 'Montserrat', sans-serif;
-  font-size: 0.7rem;
+  gap: var(--e-2);
+  padding: var(--e-2) var(--e-3);
+  font-size: var(--t-sm);
   font-weight: 500;
-  
-  /* 3.3. Espaçamento: */
-  flex-basis: 20%; /* Divide o espaço em 5 (5 ícones) */
-  height: 100%;
-  transition: color 0.3s ease;
+  color: var(--texto-2);
+  border-radius: var(--r-md);
+  transition: color var(--transicao), background-color var(--transicao);
 }
 
-/* --- 4. O ESTADO "ATIVO" --- */
-/* (O 'react-router-dom' (NavLink) adiciona a classe '.active'
-   automaticamente ao link da página que estamos visitando) */
-.nav-item.active {
-  /* Cor de destaque "localização" */
-  color: var(--cor-verde-esmeralda); 
+.navbar-link:hover {
+  color: var(--texto-1);
+  background-color: var(--superficie-2);
+  text-decoration: none;
 }
 
-.nav-item span {
-  margin-top: 4px; /* Espaço entre o ícone e o texto */
+/* O item ativo é marcado por cor e peso, não por fundo colorido: o destaque
+   fica reservado para as ações. */
+.navbar-link.ativo {
+  color: var(--texto-1);
+  font-weight: 600;
 }
 
-/* --- 5. O Botão de Ação Flutuante (FAB) --- */
-.nav-fab-container {
-  flex-basis: 20%; /* Ocupa o mesmo espaço de um link */
+.navbar-acoes {
   display: flex;
-  justify-content: center;
   align-items: center;
+  gap: var(--e-1);
+  padding-left: var(--e-3);
+  margin-left: var(--e-2);
+  border-left: 1px solid var(--borda);
 }
 
-.nav-fab {
-  /* 5.1. Cor e Forma: */
-  background-color: var(--cor-laranja-voo); /* Cor de "ação" */
-  color: var(--cor-branco-foco);
-  border: none;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%; /* Círculo perfeito */
-  
-  /* 5.2. Efeito de "flutuar":
-     Move o botão 20px para CIMA da barra de navegação. */
-  transform: translateY(-20px);
-  box-shadow: 0 4px 15px rgba(255, 122, 0, 0.4);
-  
-  /* 5.3. Layout Interno (Centraliza o '+') */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
+@media (max-width: 640px) {
+  .navbar-conteudo {
+    padding: 0 var(--e-3);
+    gap: var(--e-3);
+  }
 
-.nav-fab:hover {
-  background-color: #e66e00; /* Laranja mais escuro */
-  transform: translateY(-23px); /* Sobe um pouco mais */
-  box-shadow: 0 6px 20px rgba(255, 122, 0, 0.5);
+  /* Em telas estreitas, os rótulos somem e ficam só os ícones. */
+  .navbar-link span {
+    display: none;
+  }
+
+  .navbar-link {
+    padding: var(--e-2);
+  }
 }
